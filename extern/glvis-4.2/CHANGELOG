@@ -1,0 +1,392 @@
+                           GLVis visualization tool
+
+                     _/_/_/  _/      _/      _/  _/
+                  _/        _/      _/      _/        _/_/_/
+                 _/  _/_/  _/      _/      _/  _/  _/_/
+                _/    _/  _/        _/  _/    _/      _/_/
+                 _/_/_/  _/_/_/_/    _/      _/  _/_/_/
+
+                             https://glvis.org
+
+
+Version 4.2 released on May 23, 2022
+====================================
+
+- Added 3D scene export to glTF format (https://www.khronos.org/gltf) which is
+  bound to the key 'G'. This can be used to import GLVis scenes for rendering in
+  Blender, as well as for augmented reality, see https://modelviewer.dev/editor.
+
+- Added the option to cut a portion of the interiors of 3D faces to expose more
+  of the mesh. Useful as an alternative to transparency. See keys Ctrl+F3/F4.
+
+- Added a third mode to keys 'b'/'B' in 2D to display the mesh boundary colored
+  by boundary element attribute.
+
+- Support for visualization of pyramid-shaped elements.
+
+- An edge numbering option is now available in 2D.
+
+- In 2D, save and restore solution's value range when using keys 'e' and 'b'.
+
+- Mac and Windows binaries are now automatically built with GitHub actions CI.
+
+- The command-line option -mac was renamed to -save.
+
+- Various other bugfixes and improvements.
+
+
+Version 4.1, released on Aug 31, 2021
+=====================================
+
+- Use threads in server mode for window creation and session management instead
+  of fork(). This resolves issues with the GLVis server mode on macOS. It also
+  allows for closing all open GLVis server windows by Ctrl-C in the terminal.
+
+- Preliminary support for interactive inline GLVis plots in Python Jupyter
+  Notebooks with https://github.com/glvis/pyglvis and C++ Jupyter Notebooks with
+  https://github.com/glvis/xeus-glvis.
+
+- Added support for native builds on Windows with CMake.
+
+- Added support for native Mac application bundle with "make app". The resulting
+  app can be double-clicked, added to the Dock, etc.
+
+- Added screenshots support to the JavaScript/web version (key 'S').
+
+- Enabled support for WebGL 2, when available. This enables, among other
+  features, support for controllable multisampling via framebuffers.
+
+- Refactored rendering components, including palette and shader handling.
+
+- Replaced pthreads and POSIX-specific code with C++11 standard thread library.
+
+- Added a new regression test suite based on generated screenshots of stream
+  files. See the README in the tests/ directory for more details. Note that this
+  requires a git submodule for the baseline images, which are located in the
+  separate https://github.com/glvis/data repository.
+
+- Various bugfixes and improvements related to the JavaScript version, vertex
+  numbering, script handling, screenshots, HiDPI support,  and more.
+
+
+Version 4.0, released on Dec 11, 2020
+=====================================
+
+Starting with this version, the GLVis open source license is changed to BSD-3.
+
+Unlike previous GLVis releases, this version requires a C++11 compiler.
+
+- Major overhaul and modernization of the GLVis rendering and window management,
+  replacing X Windows with SDL for platform-native window and event handling.
+  This enables OpenGL 3+ support and HiDPI support on Mac OS X.
+
+- Two rendering backends are included: one for legacy OpenGL contexts without
+  support for shaders, and one with full support for modern OpenGL 3 features.
+  The modern OpenGL context is preferred by default; a new command-line argument
+  "-oldgl" can be used to request the legacy backend.
+
+- Preliminary support for building GLVis to JavaScript/WebAssembly using
+  Emscripten, see https://github.com/GLVis/glvis-js.
+
+- Documented project workflow and provided contribution guidelines in the new
+  top-level file, CONTRIBUTING.md.
+
+- Added several perceptually uniform colormaps "turbo", "viridis", "plasma",
+  "fusion", "iceburn", "viola", "pride" and "ocean" from
+  * Google AI: https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html
+  * Matplotlib: https://bids.github.io/colormap/
+  * CMasher: https://github.com/1313e/CMasher
+
+- Added support for visualization of the element ordering curve with 'Ctrl+o'.
+
+- Keystroke changes: cutting plane in 2D is now toggled with 'i' instead of 'w',
+  and 2D element subdivision is controlled with 'o/O' instead of 'i/I'. These
+  are the same as the corresponding keystrokes in 3D.
+
+- Improved the 3D cutting plane algorithm for curved elements. The key 'I' can
+  be used to switch to the previous (faster) algorithm which is suitable for
+  meshes with planar faces.
+
+- Updated to support the display and slicing of meshes with wedge elements.
+
+- Improved the opening of parallel meshes/solutions.
+
+- Transparency and printing in textured coloring modes is now supported, and
+  no-texture coloring has been removed as a result.
+
+- FreeType is now a required dependency and text on screen is rendered using a
+  texture atlas.
+
+- Replaced the "deep sea" palette with "ocean". Added new palette: gray.
+
+- Added the ability to discretize a palette, i.e. to use just a prescribed
+  number of its colors, see the new "number of colors" input of the F6 key.
+
+- Added new script and socket command: "palette_repeat" which can be used to
+  repeat and reverse/flip the palette - controls the same parameter as the first
+  prompt after pressing the F6 key in the GLVis window.
+
+- Added a key for setting the bounding box from the terminal (Shift+F7).
+
+
+Version 3.4, released on May 29, 2018
+=====================================
+
+- When enabled, secure sockets (based on GnuTLS) now use authentication based on
+  X.509 certificates. A new set of X.509 client/server keys can be generated
+  with the updated version of the script 'glvis-keygen.sh'.
+
+- Added capability to show element and vertex numbering in 2D (key 'n').
+
+- Added support for reading mesh and solution from the same file.
+
+- Added a CMake build system.
+
+- Added 10 new color palettes which can now be switched both forwards and
+  backwards with the 'p' and 'P' keys respectively.
+
+- Allow multi-screen window managers to redraw on current screen.
+
+- Printing to PDF is now done with 'Ctrl+p' (replacing 'P').
+
+- Default multisampling linewidth for Macs is now 0.01 (seems to work better).
+  On other platforms the default remains 1.4.
+
+
+Version 3.3, released on Jan 28, 2017
+=====================================
+
+- Added the ability to change the axis labels displayed with the coordinate
+  cross in the lower left corner. They can be set with the new 'axis_labels'
+  socket command, for example: sol_sock << "axis_labels 'u' 'v' 'w'\n";
+
+- With the corresponding version of MFEM, GLVis now supports gz-compressed
+  files and socket streams.
+
+
+Version 3.2, released on Jun 30, 2016
+=====================================
+
+- Added support for secure socket connections based on the GnuTLS library
+  through MFEM. This option may be useful in multi-user environment to prevent
+  users from sending/receiving visualization data to/from other users. See
+  INSTALL for setup instructions.
+
+- Added an optional caption at the top of the GLVis window. This can be set in
+  several different ways: through a command-line parameter (-c|--plot-caption),
+  a socket command (plot_caption), a GLVis script command (plot_caption) or the
+  'C' keystroke.
+
+  The caption is displayed as one of the states of the colorbar (key 'c') which
+  now has 3 modes: no colorbar & no caption; colorbar & caption; colorbar & no
+  caption. With empty caption, 'c' works the same as before.
+
+  For vector fields, the current vector-to-scalar function is added to the
+  caption in parenthesis.  Similarly, for 2D scalar fields, the "surface
+  elements mode" (attached to the 'e' key) is added to the caption.
+
+- Improved the handling of the "keys" command in GLVis scripts and socket
+  connections.
+
+- Added "scale" and "translate" script commands.
+
+
+Version 3.1, released on Feb 5, 2016
+====================================
+
+- Moved GLVis from Google Code to GitHub. New website: http://glvis.org.
+
+- Formatted the code with Artistic Style, see the "make style" target.
+
+- Added 'help', 'distclean', 'install' and 'status'/'info' targets to the GLVis
+  makefile. The default install directory is ./bin. That can be overwritten with
+  "make install PREFIX=<dir>".
+
+- With the corresponding version of MFEM, GLVis now supports the visualization
+  of non-conforming meshes and grid functions.
+
+- Added support for visualizing vector fields on surface meshes, and for element
+  shrinking (F3/F4) of surface meshes.
+
+- The 'P' key now prints in PDF instead of EPS format. The output still has
+  some deficiencies, so 'P' is recommended only if vector format is necessary.
+  For quick screenshots (e.g. for a talk), the 'S' key is preferable.
+
+- Added a command-line option (-d | --pad-digits), to set the number of digits
+  used for processor ranks in file names.
+
+- Added a command-line option (-grt | -geom_ref_type) to refine the geometry
+  using the Gauss-Lobatto instead of uniform points.
+
+- In 2D, added keys that in addition to 'b', can cycle through the boundary
+  attributes: shift+f9 (forward) and shift-f10 (backward); added visualization
+  of element attributes as another state of the 'e' key.
+
+- New socket command, window_geometry, can be used to arrange the visualization
+  window on the screen
+
+- Various other small fixes and styling updates.
+
+
+Version 3.0, released on Jan 26, 2015
+=====================================
+
+- Updated the makefile to use the new build system in MFEM, so GLVis can now be
+  built from any (serial or parallel) MFEM build.
+
+- Support for saving screenshots directly in png format using libpng. Enabled
+  by default with "USE_LIBPNG = YES" in the makefile.
+
+- Support for antialiased fonts using the freetype library.  Enabled by default
+  with "USE_FREETYPE = YES" in the makefile (the options "FT_OPTS_YES" and
+  "FT_LIBS_YES" may need to be adjusted). The font is determined at runtime from
+  a list of fontconfig patterns: fc_font_patterns in lib/aux_vis.cpp. It can
+  also be specified on the command line, e.g. "-fn Ubuntu-15".
+
+- Improved level surfaces to support hexahedral elements and to better represent
+  high-order grid-functions and curved meshes using element subdivision.
+
+- Added support for 1D meshes + solutions, visualized in 2D via extrusion in
+  y-direction. The z-axis is scaled relative to the x-axis.
+
+- Added support for surface meshes (2D meshes in 3 space dimensions).
+
+- Added new (input stream) command, "autopause <int value>" that will stop (when
+  turned on) the interpretation of the input stream after every mesh + solution
+  update. Autopause can also be toggled using the "Control+Space" key.
+
+- When visualizing a GridFunction from a socket, script, or the command line
+  GLVis will now enable the subdivision mode ("f" key) and select subdivision
+  factor (using the new AutoRefine method) depending on the number of elements
+  (2D) or number of boundary elements (3D) in the mesh.
+
+- Additional stream command support. Most of the script commands are supported
+  including taking screenshots.
+
+- New camera manipulation using Ctrl, the middle mouse button, and optionally
+  Shift and Alt.
+
+- Significantly improved logarithmic scaling mode (key "L").
+
+- Improved visualization of smoothed (antialiased) lines without multisampling.
+
+- Switched to MFEM's OptionParser class for command line arguments parsing.
+
+- Various small fixes and styling updates.
+
+
+Version 2.0, released on Nov 18, 2011
+=====================================
+
+- Extended GLVis to allow visualization of parallel meshes and grid functions.
+  For data saved in separate files, the format is:
+
+        glvis -np <#proc> -m <mesh_prefix> [-g <grid_function_prefix>]
+
+  The file names are obtained from the prefix by appending '.' followed by a
+  6-digit processor/subdomain number padded with 0's. The related (obsolete)
+  option -par3d was removed.
+
+  For results send by separate socket connections from each processor, the
+  format just adds the prefix: "parallel <#proc> <myid>" (see the parallel
+  MFEM examples).
+
+  The corresponding GLVis script command is "psolution <num_proc> <mesh_prefix>
+  <attr_flag> <solution_prefix>", where <attr_flag> controls if the boundary
+  attributes should be replaced with the processor number or if they should be
+  kept unchanged (this option is also available from the command line as '-a').
+
+  In all cases, GLVis will stitch the parallel results to show the global mesh
+  and solution, but the subdomain data can still be examined through the F3/F4,
+  F8, F9/F10 and F11/F12 keystrokes.
+
+- Added the ability to directly visualize 3D VectorFiniteElement-based grid
+  functions (e.g. from a Nedelec or a Raviart-Thomas space), by an internal
+  projection onto the discontinuous piece-wise polynomial space of the
+  appropriate order.
+
+- Added new bounding box visualization mode (fourth state for the 'a' key) using
+  red, green, blue colored main axes and dashed box.
+
+- Added support for dynamic mesh and solution (grid function) update over
+  sockets based on MFEM's new socket communication classes socketserver and
+  socketstream. Both serial and parallel codes can use this capability.
+
+- Switched to GLX 1.3 compatible mode selection and window creation. The old GLX
+  calls are still available when GLVis is compiled with -DGLVIS_GLX10. The new
+  functions allow for multisampling on Macs with ATI cards, though the X11
+  server on OS X Snow Leopard gives a warning that "GLX 1.3 is not supported",
+  but works fine in practice.
+
+- Added functionality allowing GLVis to handle modifier+key input. As a first
+  application, control + arrow keys can be used now to translate the view.
+
+- Improved the handling of the boundary in 2D ('b' key) for curved meshes.
+
+- The palettes can now be flipped by specifying a negative value for the number
+  of times the palette is repeated (F6 key).
+
+- Provided workaround for a bug in the NVIDIA driver on some 64 bit systems,
+  where glX calls after a fork() close file descriptor 0.
+
+- Various small fixes and styling updates.
+
+
+Version 1.2, released on Apr 8, 2011
+====================================
+
+- If build with mfem version 1.2 (or later), glvis now supports unstructured
+  meshes in VTK format, including quadratic curvilinear meshes.
+
+- When viewing 3D vector field, 'F' will cycle the displayed scalar function
+  between magnitude, x-component, y-component and z-component.
+
+- Added a new command line option: '-gc' allowing visualization of a single
+  component of a GridFunction, e.g: glvis -m mesh -g sol -gc 0. This is useful
+  for grid functions describing tensors.
+
+- Ensured that the shrinking of elements (F3/F4) and material subdomains
+  (F11/F12) work in 2D/3D, with scalar/vector plots and on curved meshes. The
+  latter are useful, in particular, to visualize the subdomains corresponding to
+  different processors in a mfem parallel run.
+
+- The palette update (key 'p') when using texture is now instantaneous.
+
+- Added a new script command: toggle_attributes.
+
+- Added a new palette: calewhite, from VisIt.
+
+- Various small fixes and styling updates.
+
+
+Version 1.1, released on Sep 13, 2010
+=====================================
+
+- Anti-aliasing (key 'A') now uses the OpenGL ARB_multisample extension (when
+  available). By default, 4x multisampling is used. See file lib/tk.cpp. This
+  value can be changed by setting GLVIS_MULTISAMPLE during compilation.
+
+- When drawing subdivided elements, the real normals are now used (at least in
+  some cases) to smooth the appearance inside the element, i.e. the surface in
+  2D and the (curved) boundary in 3D.
+
+- Enabled the shrinking of elements (F3/F4) and material subdomains (F11/F12)
+  for 3D meshes saved using Mesh::PrintWithPartitioning(). This allows for
+  better visualization of the interior of the mesh.
+
+- Improved the hex-cutting algorithm to handle all cases of non-flat faces.
+
+- Scripts now work with scalar 3D mesh/solution.
+
+- Changed the makefile to recompile only files that have been changed and to
+  allow 'make -j'.
+
+- Various small fixes and styling updates.
+
+
+Version 1.0, released on Jul 21, 2010
+=====================================
+
+- Uploaded to http://glvis.googlecode.com.
+
+- Initial release.
