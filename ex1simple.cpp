@@ -189,6 +189,8 @@ int main(int argc, char *argv[])
    sol_ofs.precision(8);
    x.Save(sol_ofs);
 
+   std::cout << "hi\n";
+
    // 14. Send the solution by socket to a GLVis server.
    if (visualization)
    {

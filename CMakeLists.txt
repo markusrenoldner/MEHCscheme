@@ -3,9 +3,9 @@ project(MEHCscheme)
 
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 
-add_executable(${PROJECT_NAME} ex1markus.cpp)
+add_executable(${PROJECT_NAME} ex1simple.cpp)
 
-add_subdirectory(extern)
+# add_subdirectory(extern)
 
 
 
