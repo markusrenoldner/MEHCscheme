@@ -152,8 +152,7 @@ int main(int argc, char *argv[])
    args.AddOption(&vis_steps, "-vs", "--visualization-steps",
                   "Visualize every n-th timestep.");
    args.Parse();
-   if (!args.Good())
-   {
+   if (!args.Good()) {
       args.PrintUsage(cout);
       return 1;
    }
@@ -176,8 +175,7 @@ int main(int argc, char *argv[])
    //    'ref_levels' of uniform refinement, where 'ref_levels' is a
    //    command-line parameter. If the mesh is of NURBS type, we convert it to
    //    a (piecewise-polynomial) high-order mesh.
-   for (int lev = 0; lev < ref_levels; lev++)
-   {
+   for (int lev = 0; lev < ref_levels; lev++) {
       mesh.UniformRefinement();
    }
    mesh.GetBoundingBox(bb_min, bb_max, max(order, 1));
@@ -186,7 +184,6 @@ int main(int argc, char *argv[])
    //    polynomial order on the refined mesh.
    DG_FECollection fec(order, dim, BasisType::GaussLobatto);
    FiniteElementSpace fes(&mesh, &fec);
-
    cout << "Number of unknowns: " << fes.GetVSize() << endl;
 
    // 6. Set up and assemble the bilinear and linear forms corresponding to the
@@ -202,14 +199,11 @@ int main(int argc, char *argv[])
    m.AddDomainIntegrator(new MassIntegrator);
    constexpr double alpha = -1.0;
    k.AddDomainIntegrator(new ConvectionIntegrator(velocity, alpha));
-   k.AddInteriorFaceIntegrator(
-      new NonconservativeDGTraceIntegrator(velocity, alpha));
-   k.AddBdrFaceIntegrator(
-      new NonconservativeDGTraceIntegrator(velocity, alpha));
+   k.AddInteriorFaceIntegrator(new NonconservativeDGTraceIntegrator(velocity, alpha));
+   k.AddBdrFaceIntegrator(new NonconservativeDGTraceIntegrator(velocity, alpha));
 
    LinearForm b(&fes);
-   b.AddBdrFaceIntegrator(
-      new BoundaryFlowIntegrator(inflow, velocity, alpha));
+   b.AddBdrFaceIntegrator(new BoundaryFlowIntegrator(inflow, velocity, alpha));
 
    m.Assemble();
    int skip_zeros = 0;
@@ -285,6 +279,9 @@ int main(int argc, char *argv[])
 
 
 
+
+
+
    // 8. Define the time-dependent evolution operator describing the ODE
    //    right-hand side, and perform time-integration (looping over the time
    //    iterations, ti, with a time-step dt).
@@ -298,7 +295,10 @@ int main(int argc, char *argv[])
    for (int ti = 0; !done; )
    {
       double dt_real = min(dt, t_final - t);
-      ode_solver->Step(u, t, dt_real);
+
+      // "u" is unknown "x" in def of BackwEulerSolv::Step()
+      // Step() calls FE_Evol::implicitsolve, defined below
+      ode_solver->Step(u, t, dt_real); 
       ti++;
 
       done = (t >= t_final - 1e-8*dt);
@@ -349,6 +349,7 @@ FE_Evolution::FE_Evolution(BilinearForm &M_, BilinearForm &K_, const Vector &b_)
 {
    Array<int> ess_tdof_list;
    if (M.GetAssemblyLevel() == AssemblyLevel::LEGACY)
+//    if (M.GetAssemblyLevel() == AssemblyLevel::FULL)
    {
       M_prec = new DSmoother(M.SpMat());
       M_solver.SetOperator(M.SpMat());
@@ -373,16 +374,20 @@ void FE_Evolution::Mult(const Vector &x, Vector &y) const
    // y = M^{-1} (K x + b)
    K.Mult(x, z);
    z += b;
-   M_solver.Mult(z, y);
+
+   
+   M_solver.Mult(z, y); //M_solver ist vom typ CGSolver
 }
 
 void FE_Evolution::ImplicitSolve(const double dt, const Vector &x, Vector &k)
 {
    MFEM_VERIFY(dg_solver != NULL,
                "Implicit time integration is not supported with partial assembly");
+   
+   
    K.Mult(x, z);
-   z += b;
-   dg_solver->SetTimeStep(dt);
+   z += b; //z is the RHS: z = Kx+b
+   dg_solver->SetTimeStep(dt); //dg_solver ist vom typ DGSolver, siehe oben
    dg_solver->Mult(z, k);
 }
 
