@@ -1,5 +1,5 @@
 # MEHCscheme
-Mass, energy, helicity conserving, mimetic galerkin finite element discretisation based on [https://arxiv.org/abs/2104.13023](https://arxiv.org/abs/2104.13023) implemented in [https://mfem.org/](https://mfem.org/)
+Mass, energy, helicity conserving, mimetic galerkin finite element discretisation based on this paper [https://arxiv.org/abs/2104.13023](https://arxiv.org/abs/2104.13023) implemented in MFEM, see [https://mfem.org/](https://mfem.org/)
 
 # CMake and Make
 TODO (basically download and unpack mfem and glvis into the extern folder, then install it there as described on mfem.org; then run the build.sh file to cmake, the compile.sh file to make, the run.sh file to run and the clean.sh file to delete the mesh and solution files afterwards)
