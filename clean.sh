@@ -1,0 +1,2 @@
+rm *.gf
+rm *.mesh

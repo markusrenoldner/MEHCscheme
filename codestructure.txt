@@ -1,0 +1,20 @@
+mesh
+FE collection
+FE spaces
+unkowns/gridfunction
+initial data
+transform it to vectorfunctioncoeff
+project it to gridfunction
+[visual stuff]
+boundary cond
+
+bilinear form a
+sparse matrix A
+a add Integrator
+a.Assemble
+a.FormSystemMatrix(A)
+
+assemble big matrix:
+...
+
+time loop
