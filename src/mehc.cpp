@@ -40,9 +40,13 @@ int main(int argc, char *argv[]) {
     FiniteElementSpace DG(&mesh, fec_DG);
 
     // unkowns and gridfunctions
-    mfem::VectorGridFunction u(ND);
-    mfem::VectorGridFunction w(RT);
-    mfem::Gridfunction p(DG);
+    mfem::VectorGridFunction u(&ND);
+    mfem::VectorGridFunction w(&RT);
+    mfem::Gridfunction       p(&DG);
+
+    mfem::VectorGridfunction v(&ND); // dual velocity
+    mfem::VectorGridfunction zeta(&ND); // dual vorticity
+    mfem::Gridfunction       q(&ND); // dual pressure
 
     // initial data
     // p = 0;
@@ -50,7 +54,10 @@ int main(int argc, char *argv[]) {
     // passt das?
 
     // boundary conditions
-    
+    mfem::Array<int> ess_tdof_list;
+    mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max());
+    ess_bdr = 0;
+    DG->GetEssentialTrueDofs(ess_bdr, ess_tdof_list);    
 
     // RHS
     LinearForm b1(&H1);
@@ -58,22 +65,49 @@ int main(int argc, char *argv[]) {
     LinearForm b3(&RT);
     LinearForm b4(&DG);
 
-    // matrices used in LHS:    
-    // N ... MassIntegrator
-    // T ... ???
-    // C ... MixedScalarCurlIntegrator
+    // Matrix M
+    mfem::BilinearForm blf_M(RT);
+    mfem::SparseMatrix M;
+    blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
+    blf_M.Assemble();
+    blf_M.FormSystemMatrix(ess_tdof_list,M);
 
-    b.AddDomainIntegrator(new MassIntegrator());
-    b.Assemble();
+    // Matrix N
+    mfem::BilinearForm blf_N(ND);
+    mfem::SparseMatrix N;
+    blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
+    blf_N.Assemble();
+    blf_N.FormSystemMatrix(ess_tdof_list,N);
 
-    // grid functions
-    GridFunction u(&ND);
-    GridFunction w(&RT);
-    GridFunction p(&DG);
+    // Matrix C
+    mfem::MixedBilinearForm blf_C(ND, RT);
+    mfem::SparseMatrix C;
+    blf_C.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator());
+    blf_C.Assemble();
+    blf_C.FormSystemMatrix(ess_tdof_list,C);
 
-    // LHS
-    // BilinearForm a(&fespace);
-    // a.AddDomainIntegrator(new ... );
+    // Matrix D 
+    // MixedScalarDivergenceIntegrator
+    
+    // Matrix G
+    // MixedVectorGradientIntegrator
+
+    // Matrix R1
+    mfem::BilinearForm blf_R(ND);
+    mfem::SparseMatrix R;
+    mfem::VectorGridFuncCoeff zeta_gfcoeff(&zeta);
+    blf_R.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(zeta_gfcoeff));
+    blf_R.Assemble();
+    blf_R.FormSystemMatrix(ess_tdof_list,R);
+
+    // Matrix R2
+    // MixedCrossProductIntegrator
+
+    // big matrix
+    mfem::SparseMatrix A;
+
+
+
 
     // assembly
     // line 266:
@@ -102,5 +136,9 @@ int main(int argc, char *argv[]) {
     // sol_sock.precision(8);
     // sol_sock << "solution\n" << mesh << x << flush;
 
-    delete fec;
+
+    delete fec_H1;
+    delete fec_ND;
+    delete fec_RT;
+    delete fec_DG;
 }
