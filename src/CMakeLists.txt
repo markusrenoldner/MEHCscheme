@@ -1,4 +1,4 @@
-add_executable(${PROJECT_NAME} ex1verysimple.cpp)
+add_executable(${PROJECT_NAME} mehc.cpp)
 
 
 target_include_directories(${PROJECT_NAME} PUBLIC extern/mfem-4.5)

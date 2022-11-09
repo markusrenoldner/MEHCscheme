@@ -17,8 +17,8 @@ int main(int argc, char *argv[]) {
     for (int l = 0; l < 2; l++) {mesh.UniformRefinement();}
     
     // FE space
-    FiniteElementCollection *fec;
     int order = 1;
+    FiniteElementCollection *fec;
     fec = new H1_FECollection(order, dim);
     FiniteElementSpace fespace(&mesh, fec);
 
