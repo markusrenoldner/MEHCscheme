@@ -6,18 +6,26 @@ using namespace std;
 using namespace mfem;
 
 
-// primal field discrete weak form:
-// A * x = b
-// [N+R   C   -D^T] [u]   [(N-R)*u - C*w + f]
-// [C^T   -M    0 ] [w] = [        0        ]
-// [D     0     0 ] [p]   [        0        ]
+// primal field at half integer time steps:
+// A1 * x = b1
+// [N+Rh   C   -D^T] [u]   [(N-Rh)*u - C*w + f]
+// [C^T    -M    0 ] [w] = [         0        ]
+// [D      0     0 ] [p]   [         0        ]
+//
+// dual field at integer time steps:
+// A2 * y = b2
+// [M+R   C^T    G] [v   ]   [(M-R)*u - C^T*w + f]
+// [C     -N      ] [zeta] = [         0         ]
+// [G^T           ] [q   ]   [         0         ]
 // 
+// submatrices:
+// M = (tau_j , tau_i)
 // N = (sig_j , sig_i)
-// R = (zeta x sig_j , sig_i)
-// C = ...
-// D
-// M
-// 
+// Rh = (zeta x sig_j , sig_i)
+// R = (w x sig_j , sig_i)
+// C = (nabla x tau_j , sig_i)
+// G = (nabla gamma_j, tau_i)
+// D = (nabla . sig_j , xi_i)
 
 
 int main(int argc, char *argv[]) {
@@ -48,102 +56,123 @@ int main(int argc, char *argv[]) {
     mfem::GridFunction zeta(&ND); // dual vorticity
     mfem::GridFunction q(&ND); // dual pressure
 
-    // initial data
+    // initial data TODO
     // p = 0;
     // p.ProjectCoefficient(0);
     // passt das?
 
     // boundary conditions
-    mfem::Array<int> H1_esstdof, ND_esstdof, RT_esstdof, DG_esstdof;
+    // TODO proper BCs
+    mfem::Array<int> H1_etdof, ND_etdof, RT_etdof, DG_etdof; // "essential true degrees of freedom"
     mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max());
     ess_bdr = 0;
-    H1.GetEssentialTrueDofs(ess_bdr, H1_esstdof);
-    ND.GetEssentialTrueDofs(ess_bdr, ND_esstdof);
-    RT.GetEssentialTrueDofs(ess_bdr, RT_esstdof);
-    DG.GetEssentialTrueDofs(ess_bdr, DG_esstdof);
-
-    // RHS
-    // TODO
-    LinearForm b1(&H1);
-    LinearForm b2(&ND);
-    LinearForm b3(&RT);
-    LinearForm b4(&DG);
+    H1.GetEssentialTrueDofs(ess_bdr, H1_etdof);
+    ND.GetEssentialTrueDofs(ess_bdr, ND_etdof);
+    RT.GetEssentialTrueDofs(ess_bdr, RT_etdof);
+    DG.GetEssentialTrueDofs(ess_bdr, DG_etdof);
 
     // Matrix M
     mfem::BilinearForm blf_M(&RT);
     mfem::SparseMatrix M;
     blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
     blf_M.Assemble();
-    blf_M.FormSystemMatrix(RT_esstdof,M);
+    blf_M.FormSystemMatrix(RT_etdof,M);
 
     // Matrix N
     mfem::BilinearForm blf_N(&ND);
     mfem::SparseMatrix N;
     blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
     blf_N.Assemble();
-    blf_N.FormSystemMatrix(ND_esstdof,N);
+    blf_N.FormSystemMatrix(ND_etdof,N);
 
     // Matrix C
     mfem::MixedBilinearForm blf_C(&ND, &RT);
     mfem::SparseMatrix C;
     blf_C.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator());
     blf_C.Assemble();
-    blf_C.FormRectangularSystemMatrix(ND_esstdof,RT_esstdof,C);
+    blf_C.FormRectangularSystemMatrix(ND_etdof,RT_etdof,C);
 
     // Matrix D
     mfem::MixedBilinearForm blf_D(&RT, &DG);
     mfem::SparseMatrix D;
     blf_D.AddDomainIntegrator(new mfem::MixedScalarDivergenceIntegrator());
     blf_D.Assemble();
-    blf_D.FormRectangularSystemMatrix(RT_esstdof,DG_esstdof,D);
+    blf_D.FormRectangularSystemMatrix(RT_etdof,DG_etdof,D);
+    std::cout << "---------------check1---------------\n";
     
-    std::cout << "hi1----------------------------\n";
-    // Matrix G
+    // Matrix G TODO
     // mfem::MixedBilinearForm blf_G(&ND, &H1);
     // mfem::SparseMatrix G;
     // blf_G.AddDomainIntegrator(new mfem::MixedVectorGradientIntegrator());
     // blf_G.Assemble();
-    // blf_G.FormRectangularSystemMatrix(ND_esstdof,H1_esstdof,G);
+    // blf_G.FormRectangularSystemMatrix(ND_etdof,H1_etdof,G);
+    std::cout << "---------------check2---------------\n";
 
-    std::cout << "hi2----------------------------\n";
-    // Matrix R
+    // Matrix R TODO
     // mfem::BilinearForm blf_R(&RT);
     // mfem::SparseMatrix R;
     // mfem::VectorGridFunctionCoefficient zeta_gfcoeff(&zeta);
     // blf_R.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(zeta_gfcoeff));
     // blf_R.Assemble();
-    // blf_R.FormSystemMatrix(RT_esstdof,R);
+    // blf_R.FormSystemMatrix(RT_etdof,R);
+    std::cout << "---------------check3---------------\n";
     
-    std::cout << "hi3----------------------------\n";
 
-    // Matrix R_h (h ... half integer time step)
-    // mfem::BilinearForm blf_R_h(&ND);
-    // mfem::SparseMatrix R_h;
+    // Matrix Rh (h ... half integer time step) TODO
+    // mfem::BilinearForm blf_Rh(&ND);
+    // mfem::SparseMatrix Rh;
     // mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-    // blf_R_h.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff));
-    // blf_R_h.Assemble();
-    // blf_R_h.FormSystemMatrix(ND_esstdof,R_h);
+    // blf_Rh.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff));
+    // blf_Rh.Assemble();
+    // blf_Rh.FormSystemMatrix(ND_etdof,Rh);
+    std::cout << "---------------check4---------------\n";
+
+    // right hand side vector (A1*x=b1) TODO
+    int systemsize = N.NumRows() + C.NumRows() + D.NumRows();
+    mfem::Vector b1(systemsize);
+    mfem::Vector b2(systemsize);
+    // b1.AddSubVector(subvector,offset);
+    // b2.AddSubVector(subvector,offset);
+
+    // assemble big matrices
+    // TODO add constant factors (reynolds, dt, ...)
+    // TODO transpose C and D
+    mfem::SparseMatrix A1(systemsize);
+    mfem::SparseMatrix A2(systemsize);
+
+        for (int r = 0; r < N.NumRows(); r++) { // rows of N or Rh
+
+        mfem::Array<int> cols;
+        mfem::Vector srow;
+        N.GetRow(r, cols, srow);
+        for (int c = 0; c < N.NumCols(); c++) { // cols of N
+            A1.Add(r, cols[c], srow[c]); // add cols of N to A1
+        }
+
+        // cols.DeleteAll();
+        // Rh.GetRow(r, cols, srow);
+        // for (int c = 0; c < N.NumCols(); c++) { 
+        //     A1.Add(r, cols[c], srow[c]);
+        // }
+    }
+    std::cout << "---------------check6---------------\n";
+
+    for (int r = 0; r < C.NumRows(); r++) {
+        
+        mfem::Array<int> cols;
+        mfem::Vector srow;
+        C.GetRow(r, cols, srow);
+
+        // for ( ... ) { 
+        //     A1.Add( ... );
+        // }
+    }
+    std::cout << "---------------check7---------------\n";
     
-    std::cout << "hi4----------------------------\n";
 
 
 
 
-    // big matrix
-    mfem::SparseMatrix A;
-
-    std::cout << "hi5----------------------------\n";
-
-
-
-    // assembly
-    // line 266:
-    // https://gitlab.com/WouterTonnon/semi-lagrangian-tools/-/blob/master/apps/Euler_1stOrder_NonCons.cpp
-    // a.Assemble();
-    // OperatorPtr A;
-    // Vector B, X;
-    // a.FormLinearSystem(ess_tdof_list, x, b, A, X, B);
-    // std::cout << "Size of linear system: " << A->Height() << std::endl;
 
     // solve
     // GSSmoother M((SparseMatrix&)(*A));

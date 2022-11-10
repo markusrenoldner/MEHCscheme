@@ -6,7 +6,7 @@ x  initial data
 ?  transform it to vectorfunctioncoeff
 ?  project it to gridfunction
 ?  [visual stuff]
--  boundary cond
+x  boundary cond
   
 -  bilinear form a
 -  sparse matrix A

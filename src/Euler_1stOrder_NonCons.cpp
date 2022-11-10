@@ -270,14 +270,17 @@ int main(int argc, char *argv[])
     geps.AddDomainIntegrator(new mfem::CurlCurlIntegrator(eps));
     geps.Assemble();
     geps.FormSystemMatrix(ess_tdof_list,Geps);
+    
     // Prepare system matrix for both u and A
     mfem::SparseMatrix MHDSystem_u(A.NumRows() + C.NumRows());
     int size_system_u = A.NumRows() + C.NumRows();
-    for (int k = 0; k < A.Size(); ++k) {
+
+    for (int k = 0; k < A.Size(); ++k) { // rows von submatrix A
+        
         mfem::Array<int> cols;
         mfem::Vector srow;
-
         A.GetRow(k, cols, srow);
+
         for (int q = 0; q < cols.Size(); ++q) {
             MHDSystem_u.Add(k, cols[q], srow[q]);
         }
