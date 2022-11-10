@@ -28,6 +28,19 @@ using namespace mfem;
 // D = (nabla . sig_j , xi_i)
 
 
+// TODO put in separate file
+void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset) {
+    for (int r = 0; r < submatrix.NumRows(); r++) {
+        mfem::Array<int> cols;
+        mfem::Vector srow;
+        submatrix.GetRow(r, cols, srow);
+        for (int c = 0; c < submatrix.NumCols(); c++) {
+            matrix.Add(rowoffset + r, coloffset + cols[c], srow[c]);
+        }
+    }
+}
+
+
 int main(int argc, char *argv[]) {
 
     // mesh
@@ -127,54 +140,41 @@ int main(int argc, char *argv[]) {
     // blf_Rh.FormSystemMatrix(ND_etdof,Rh);
     std::cout << "---------------check4---------------\n";
 
-    // right hand side vector (A1*x=b1) TODO
+    // assemble right hand side vector
+    // TODO
     int systemsize = N.NumRows() + C.NumRows() + D.NumRows();
     mfem::Vector b1(systemsize);
     mfem::Vector b2(systemsize);
     // b1.AddSubVector(subvector,offset);
     // b2.AddSubVector(subvector,offset);
+    std::cout << "---------------check5---------------\n";
 
     // assemble big matrices
-    // TODO add constant factors (reynolds, dt, ...)
-    // TODO transpose C and D
     mfem::SparseMatrix A1(systemsize);
     mfem::SparseMatrix A2(systemsize);
-
-        for (int r = 0; r < N.NumRows(); r++) { // rows of N or Rh
-
-        mfem::Array<int> cols;
-        mfem::Vector srow;
-        N.GetRow(r, cols, srow);
-        for (int c = 0; c < N.NumCols(); c++) { // cols of N
-            A1.Add(r, cols[c], srow[c]); // add cols of N to A1
-        }
-
-        // cols.DeleteAll();
-        // Rh.GetRow(r, cols, srow);
-        // for (int c = 0; c < N.NumCols(); c++) { 
-        //     A1.Add(r, cols[c], srow[c]);
-        // }
-    }
+    // TODO add constant factors (reynolds, dt, ...)
+    // TODO compute and add missing matrices
+    AddSubmatrix(N, A1, 0, 0); // submatrix, matrix, rowoffset, coloffset
+    // AddSubmatrix(Rh, A1, 0, 0);
+    // AddSubmatrix(C, A1, 0, N.NumCols());
+    // AddSubmatrix(DT, A1, 0, N.NumCols() + C.NumCols());
+    // AddSubmatrix(CT, A1, N.NumRows(), 0);
+    // AddSubmatrix(D, A1, N.NumRows() + CT.NumRows(), 0);
+    // AddSubmatrix(-M, A1, N.NumCols(), N.NumRows());
+    AddSubmatrix(M, A2, 0, 0);
+    // AddSubmatrix(CT, A2, 0, M.Numcols());
+    // AddSubmatrix(G, A2, 0, M.Numcols() + CT.Numcols());
+    // AddSubmatrix(C, A2, M.NumRows(), 0);
+    // AddSubmatrix(GT, A2, M.NumRows() + C.NumRows(), 0);
+    // AddSubmatrix(-N, A2, M.NumRows(), M.NumCols());
     std::cout << "---------------check6---------------\n";
-
-    for (int r = 0; r < C.NumRows(); r++) {
-        
-        mfem::Array<int> cols;
-        mfem::Vector srow;
-        C.GetRow(r, cols, srow);
-
-        // for ( ... ) { 
-        //     A1.Add( ... );
-        // }
-    }
-    std::cout << "---------------check7---------------\n";
-    
-
 
 
 
 
     // solve
+    // TODO solve in loop
+    // for (int t = 0 ; t < T ; t++) { ... }
     // GSSmoother M((SparseMatrix&)(*A));
     // PCG(*A, M, B, X, 1, 200, 1e-12, 0.0);
 
@@ -197,5 +197,6 @@ int main(int argc, char *argv[]) {
     delete fec_ND;
     delete fec_RT;
     delete fec_DG;
-
+    
+    std::cout << "---------------finished---------------\n";
 }
