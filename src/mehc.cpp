@@ -6,7 +6,15 @@ using namespace std;
 using namespace mfem;
 
 
-
+// primal: A1*x=b1
+// [M+Rd   C^T    G] [u]   [(M-Rd)*u - C^T*z + f]
+// [C      -N      ] [w] = [          0         ]
+// [G^T            ] [p]   [          0         ]
+//
+// dual: A2*y=b2
+// [N+Rp   C   -D^T] [v]   [(N-Rp)*u - C*w + f]
+// [C^T    -M    0 ] [z] = [         0        ]
+// [D      0     0 ] [q]   [         0        ]
 
 
 // TODO put in separate file
@@ -116,46 +124,19 @@ int main(int argc, char *argv[]) {
     blf_G.FormRectangularSystemMatrix(ND_etdof,H1_etdof,G);
     mfem::SparseMatrix GT = G;
     mfem::Transpose(GT);
+    std::cout << "progress: M,N,C,D,G assembled\n";
 
-    // Matrix Rp (for primal field)
-    // TODO: in 2D
-    mfem::BilinearForm blf_Rp(&RT);
-    mfem::SparseMatrix Rp;
-    mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-    blf_Rp.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff));
-    blf_Rp.Assemble();
-    blf_Rp.FormSystemMatrix(RT_etdof,Rp);
-    std::cout << "---------------check1---------------\n";
-    
-    // Matrix Rd (for dual field)
-    // TODO: in 2D
-    mfem::BilinearForm blf_Rd(&ND);
-    mfem::SparseMatrix Rd;
-    mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-    blf_Rd.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff));
-    blf_Rd.Assemble();
-    blf_Rd.FormSystemMatrix(ND_etdof,Rd);
-    std::cout << "---------------check2---------------\n";
-
-    // primal: A1*x=b1
-    // [M+Rd   C^T    G] [u]   [(M-Rd)*u - C^T*z + f]
-    // [C      -N      ] [w] = [          0         ]
-    // [G^T            ] [p]   [          0         ]
-    //
-    // dual: A2*y=b2
-    // [N+Rp   C   -D^T] [v]   [(N-Rp)*u - C*w + f]
-    // [C^T    -M    0 ] [z] = [         0        ]
-    // [D      0     0 ] [q]   [         0        ]
-    
     // solution vectors x and y
-    int systemsize = M.NumRows() + CT.NumRows() + G.NumRows();
-    // int systemsize = N.NumRows() + C.NumRows() + D.NumRows(); // should be equal
-    mfem::Vector x(systemsize);
-    mfem::Vector y(systemsize);
+    int size_p = M.NumRows() + C.NumRows() + GT.NumRows();
+    int size_d = N.NumRows() + CT.NumRows() + D.NumRows();
+    mfem::Vector x(size_p);
+    mfem::Vector y(size_d);
+    x = 1.;
+    y = 1.;
 
-    // assemble right hand side vectors b1 and b2
-    mfem::Vector b1(systemsize);
-    mfem::Vector b2(systemsize);
+    // initialize matrices and vectors
+    mfem::Vector b1(size_p);
+    mfem::Vector b2(size_d);
     mfem::Vector b1sub(M.NumRows());
     mfem::Vector b2sub(N.NumRows());
     mfem::Vector Mu(M.NumRows());
@@ -164,76 +145,125 @@ int main(int argc, char *argv[]) {
     mfem::Vector Nu(N.NumRows());
     mfem::Vector Rpu(M.NumRows());
     mfem::Vector Cw(M.NumRows());
-    std::cout << "---------------check3---------------\n";
 
-    // TODO: extract u,w,p,v,z,q from x and y correctly and e.g. multiply like this: N.Mult(u,Nu)
-    M.Mult (y,Mu);
-    Rd.Mult(y,Rdu);
-    CT.Mult(y,CTz);
-    b1sub += Mu;
-    b1sub += Rdu;
-    b1sub += CTz;
-    for (int j = 0; j < N.NumRows(); j++) {b1.Elem(j) = b1sub.Elem(j);}
-    N.Mult(x,Nu);
-    Rp.Mult(x,Rpu);
-    CT.Mult(x,Cw);
-    b2sub += Nu;
-    b2sub += Rpu;
-    b2sub += Cw;
-    for (int j = 0; j < N.NumRows(); j++) {b2.Elem(j) = b2sub.Elem(j);}
-    std::cout << "---------------check4---------------\n";
+    // indices of unkowns in solution vectors x y
+    mfem::Array<int> u_dofs;
+    mfem::Array<int> w_dofs;
+    mfem::Array<int> p_dofs;
+    mfem::Array<int> v_dofs;
+    mfem::Array<int> z_dofs;
+    mfem::Array<int> q_dofs;
+    for (int k = 0; k < M.NumCols(); ++k)                        { u_dofs.Append(k); }
+    for (int k = M.NumCols(); k < M.NumCols()+CT.NumCols(); ++k) { w_dofs.Append(k); }
+    for (int k = M.NumCols()+CT.NumCols(); k < size_p; ++k)      { p_dofs.Append(k); }
+    for (int k = 0; k < N.NumCols(); ++k)                        { v_dofs.Append(k); }
+    for (int k = N.NumCols(); k < N.NumCols()+C.NumCols(); ++k)  { z_dofs.Append(k); }
+    for (int k = N.NumCols()+C.NumCols(); k < size_d; ++k)       { q_dofs.Append(k); }
+
+    // solve system in each time step
+    // TODO loop
+    std::cout << "---------------enter loop---------------\n";
+    int T = 5;
+    for (int t = 0 ; t < T ; t++) { 
+        
+        // Matrix Rp (for primal field)
+        // TODO: in 2D
+        // TODO: put most of that out of the loop
+        mfem::BilinearForm blf_Rp(&RT);
+        mfem::SparseMatrix Rp;
+        mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
+        blf_Rp.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff));
+        blf_Rp.Assemble();
+        blf_Rp.FormSystemMatrix(RT_etdof,Rp);
+        
+        // Matrix Rd (for dual field)
+        // TODO: in 2D
+        // TODO: put most of that out of the loop
+        mfem::BilinearForm blf_Rd(&ND);
+        mfem::SparseMatrix Rd;
+        mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
+        blf_Rd.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff));
+        blf_Rd.Assemble();
+        blf_Rd.FormSystemMatrix(ND_etdof,Rd);
+        std::cout << "progress: Rp,Rd assembled\n";
+        
+        // assemble A1, A2
+        // TODO add constant (?) factors (reynolds, dt, ...)
+        mfem::SparseMatrix A1(size_p);
+        mfem::SparseMatrix A2(size_d);
+        AddSubmatrix(M,  A1, 0, 0); // submatrix, matrix, rowoffset, coloffset
+        AddSubmatrix(Rp, A1, 0, 0);
+        AddSubmatrix(CT, A1, 0, M.NumCols());
+        AddSubmatrix(G,  A1, 0, M.NumCols() + CT.NumCols());
+        AddSubmatrix(C,  A1, M.NumRows(), 0);
+        AddSubmatrix(GT, A1, M.NumRows() + C.NumRows(), 0);
+        AddSubmatrix(Nn, A1, M.NumRows(), M.NumCols());
+        A1.Finalize();
+        AddSubmatrix(N,  A2, 0, 0);
+        AddSubmatrix(Rd, A2, 0, 0);
+        AddSubmatrix(C,  A2, 0, N.NumCols());
+        AddSubmatrix(DT, A2, 0, N.NumCols() + C.NumCols());
+        AddSubmatrix(CT, A2, N.NumRows(), 0);
+        AddSubmatrix(D,  A2, N.NumRows() + CT.NumRows(), 0);
+        AddSubmatrix(Mn, A2, N.NumCols(), N.NumRows());
+        A2.Finalize();
+        std::cout << "progress: A1,A2 assembled\n";
+
+        // assemble b1, b2
+        // TODO: extract u,w,p,v,z,q from x and y correctly 
+        // and e.g. multiply like this: N.Mult(u,Nu)
+        M.Mult (u,Mu);
+        Rd.Mult(u,Rdu);
+        CT.Mult(z,CTz);
+        b1sub += Mu;
+        b1sub += Rdu;
+        b1sub += CTz;
+        for (int j = 0; j < N.NumRows(); j++) {b1.Elem(j) = b1sub.Elem(j);}
+        N.Mult (u,Nu);
+        Rp.Mult(u,Rpu);
+        CT.Mult(w,Cw);
+        b2sub += Nu;
+        b2sub += Rpu;
+        b2sub += Cw;
+        for (int j = 0; j < N.NumRows(); j++) {b2.Elem(j) = b2sub.Elem(j);}
+        std::cout << "progress: b1,b2 assembled\n";
+        
+        // solve system
+        double tol = 1e-6;
+        int iter = 100000;
+        mfem::MINRES(A1, b1, x, 0, iter, tol, tol); // primal: unkonwns at half integer time steps
+        mfem::MINRES(A2, b2, y, 0, iter, tol, tol); // dual:   unkonwns at integer      time steps
+        std::cout << "progress: MINRES\n";
+        
+        // extract solution values u,w,p,v,z,q from x,y
+        x.GetSubVector(u_dofs, u);
+        x.GetSubVector(w_dofs, w);
+        x.GetSubVector(p_dofs, p);
+        y.GetSubVector(v_dofs, v);
+        y.GetSubVector(z_dofs, z);
+        y.GetSubVector(q_dofs, q);
+
+        // 
+        
+    }
 
 
-    // assemble big matrices A1 and A2
-    // TODO add constant factors (reynolds, dt, ...)
-    mfem::SparseMatrix A1(systemsize);
-    mfem::SparseMatrix A2(systemsize);
-    AddSubmatrix(M,  A1, 0, 0); // submatrix, matrix, rowoffset, coloffset
-    AddSubmatrix(Rp, A1, 0, 0);
-    AddSubmatrix(CT, A1, 0, M.NumCols());
-    AddSubmatrix(G,  A1, 0, M.NumCols() + CT.NumCols());
-    AddSubmatrix(C,  A1, M.NumRows(), 0);
-    AddSubmatrix(GT, A1, M.NumRows() + C.NumRows(), 0);
-    AddSubmatrix(Nn, A1, M.NumRows(), M.NumCols());
-    A1.Finalize();
-    std::cout << "---------------check5---------------\n";
-
-    AddSubmatrix(N,  A2, 0, 0);
-    AddSubmatrix(Rd, A2, 0, 0);
-    AddSubmatrix(C,  A2, 0, N.NumCols());
-    AddSubmatrix(DT, A2, 0, N.NumCols() + C.NumCols());
-    AddSubmatrix(CT, A2, N.NumRows(), 0);
-    AddSubmatrix(D,  A2, N.NumRows() + CT.NumRows(), 0);
-    AddSubmatrix(Mn, A2, N.NumCols(), N.NumRows());
-    A2.Finalize();
-    std::cout << "---------------check6---------------\n";
 
 
-    // solve
-    // x = 0.;
-    // TODO solve in loop
-    // TODO reassemble Rp and Rd inside the loop and reassemble A1, A2
-    // for (int t = 0 ; t < T ; t++) { ... }
-    // GSSmoother M((SparseMatrix&)(*A));
-    // PCG(*A, M, B, X, 1, 200, 1e-12, 0.0);
-
-    // wouter
-    double tol = 1e-12;
-    mfem::MINRES(A1, b1, x, 0, 10, tol * tol, tol * tol);
 
     // visuals
-    // ofstream mesh_ofs("refined.mesh");
-    // mesh_ofs.precision(8);
-    // mesh.Print(mesh_ofs);
-    // ofstream sol_ofs("sol.gf");
-    // sol_ofs.precision(8);
-    // x.Save(sol_ofs);
+    ofstream mesh_ofs("refined.mesh");
+    mesh_ofs.precision(8);
+    mesh.Print(mesh_ofs);
+    ofstream sol_ofs("sol.gf");
+    sol_ofs.precision(8);
+    u.Save(sol_ofs);
 
-    // char vishost[] = "localhost";
-    // int  visport   = 19916;
-    // socketstream sol_sock(vishost, visport);
-    // sol_sock.precision(8);
-    // sol_sock << "solution\n" << mesh << x << flush;
+    char vishost[] = "localhost";
+    int  visport   = 19916;
+    socketstream sol_sock(vishost, visport);
+    sol_sock.precision(8);
+    sol_sock << "solution\n" << mesh << u << flush;
     
 
     delete fec_H1;
