@@ -84,10 +84,10 @@ int main(int argc, char *argv[]) {
     // usually mfem has 1 syst matrix, here we have lots of submatrices => maybe BC are difficult to implement
 
     // Matrix M and -M
-    // TODO: M sollte ND functions haben und N sollte RD haben
-    // TODO: transpose all submatrices basically, siehe transpose.cpp
+    // TODO: M sollte ND functions haben und N sollte RT haben
+    // TODO: transpose all submatrices basically, siehe transpose.cpp oder doch nicht?
     // TODO: warum hat R so große einträge - feasiblity check von matrix einträgen
-    mfem::BilinearForm blf_M(&RT);
+    mfem::BilinearForm blf_M(&ND);
     mfem::SparseMatrix M;
     blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
     blf_M.Assemble();
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
     Mn *= -1;
 
     // Matrix N and -N
-    mfem::BilinearForm blf_N(&ND);
+    mfem::BilinearForm blf_N(&RT);
     mfem::SparseMatrix N;
     blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
     blf_N.Assemble();

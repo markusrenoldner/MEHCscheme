@@ -5,6 +5,10 @@
 using namespace mfem;
 
 
+// alle submatritzen M,N,C,D,G, transponieren bevor sie in a1 und a2 eingebaut werden
+// anscheinend ist das falsch
+
+
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset) {
     for (int r = 0; r < submatrix.NumRows(); r++) {
         mfem::Array<int> cols;
@@ -99,9 +103,11 @@ int main(int argc, char *argv[]) {
     GT.Finalize();
     mfem::SparseMatrix *G = Transpose(GT);
 
-    // std::cout << "M:  " <<M.NumRows()  <<" "<< M.NumCols() << "\n"; 
-    // std::cout << "C:  " <<C.NumRows() <<" "<< C.NumCols() << "\n"; 
-    // std::cout << "CT: " <<CT->NumRows() <<" "<< CT->NumCols() << "\n"; 
+    // std::cout << "M:  " <<M->NumRows()  <<" "<< M->NumCols() << "\n"; 
+    std::cout << "CT: " <<CT.NumRows() <<" "<< CT.NumCols() << "\n"; 
+    // std::cout << "G:  " <<G->NumRows() <<" "<<  G->NumCols() << "\n"; 
+    std::cout << "C:  " <<C->NumRows() <<" "<<  C->NumCols() << "\n"; 
+    // std::cout << "Nn:  " <<Nn.NumRows() <<" "<<  Nn.NumCols() << "\n"; 
 
     // primal: A1*x=b1
     // [M+Rd   C^T    G] [u]   [(M-Rd)*u - C^T*z + f]

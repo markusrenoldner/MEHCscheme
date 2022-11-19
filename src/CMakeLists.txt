@@ -1,4 +1,4 @@
-add_executable(${PROJECT_NAME} transpose.cpp)
+add_executable(${PROJECT_NAME} transpose1.cpp)
 
 
 
