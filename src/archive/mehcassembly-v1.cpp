@@ -1,5 +1,8 @@
 
 
+// a very tedious way to assemble A1 from submatrices 
+
+
 // add N+Rh to A1
 for (int r = 0; r < N.NumRows(); r++) { // rows of N or Rh
 
