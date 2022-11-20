@@ -34,13 +34,13 @@ int main(int argc, char *argv[]) {
     // FE spaces
     int order = 1;
     FiniteElementCollection *fec_CG, *fec_ND, *fec_RT, *fec_DG, *fec_ND0, *fec_RT0;
-    fec_CG = new H1_FECollection(order, dim);
+    fec_CG = new H1_FECollection(order, dim); // CG: finite subspace of H1
     fec_ND = new ND_FECollection(order, dim);
     fec_RT = new RT_FECollection(order, dim);
-    fec_DG = new L2_FECollection(order, dim);
+    fec_DG = new L2_FECollection(order, dim); // DG: finite subspace of L2
     fec_ND0 = new ND_FECollection(order, dim);
     fec_RT0 = new RT_FECollection(order, dim);
-    FiniteElementSpace H1(&mesh, fec_H1);
+    FiniteElementSpace CG(&mesh, fec_CG);
     FiniteElementSpace ND(&mesh, fec_ND);
     FiniteElementSpace RT(&mesh, fec_RT);
     FiniteElementSpace DG(&mesh, fec_DG);
@@ -48,10 +48,10 @@ int main(int argc, char *argv[]) {
     FiniteElementSpace RT0(&mesh, fec_RT0);
     
     // boundary conditions
-    mfem::Array<int> H1_etdof, ND_etdof, RT_etdof, DG_etdof, ND0_etdof, RT0_dof; // "essential true degrees of freedom"
+    mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof, ND0_etdof, RT0_etdof;
     mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max());
     ess_bdr = 0;
-    H1.GetEssentialTrueDofs(ess_bdr, H1_etdof);
+    CG.GetEssentialTrueDofs(ess_bdr, CG_etdof);
     ND.GetEssentialTrueDofs(ess_bdr, ND_etdof);
     RT.GetEssentialTrueDofs(ess_bdr, RT_etdof);
     DG.GetEssentialTrueDofs(ess_bdr, DG_etdof);
@@ -59,7 +59,6 @@ int main(int argc, char *argv[]) {
     RT0.GetEssentialTrueDofs(ess_bdr, RT0_etdof);
     std::cout << "progress3" << "\n";
 
-    // careful: mfem constructs transposed matrices
     // Matrix M and -M
     mfem::BilinearForm blf_M(&ND);
     mfem::SparseMatrix M;
@@ -102,13 +101,17 @@ int main(int argc, char *argv[]) {
     mfem::SparseMatrix *DTn = Transpose(Dn);
 
     // Matrix G and GT
-    mfem::MixedBilinearForm blf_G(&H1, &ND);
+    mfem::MixedBilinearForm blf_G(&CG, &ND);
     mfem::SparseMatrix G;
     blf_G.AddDomainIntegrator(new mfem::MixedVectorGradientIntegrator());
     blf_G.Assemble();
-    blf_G.FormRectangularSystemMatrix(ND_etdof,H1_etdof,G);
+    blf_G.FormRectangularSystemMatrix(ND_etdof,CG_etdof,G);
     G.Finalize();
     mfem::SparseMatrix *GT = Transpose(G);
+
+
+
+
 
     std::cout << "M:  " <<M.NumRows()  <<" "<< M.NumCols() << "\n"; 
     std::cout << "CT: " <<CT->NumRows() <<" "<< CT->NumCols() << "\n"; 
@@ -123,6 +126,7 @@ int main(int argc, char *argv[]) {
     std::cout << "CT: " <<CT->NumRows() <<" "<< CT->NumCols() << "\n"; 
     std::cout << "Mn: " <<Mn.NumRows() <<" "<<  Mn.NumCols() << "\n"; 
     std::cout << "D:  " <<D.NumRows()  <<" "<< D.NumCols() << "\n"; 
+    std::cout << "progress2" << "\n";
 
     // primal: A1*x=b1
     // [M+Rd   C^T    G] [u]   [(M-Rd)*u - C^T*z + f]
@@ -136,25 +140,26 @@ int main(int argc, char *argv[]) {
 
     int size_p = M.NumCols() + CT->NumCols() + G.NumCols();
     int size_d = N.NumCols() + C.NumCols() + DT->NumCols();
+    std::cout << size_p << " " << size_d <<"\n";
     mfem::SparseMatrix A1(size_p);
     mfem::SparseMatrix A2(size_d);
-    AddSubmatrix(M, A1, 0, 0); // submatrix, matrix, rowoffset, coloffset
+    AddSubmatrix(M,   A1, 0, 0); // submatrix, matrix, rowoffset, coloffset
     AddSubmatrix(*CT, A1, 0, M.NumCols());
-    AddSubmatrix(G,  A1, 0, M.NumCols() + CT->NumCols());
-    AddSubmatrix(C,  A1, M.NumRows(), 0);
+    AddSubmatrix(G,   A1, 0, M.NumCols() + CT->NumCols());
+    AddSubmatrix(C,   A1, M.NumRows(), 0);
     AddSubmatrix(*GT, A1, M.NumRows() + C.NumRows(), 0);
-    AddSubmatrix(Nn, A1, M.NumRows(), M.NumCols());
+    AddSubmatrix(Nn,  A1, M.NumRows(), M.NumCols());
     A1.Finalize();
-    AddSubmatrix(N,  A2, 0, 0);
-    AddSubmatrix(C,  A2, 0, N.NumCols());
+    AddSubmatrix(N,    A2, 0, 0);
+    AddSubmatrix(C,    A2, 0, N.NumCols());
     AddSubmatrix(*DTn, A2, 0, N.NumCols() + C.NumCols());
-    AddSubmatrix(*CT, A2, N.NumRows(), 0);
-    AddSubmatrix(Mn, A2, N.NumCols(), CT->NumRows());
-    AddSubmatrix(D,  A2, N.NumRows() + CT->NumRows(), 0);
+    AddSubmatrix(*CT,  A2, N.NumRows(), 0);
+    AddSubmatrix(Mn,   A2, N.NumCols(), CT->NumRows());
+    AddSubmatrix(D,    A2, N.NumRows() + CT->NumRows(), 0);
     A2.Finalize();
     std::cout << "progress1" << "\n";
 
-    delete fec_H1;
+    delete fec_CG;
     delete fec_ND;
     delete fec_RT;
     delete fec_DG;
