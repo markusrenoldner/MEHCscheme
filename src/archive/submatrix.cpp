@@ -8,7 +8,6 @@ using namespace mfem;
 // alle submatritzen M,N,C,D,G, sofort (und NICHT transponiert) in a1 und a2 eingebauen
 
 
-
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset) {
     for (int r = 0; r < submatrix.NumRows(); r++) {
         mfem::Array<int> cols;
@@ -64,7 +63,7 @@ int main(int argc, char *argv[]) {
     mfem::SparseMatrix M;
     blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
     blf_M.Assemble();
-    blf_M.FormSystemMatrix(RT_etdof,M);
+    blf_M.FormSystemMatrix(ND_etdof,M);
     M.Finalize();
     mfem::SparseMatrix Mn = M;
     Mn *= -1;
@@ -74,7 +73,7 @@ int main(int argc, char *argv[]) {
     mfem::SparseMatrix N;
     blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
     blf_N.Assemble();
-    blf_N.FormSystemMatrix(ND_etdof,N);
+    blf_N.FormSystemMatrix(RT_etdof,N);
     N.Finalize();
     mfem::SparseMatrix Nn = N;
     Nn *= -1;
@@ -109,23 +108,73 @@ int main(int argc, char *argv[]) {
     G.Finalize();
     mfem::SparseMatrix *GT = Transpose(G);
 
+    // nr of unkonwns
+    int size_p = M.NumCols() + CT->NumCols() + G.NumCols();
+    int size_d = N.NumCols() + C.NumCols() + DT->NumCols();
+
+    // unkowns and gridfunctions
+    mfem::GridFunction u(&ND);
+    mfem::GridFunction w(&RT);
+    mfem::GridFunction p(&DG);
+    mfem::GridFunction v(&ND0); // dual velocity
+    mfem::GridFunction z(&RT0); // dual vorticity (z...zeta)
+    mfem::GridFunction q(&CG);  // dual pressure
+
+    // indices of unkowns in solution vectors x, y
+    mfem::Array<int> u_dofs;
+    mfem::Array<int> w_dofs;
+    mfem::Array<int> p_dofs;
+    mfem::Array<int> v_dofs;
+    mfem::Array<int> z_dofs;
+    mfem::Array<int> q_dofs;
+    for (int k = 0; k < M.NumCols(); ++k)                         { u_dofs.Append(k); }
+    for (int k = M.NumCols(); k < M.NumCols()+CT->NumCols(); ++k) { w_dofs.Append(k); }
+    for (int k = M.NumCols()+CT->NumCols(); k < size_p; ++k)      { p_dofs.Append(k); }
+    for (int k = 0; k < N.NumCols(); ++k)                         { v_dofs.Append(k); }
+    for (int k = N.NumCols(); k < N.NumCols()+C.NumCols(); ++k)   { z_dofs.Append(k); }
+    for (int k = N.NumCols()+C.NumCols(); k < size_d; ++k)        { q_dofs.Append(k); }
+
+    // solution vectors x and y
+    mfem::Vector x(size_p);
+    mfem::Vector y(size_d);
+    x.GetSubVector(u_dofs, u);
+    x.GetSubVector(w_dofs, w);
+    x.GetSubVector(p_dofs, p);
+    y.GetSubVector(v_dofs, v);
+    y.GetSubVector(z_dofs, z);
+    y.GetSubVector(q_dofs, q);
+
+    // Matrix Rp
+    // TODO: Rp and Rd in 2D
+    mfem::BilinearForm blf_Rp(&ND);
+    mfem::SparseMatrix Rp;
+    mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
+    blf_Rp.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff));
+    blf_Rp.Assemble();
+    blf_Rp.FormSystemMatrix(ND_etdof,Rp);
+
+    // Matrix Rd
+    mfem::BilinearForm blf_Rd(&RT0);
+    mfem::SparseMatrix Rd;
+    mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
+    blf_Rd.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff));
+    blf_Rd.Assemble();
+    blf_Rd.FormSystemMatrix(RT0_etdof,Rd);
 
 
-
-
-    std::cout << "M:  " <<M.NumRows()  <<" "<< M.NumCols() << "\n"; 
-    std::cout << "CT: " <<CT->NumRows() <<" "<< CT->NumCols() << "\n"; 
-    std::cout << "G:  " <<G.NumRows() <<" "<<  G.NumCols() << "\n"; 
-    std::cout << "C:  " <<C.NumRows() <<" "<<  C.NumCols() << "\n"; 
-    std::cout << "Nn: " <<Nn.NumRows() <<" "<<  Nn.NumCols() << "\n"; 
-    std::cout << "GT: " <<GT->NumRows() <<" "<<  GT->NumCols() << "\n"; 
-    std::cout << "progress2" << "\n";
-    std::cout << "N:  " <<N.NumRows()  <<" "<< N.NumCols() << "\n"; 
-    std::cout << "C:  " <<C.NumRows() <<" "<<  C.NumCols() << "\n"; 
-    std::cout << "DTn:"<<DTn->NumRows()<<" "<< DTn->NumCols() << "\n"; 
-    std::cout << "CT: " <<CT->NumRows() <<" "<< CT->NumCols() << "\n"; 
-    std::cout << "Mn: " <<Mn.NumRows() <<" "<<  Mn.NumCols() << "\n"; 
-    std::cout << "D:  " <<D.NumRows()  <<" "<< D.NumCols() << "\n"; 
+    // std::cout << "M:  " <<M.NumRows()  <<" "<< M.NumCols() << "\n"; 
+    // std::cout << "CT: " <<CT->NumRows() <<" "<< CT->NumCols() << "\n"; 
+    // std::cout << "G:  " <<G.NumRows() <<" "<<  G.NumCols() << "\n"; 
+    // std::cout << "C:  " <<C.NumRows() <<" "<<  C.NumCols() << "\n"; 
+    // std::cout << "Nn: " <<Nn.NumRows() <<" "<<  Nn.NumCols() << "\n"; 
+    // std::cout << "GT: " <<GT->NumRows() <<" "<<  GT->NumCols() << "\n"; 
+    // std::cout << "progress2" << "\n";
+    // std::cout << "N:  " <<N.NumRows()  <<" "<< N.NumCols() << "\n"; 
+    // std::cout << "C:  " <<C.NumRows() <<" "<<  C.NumCols() << "\n"; 
+    // std::cout << "DTn:"<<DTn->NumRows()<<" "<< DTn->NumCols() << "\n"; 
+    // std::cout << "CT: " <<CT->NumRows() <<" "<< CT->NumCols() << "\n"; 
+    // std::cout << "Mn: " <<Mn.NumRows() <<" "<<  Mn.NumCols() << "\n"; 
+    // std::cout << "D:  " <<D.NumRows()  <<" "<< D.NumCols() << "\n"; 
     std::cout << "progress2" << "\n";
 
     // primal: A1*x=b1
@@ -133,14 +182,11 @@ int main(int argc, char *argv[]) {
     // [C      -N      ] [w] = [          0         ]
     // [G^T            ] [p]   [          0         ]
     //
-    // dual: A2*y=b2
-    // [N+Rp   C   -D^T] [v]   [(N-Rp)*u - C*w + f]
+    // dual: A2*y=b2, use RT0 and ND0 for N, Rd, C, DTn, CT, Mn and D
+    // [N+Rd   C   -D^T] [v]   [(N-Rd)*u - C*w + f]
     // [C^T    -M    0 ] [z] = [         0        ]
     // [D      0     0 ] [q]   [         0        ]
 
-    int size_p = M.NumCols() + CT->NumCols() + G.NumCols();
-    int size_d = N.NumCols() + C.NumCols() + DT->NumCols();
-    std::cout << size_p << " " << size_d <<"\n";
     mfem::SparseMatrix A1(size_p);
     mfem::SparseMatrix A2(size_d);
     AddSubmatrix(M,   A1, 0, 0); // submatrix, matrix, rowoffset, coloffset
@@ -158,6 +204,29 @@ int main(int argc, char *argv[]) {
     AddSubmatrix(D,    A2, N.NumRows() + CT->NumRows(), 0);
     A2.Finalize();
     std::cout << "progress1" << "\n";
+
+    // some tests with 
+    
+    std::cout << M.Elem(0,0) << " " << A1.Elem(0,0) << "\n"; 
+
+    mfem::Vector vec(size_p); vec = 0.0;
+    for (int i = 0; i< size_p ; i++){x(i) = i; }
+    for (int i = 0; i< size_p ; i++){
+        for (int j = 0; j< size_p ; j++){
+            std::cout << A1(i,j) << " ";
+        }
+        std::cout << "\n";
+    }
+    // A1.Mult (x,vec);
+    // for (int i = 0; i< size_p ; i++){
+    //     std::cout << x(i) << " "<<i<< "\n";
+    // }
+    // std::cout << "-----\n";
+    // for (int i = 0; i< size_p ; i++){
+    //     std::cout << vec(i) << " "<<i<< "\n";
+    // }
+    // std::cout << A1.NumCols() << " "<< A1.NumRows();
+
 
     delete fec_CG;
     delete fec_ND;

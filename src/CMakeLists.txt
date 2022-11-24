@@ -1,4 +1,4 @@
-add_executable(${PROJECT_NAME} mehc.cpp)
+add_executable(${PROJECT_NAME} assembly.cpp)
 
 
 

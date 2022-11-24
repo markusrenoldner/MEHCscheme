@@ -6,7 +6,7 @@ using namespace mfem;
 
 
 // alle submatritzen M,N,C,D,G, transponieren bevor sie in a1 und a2 eingebaut werden
-// anscheinend ist das falsch
+// anscheinend ist das FALSCH und es muss doch nicht transponiert werden!!!
 
 
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset) {

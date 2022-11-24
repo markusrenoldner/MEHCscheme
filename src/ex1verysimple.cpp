@@ -25,28 +25,26 @@ int main(int argc, char *argv[]) {
     // boundary conditions
     Array<int> ess_tdof_list;
     Array<int> ess_bdr(mesh.bdr_attributes.Max());
-    ess_bdr = 1;
+    ess_bdr = 0;
     fespace.GetEssentialTrueDofs(ess_bdr, ess_tdof_list);
 
-    // LHS
+    // Linform
     LinearForm b(&fespace);
     ConstantCoefficient one(1.0);
     b.AddDomainIntegrator(new DomainLFIntegrator(one));
     b.Assemble();
 
+    // gridfunction
     GridFunction x(&fespace);
     x = 0;
 
-    // RHS
+    // blf
     BilinearForm a(&fespace);
     a.AddDomainIntegrator(new DiffusionIntegrator(one));
-
-    // assembly
     a.Assemble();
     OperatorPtr A;
     Vector B, X;
     a.FormLinearSystem(ess_tdof_list, x, b, A, X, B);
-    std::cout << "Size of linear system: " << A->Height() << std::endl;
 
     // solve
     GSSmoother M((SparseMatrix&)(*A));
