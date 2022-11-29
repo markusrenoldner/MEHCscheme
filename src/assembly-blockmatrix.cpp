@@ -2,15 +2,22 @@
 #include <fstream>
 #include <iostream>
 
-using namespace std;
+// using namespace std;
 using namespace mfem;
 
 
 // assembly options:
-// 1) submatrices sind sparse und wie wouter
-// 2) submatrices sind dense
+// 1) sparse submatrices (wie wouter)
+// 2) dense submatrices
 // 3) blockmatrix (maybe works like blockoperator?)
-// 4) blockoperator based on mfem example 5
+// 4) blockoperator (based on mfem example 5)
+
+
+
+
+
+void printmatrix(mfem::Matrix &mat);
+void printvector(mfem::Vector vec, int stride=1);
 
 
 
@@ -62,18 +69,19 @@ int main(int argc, char *argv[]) {
     mfem::SparseMatrix *CT = Transpose(C);
     CT->Finalize();
 
-    // assemble blockoperator A
+    // assemble blockmatrix A
     int size_p = M.NumCols() + CT->NumCols();
     Array<int> block_offsets(3); // number of variables + 1
     block_offsets[0] = 0;
     block_offsets[1] = ND.GetVSize();
     block_offsets[2] = RT.GetVSize();
     block_offsets.PartialSum();
-    BlockOperator A(block_offsets);
+    mfem::BlockMatrix A(block_offsets);
     A.SetBlock(0,0, &M);
     A.SetBlock(0,1, CT);
     A.SetBlock(1,0, &C);
     A.SetBlock(1,1, &Nn);
+    // printmatrix(A);
 
     // rhs
     mfem::Vector b(size_p);
@@ -83,15 +91,12 @@ int main(int argc, char *argv[]) {
     x = -1.1;
     
     // MINRES
-    int iter = 200;
+    int iter = 2000;
     int tol = 1e-4;
     mfem::MINRES(A, b, x, 0, iter, tol, tol); 
 
     // check if x=1
-    for (int j = 0; j<size_p; j++) {
-        std::cout << std::setprecision(3) << std::fixed;
-        std::cout << x[j]<< "\n";
-    }
+    printvector(x,10);
 
     delete fec_RT;
     delete fec_ND;

@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
     // check b
     std::cout << "----check b----\n";
     for (int j = 0; j<size_p; j++) {
-        std::cout << std::setprecision(1) << std::fixed;
+        std::cout << std::setprecision(3) << std::fixed;
         std::cout << b[j]<< "\n";
     }
 
@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
     
     // check if x=[1,1,...1]
     for (int j = 0; j<size_p; j++) {
-        std::cout << std::setprecision(1) << std::fixed;
+        std::cout << std::setprecision(3) << std::fixed;
         std::cout << x[j]<< "\n";
     }
 
