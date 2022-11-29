@@ -6,14 +6,11 @@ using namespace std;
 using namespace mfem;
 
 
-// some tests on assembling A1 and A2
-
-
-// TODO test options for assembly:
+// assembly options:
 // 1) submatrices sind sparse und wie wouter
 // 2) submatrices sind dense
 // 3) blockmatrix (maybe works like blockoperator?)
-// 4) blockoperator mfem example 5
+// 4) blockoperator based on mfem example 5
 
 
 
@@ -65,7 +62,7 @@ int main(int argc, char *argv[]) {
     mfem::SparseMatrix *CT = Transpose(C);
     CT->Finalize();
 
-    // assemble blockoperator
+    // assemble blockoperator A
     int size_p = M.NumCols() + CT->NumCols();
     Array<int> block_offsets(3); // number of variables + 1
     block_offsets[0] = 0;
