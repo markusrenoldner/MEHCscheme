@@ -81,22 +81,59 @@ int main(int argc, char *argv[]) {
     A.SetBlock(0,1, CT);
     A.SetBlock(1,0, &C);
     A.SetBlock(1,1, &Nn);
-    // printmatrix(A);
+
+    // unknown vector
+    // TODO do it with blockvectors
+    mfem::GridFunction u(&ND);
+    mfem::GridFunction z(&RT); 
+    mfem::Array<int> u_dofs;
+    mfem::Array<int> z_dofs;
+    for (int k=0; k<M.NumRows(); ++k)                          { u_dofs.Append(k); }
+    for (int k=M.NumRows(); k<M.NumRows()+CT->NumRows(); ++k)  { z_dofs.Append(k); }
+    mfem::Vector x(size_p);
+    x = 1.5;
+    x.GetSubVector(u_dofs, u);
+    x.GetSubVector(z_dofs, z);
 
     // rhs
     mfem::Vector b(size_p);
-    mfem::Vector x(size_p);
-    x = 0.924;
-    A.Mult(x,b); // set b=A*x
-    x = -1.1;
+    mfem::Vector bsub(ND.GetVSize());
+    mfem::Vector zero(RT.GetVSize());
+    bsub = 0.0;
+    zero = 0.0;
+
+    // [M*u - CT*z]
+    mfem::Vector Mu(M.NumRows());
+    mfem::Vector CTz(M.NumRows());
+    M.Mult(u,Mu);
+    CT->Mult(z,CTz);
+    bsub += Mu;
+    bsub += CTz;
+
+    // TODO: use SetSubVector() instead
+    for (int j = 0; j < M.NumRows(); j++) {b.Elem(j) = bsub.Elem(j);}
+    for (int j = CT->NumRows(); j< size_p; j++) {b.Elem(j) = zero.Elem(j);}
+    printvector(b);
+
+
+    // old rhs
+    // mfem::Vector b(size_p);
+    // mfem::Vector x(size_p);
+    // x = 0.924;
+    // A.Mult(x,b); // set b=A*x
+    // x = -1.1;
     
     // MINRES
     int iter = 2000;
     int tol = 1e-4;
     mfem::MINRES(A, b, x, 0, iter, tol, tol); 
 
+    // extract subvectors
+    x.GetSubVector(u_dofs, u);
+    x.GetSubVector(z_dofs, z);
+
     // check if x=1
-    printvector(x,10);
+    // printvector(x,10);
 
     delete fec_RT;
     delete fec_ND;

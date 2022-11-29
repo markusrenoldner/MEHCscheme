@@ -5,6 +5,7 @@
 using namespace std;
 using namespace mfem;
 
+// TODO: umordnen der unbekannten, z ist primal, w ist dual
 
 // primal: A1*x=b1
 // [M+R    CT     G] [u]   [(M-R)*u - CT*z  + f]
@@ -224,10 +225,10 @@ int main(int argc, char *argv[]) {
     x = 1.5;
     y = 1.;
     x.GetSubVector(u_dofs, u);
-    y.GetSubVector(z_dofs, z);
+    x.GetSubVector(z_dofs, z);
     x.GetSubVector(p_dofs, p);
     y.GetSubVector(v_dofs, v);
-    x.GetSubVector(w_dofs, w);
+    y.GetSubVector(w_dofs, w);
     y.GetSubVector(q_dofs, q);
 
     // time loop
@@ -286,7 +287,7 @@ int main(int argc, char *argv[]) {
         b1sub = Mu;
         // b1sub += Rdu;
         b1sub += CTz;
-        for (int j = 0; j < N.NumRows(); j++) {b1.Elem(j) = b1sub.Elem(j);}
+        for (int j = 0; j < M.NumRows(); j++) {b1.Elem(j) = b1sub.Elem(j);}
         N.Mult (u,Nu);
         // Rp.Mult(u,Rpu);
         CT->Mult(w,Cw);

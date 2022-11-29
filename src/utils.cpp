@@ -21,4 +21,4 @@ void printmatrix(mfem::Matrix &mat) {
         }
         std::cout <<"\n";
     }
-    std::cout << "pro
+}
