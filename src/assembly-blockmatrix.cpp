@@ -1,8 +1,8 @@
 #include "mfem.hpp"
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 
-// using namespace std;
 using namespace mfem;
 
 
@@ -82,46 +82,25 @@ int main(int argc, char *argv[]) {
     A.SetBlock(1,0, &C);
     A.SetBlock(1,1, &Nn);
 
+    // unknown dofs
+    mfem::Array<int> u_dofs (M.NumCols());
+    mfem::Array<int> z_dofs (CT->NumCols());
+    std::iota(&u_dofs[0], &u_dofs[M.NumCols()],0);
+    std::iota(&z_dofs[0], &z_dofs[CT->NumCols()],M.NumCols());
+
     // unknown vector
-    // TODO do it with blockvectors
+    mfem::Vector x(size_p); x = 1.5;
     mfem::GridFunction u(&ND);
     mfem::GridFunction z(&RT); 
-    mfem::Array<int> u_dofs;
-    mfem::Array<int> z_dofs;
-    for (int k=0; k<M.NumRows(); ++k)                          { u_dofs.Append(k); }
-    for (int k=M.NumRows(); k<M.NumRows()+CT->NumRows(); ++k)  { z_dofs.Append(k); }
-    mfem::Vector x(size_p);
-    x = 1.5;
     x.GetSubVector(u_dofs, u);
     x.GetSubVector(z_dofs, z);
 
     // rhs
-    mfem::Vector b(size_p);
-    mfem::Vector bsub(ND.GetVSize());
-    mfem::Vector zero(RT.GetVSize());
-    bsub = 0.0;
-    zero = 0.0;
-
-    // [M*u - CT*z]
-    mfem::Vector Mu(M.NumRows());
-    mfem::Vector CTz(M.NumRows());
-    M.Mult(u,Mu);
-    CT->Mult(z,CTz);
-    bsub += Mu;
-    bsub += CTz;
-
-    // TODO: use SetSubVector() instead
-    for (int j = 0; j < M.NumRows(); j++) {b.Elem(j) = bsub.Elem(j);}
-    for (int j = CT->NumRows(); j< size_p; j++) {b.Elem(j) = zero.Elem(j);}
-    printvector(b);
-
-
-    // old rhs
-    // mfem::Vector b(size_p);
-    // mfem::Vector x(size_p);
-    // x = 0.924;
-    // A.Mult(x,b); // set b=A*x
-    // x = -1.1;
+    mfem::Vector b(size_p); b = 0.0;
+    mfem::Vector bsubv(ND.GetVSize()); bsubv = 0.0;
+    M.AddMult(u,bsubv);
+    CT->AddMult(z,bsubv,-1);
+    b.AddSubVector(bsubv,0);
     
     // MINRES
     int iter = 2000;
@@ -132,8 +111,8 @@ int main(int argc, char *argv[]) {
     x.GetSubVector(u_dofs, u);
     x.GetSubVector(z_dofs, z);
 
-    // check if x=1
-    // printvector(x,10);
+    // check x
+    printvector(x,1);
 
     delete fec_RT;
     delete fec_ND;
