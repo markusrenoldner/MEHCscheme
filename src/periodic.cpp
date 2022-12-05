@@ -3,9 +3,6 @@
 #include <iostream>
 #include <algorithm>
 
-// TODO: make that obsolete:
-using namespace mfem;
-
 
 // MEHC scheme on periodic domain, like in the paper
 
@@ -44,40 +41,35 @@ int main(int argc, char *argv[]) {
 
     std::cout << "---------------launch MEHC---------------\n";
 
-
     // mesh
     const char *mesh_file = "extern/mfem-4.5/data/periodic-cube.mesh";
-    Mesh mesh(mesh_file, 1, 1);
+    mfem::Mesh mesh(mesh_file, 1, 1);
     int dim = mesh.Dimension();
     // for (int l = 0; l < 2; l++) {mesh.UniformRefinement();}
 
+    // simulation parameters
+    double Re = 1;
+    double dt = 0.1;
+    int timesteps = 3;
+
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
-    FiniteElementCollection *fec_CG  = new H1_FECollection(order, dim);
-    FiniteElementCollection *fec_ND  = new ND_FECollection(order, dim);
-    FiniteElementCollection *fec_RT  = new RT_FECollection(order, dim);
-    FiniteElementCollection *fec_DG  = new L2_FECollection(order, dim);
-    FiniteElementSpace CG(&mesh, fec_CG);
-    FiniteElementSpace ND(&mesh, fec_ND);
-    FiniteElementSpace RT(&mesh, fec_RT);
-    FiniteElementSpace DG(&mesh, fec_DG);
+    mfem::FiniteElementCollection *fec_CG  = new mfem::H1_FECollection(order, dim);
+    mfem::FiniteElementCollection *fec_ND  = new mfem::ND_FECollection(order, dim);
+    mfem::FiniteElementCollection *fec_RT  = new mfem::RT_FECollection(order, dim);
+    mfem::FiniteElementCollection *fec_DG  = new mfem::L2_FECollection(order, dim);
+    mfem::FiniteElementSpace CG(&mesh, fec_CG);
+    mfem::FiniteElementSpace ND(&mesh, fec_ND);
+    mfem::FiniteElementSpace RT(&mesh, fec_RT);
+    mfem::FiniteElementSpace DG(&mesh, fec_DG);
 
     // unkowns and gridfunctions
-    mfem::GridFunction u(&ND);
-    mfem::GridFunction z(&RT); 
-    mfem::GridFunction p(&CG);
-    mfem::GridFunction v(&RT); 
-    mfem::GridFunction w(&ND);
-    mfem::GridFunction q(&DG);  
-       
-    // initial data
-    // TODO 
-    u = 4.3;
-    z = 5.3;
-    p = 6.3;
-    v = 7.3;
-    w = 8.3;
-    q = 9.3;
+    mfem::GridFunction u(&ND); u = 4.3;
+    mfem::GridFunction z(&RT); z = 5.3; 
+    mfem::GridFunction p(&CG); p = 6.3;
+    mfem::GridFunction v(&RT); v = 7.3; 
+    mfem::GridFunction w(&ND); w = 8.3;
+    mfem::GridFunction q(&DG); q = 9.3;      
 
     // system size
     int size_p = u.Size() + z.Size() + p.Size();
@@ -121,8 +113,11 @@ int main(int argc, char *argv[]) {
     mfem::SparseMatrix Mn = M;
     Mn *= -1;
     Mn.Finalize();
+    mfem::SparseMatrix Mdt = M;
+    Mdt *= 1/dt;
 
     // Matrix Md and Mdn
+    // TODO merge with M
     mfem::BilinearForm blf_Md(&ND);
     mfem::SparseMatrix Md;
     blf_Md.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
@@ -195,13 +190,13 @@ int main(int argc, char *argv[]) {
     GT->Finalize();
 
     // initialize system matrices
-    Array<int> offsets_1 (4); // number of variables + 1
+    mfem::Array<int> offsets_1 (4); // number of variables + 1
     offsets_1[0] = 0;
     offsets_1[1] = ND.GetVSize();
     offsets_1[2] = RT.GetVSize();
     offsets_1[3] = CG.GetVSize();
     offsets_1.PartialSum(); // exclusive scan
-    Array<int> offsets_2 (4);
+    mfem::Array<int> offsets_2 (4);
     offsets_2[0] = 0;
     offsets_2[1] = ND.GetVSize();
     offsets_2[2] = RT.GetVSize();
@@ -219,38 +214,42 @@ int main(int argc, char *argv[]) {
     std::cout << "progress: initialized RHS\n";
 
     // time loop
-    int T = 3;
-    for (int t = 0 ; t < T ; t++) {
-        std::cout << "---------------enter loop "<<t<<"--------------\n";
+    double T;
+    for (int i = 0 ; i < timesteps ; i++) {
+        T = i*dt;
+        std::cout << "---------------enter loop, t="<<T<<"-----------\n";
 
         // update R1
         mfem::BilinearForm blf_Rp(&ND);
         mfem::SparseMatrix Rp;
+        mfem::SparseMatrix MR = M; // TODO make sure its a deep copy
         mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
         blf_Rp.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff));
         blf_Rp.Assemble();
         blf_Rp.FormSystemMatrix(ND_etdof,Rp);
-        Rp.Add(1,M);
+        Rp.Add(1,MR);
         Rp.Finalize();
 
         // update R2
         mfem::BilinearForm blf_Rd(&RT);
         mfem::SparseMatrix Rd;
+        mfem::SparseMatrix NR = N;
         mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
         blf_Rd.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff));
         blf_Rd.Assemble();
         blf_Rd.FormSystemMatrix(RT_etdof,Rd);
-        Rd.Add(1,N);
+        Rd.Add(1,NR);
         Rd.Finalize();
 
         // update A1, A2
-        A1.SetBlock(0,0, &Rp); // includes M
+        // TODO add constants, like Re
+        A1.SetBlock(0,0, &MR);
         A1.SetBlock(0,1, CT);
         A1.SetBlock(1,2, &G);
         A1.SetBlock(1,0, &C);
         A1.SetBlock(1,1, &Nn);
         A1.SetBlock(2,1, GT);
-        A2.SetBlock(0,0, &Rd); // includes N
+        A2.SetBlock(0,0, &NR);
         A2.SetBlock(0,1, &C);
         A2.SetBlock(1,2, DdnT);
         A2.SetBlock(1,0, CT);
@@ -259,40 +258,42 @@ int main(int argc, char *argv[]) {
         std::cout << "progress: updated system matrices\n";
 
         // update b1, b2
-        // TODO add constants, like Re
-        // TODO det(CT) is small => consequences?
+        // TODO if det(CT) is small => consequences?
         b1 = 0.0;
-        M.Mult(u,b1sub);
-        Rp.AddMult(u,b1sub,-1);
-        CT->AddMult(z,b1sub,-1);
+        b1sub = 0.0;
+        M.AddMult(u,b1sub,1/dt);
+        Rp.AddMult(u,b1sub,-1/2);
+        CT->AddMult(z,b1sub,-1/(2*Re));
         b1.AddSubVector(b1sub,0);
         b2 = 0.0;
-        N.Mult(v,b2sub);
-        Rd.AddMult(v,b2sub,-1);
-        C.AddMult(w,b2sub,-1);
+        b2sub = 0.0;
+        N.AddMult(v,b2sub,1/dt);
+        Rd.AddMult(v,b2sub,-1/2);
+        C.AddMult(w,b2sub,-1/(2*Re));
         b2.AddSubVector(b2sub,0);
         std::cout << "progress: updated RHS\n";
-
+        // printvector3(b1,20,0,0,6);
+        
         // TODO check why this RHS doesnt produce x=...
         // TODO: 1) isolate problem 2) check other solver 3) precond.
-        mfem::Vector helper(size_p);
-        mfem::Vector newrhs(size_p);
-        mfem::Vector xxx(size_p);
-        xxx=1.299;
-        helper = 1.3;
-        A1.Mult(helper,newrhs);
-        double tol = 1e-3;
-        int iter = 20000;
-        mfem::MINRES(A1, newrhs, xxx, 0, iter, tol, tol); 
+        // mfem::Vector helper(size_p);
+        // mfem::Vector newrhs(size_p);
+        // mfem::Vector xxx(size_p);
+        // xxx=1.299;
+        // helper = 1.3;
+        // A1.Mult(helper,newrhs);
+        // double tol = 1e-3;
+        // int iter = 20000;
+        // mfem::MINRES(A1, newrhs, xxx, 0, iter, tol, tol); 
         // printvector3(xxx,1,0,20,6);
         
         // solve 
-        // double tol = 1e-3;
-        // int iter = 2000;
+        double tol = 1e-3;
+        int iter = 2000;
         // mfem::Vector drei(size_p); drei = 3.0;
         // A1.Mult(drei,b1);
-        // mfem::MINRES(A1, b1, x, 0, iter, tol, tol); 
-        // mfem::MINRES(A2, b2, y, 0, iter, tol, tol); 
+        mfem::MINRES(A1, b1, x, 0, iter, tol, tol); 
+        mfem::MINRES(A2, b2, y, 0, iter, tol, tol); 
         std::cout << "progress: MINRES\n";
         
         // extract solution values u,w,p,v,z,q from x,y
