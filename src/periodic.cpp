@@ -3,30 +3,29 @@
 #include <iostream>
 #include <algorithm>
 
+// TODO: make that obsolete:
 using namespace mfem;
-// using namespace std;
 
 
 // MEHC scheme on periodic domain, like in the paper
 
 
 
-// TODO: umordnen der unbekannten, z ist primal, w ist dual
+
 // TODO: use periodic mesh and no BC (4 functionspaces)
 // TODO: check conservation (not convergence) like in 5.1 with the given init cond.
-// TODO: change p,d into 1,2
-// TODO: replace all M.NumCols() by u.Size()
-// TODO: matrix names simpler
+// TODO: change p,d into 1,2, matrix names simpler
 // TODO: are matrices and gridfunctions in right functionspaces? 
+
 
 // primal: A1*x=b1
 // [M+R    CT     G] [u]   [(M-R)*u - CT*z  + f]
-// [C      -N      ] [w] = [         0         ]
+// [C      -N      ] [z] = [         0         ]
 // [GT             ] [p]   [         0         ]
 //
 // dual: A2*y=b2
 // [N+R    C    -DT] [v]   [(N-R)*u - C*w + f]
-// [CT     -M     0] [z] = [        0        ]
+// [CT     -M     0] [w] = [        0        ]
 // [D      0      0] [q]   [        0        ]
 
 
@@ -45,12 +44,9 @@ int main(int argc, char *argv[]) {
 
     std::cout << "---------------launch MEHC---------------\n";
 
-    // TODO: use periodic mesh and no BC (4 functionspaces)
-    // check conservation (not convergence) like in 5.1 with the given init cond.
 
     // mesh
     const char *mesh_file = "extern/mfem-4.5/data/periodic-cube.mesh";
-    // const char *mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     Mesh mesh(mesh_file, 1, 1);
     int dim = mesh.Dimension();
     // for (int l = 0; l < 2; l++) {mesh.UniformRefinement();}
@@ -73,7 +69,7 @@ int main(int argc, char *argv[]) {
     mfem::GridFunction v(&RT); 
     mfem::GridFunction w(&ND);
     mfem::GridFunction q(&DG);  
-    
+       
     // initial data
     // TODO 
     u = 4.3;
@@ -83,11 +79,39 @@ int main(int argc, char *argv[]) {
     w = 8.3;
     q = 9.3;
 
+    // system size
+    int size_p = u.Size() + z.Size() + p.Size();
+    int size_d = v.Size() + w.Size() + q.Size();
+    
+    // initialize solution vectors
+    mfem::Vector x(size_p);
+    mfem::Vector y(size_d);
+    x.SetVector(u,0);
+    x.SetVector(z,u.Size());
+    x.SetVector(p,u.Size()+z.Size());
+    y.SetVector(v,0);
+    y.SetVector(w,v.Size());
+    y.SetVector(q,v.Size()+w.Size());
+
+    // helper dofs
+    mfem::Array<int> u_dofs (u.Size());
+    mfem::Array<int> z_dofs (z.Size());
+    mfem::Array<int> p_dofs (p.Size());
+    mfem::Array<int> v_dofs (v.Size());
+    mfem::Array<int> w_dofs (w.Size());
+    mfem::Array<int> q_dofs (q.Size());
+    std::iota(&u_dofs[0], &u_dofs[u.Size()], 0);
+    std::iota(&z_dofs[0], &z_dofs[z.Size()], u.Size());
+    std::iota(&p_dofs[0], &p_dofs[p.Size()], u.Size()+z.Size());
+    std::iota(&v_dofs[0], &v_dofs[v.Size()], 0);
+    std::iota(&w_dofs[0], &w_dofs[w.Size()], v.Size());
+    std::iota(&q_dofs[0], &q_dofs[q.Size()], v.Size()+q.Size());
+    std::cout << "progress: initialized unknowns\n";
+
     // boundary conditions
     mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof;
 
     // Matrix M and -M
-    // TODO: benennung der matritzen primal/dual, bzw 1/2
     mfem::BilinearForm blf_M(&ND);
     mfem::SparseMatrix M;
     blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
@@ -169,21 +193,6 @@ int main(int argc, char *argv[]) {
     G.Finalize();
     mfem::SparseMatrix *GT = Transpose(G);
     GT->Finalize();
-    std::cout << "progress: assembled M,N,C,D,G\n";
-
-    // system size
-    int size_p = M.NumCols() + CT->NumCols() + G.NumCols();
-    int size_d = Nd.NumCols() + Cd.NumCols() + DdnT->NumCols();
-
-    // initialize solution vectors
-    mfem::Vector x(size_p);
-    mfem::Vector y(size_d);    
-    x.SetVector(u,0);
-    x.SetVector(z,M.NumCols());
-    x.SetVector(p,M.NumCols()+CT->NumCols());
-    y.SetVector(v,0);
-    y.SetVector(w,Nd.NumCols());
-    y.SetVector(q,Nd.NumCols()+Cd.NumCols());
 
     // initialize system matrices
     Array<int> offsets_1 (4); // number of variables + 1
@@ -191,7 +200,7 @@ int main(int argc, char *argv[]) {
     offsets_1[1] = ND.GetVSize();
     offsets_1[2] = RT.GetVSize();
     offsets_1[3] = CG.GetVSize();
-    offsets_1.PartialSum(); // =exclusive scan
+    offsets_1.PartialSum(); // exclusive scan
     Array<int> offsets_2 (4);
     offsets_2[0] = 0;
     offsets_2[1] = ND.GetVSize();
@@ -200,33 +209,19 @@ int main(int argc, char *argv[]) {
     offsets_2.PartialSum();
     mfem::BlockMatrix A1(offsets_1);
     mfem::BlockMatrix A2(offsets_2);
+    std::cout << "progress: initialized system matrices\n";
 
     // initialize rhs
     mfem::Vector b1(size_p); 
     mfem::Vector b1sub(size_p);
     mfem::Vector b2(size_d); 
     mfem::Vector b2sub(size_p);
-    
-    // helper dofs
-    mfem::Array<int> u_dofs (M.NumCols());
-    mfem::Array<int> z_dofs (CT->NumCols());
-    mfem::Array<int> p_dofs (G.NumCols());
-    mfem::Array<int> v_dofs (N.NumCols());
-    mfem::Array<int> w_dofs (C.NumCols());
-    mfem::Array<int> q_dofs (DdnT->NumCols());
-    std::iota(&u_dofs[0], &u_dofs[M.NumCols()],0);
-    std::iota(&z_dofs[0], &z_dofs[CT->NumCols()],M.NumCols());
-    std::iota(&p_dofs[0], &p_dofs[G.NumCols()],M.NumCols()+CT->NumCols());
-    std::iota(&v_dofs[0], &v_dofs[N.NumCols()],0);
-    std::iota(&w_dofs[0], &w_dofs[C.NumCols()],N.NumCols());
-    std::iota(&q_dofs[0], &q_dofs[DdnT->NumCols()],N.NumCols()+DdnT->NumCols());
-    std::cout << "progress: initialized vectors\n";
-
+    std::cout << "progress: initialized RHS\n";
 
     // time loop
-    std::cout << "---------------enter loop---------------\n";
-    int T = 1;
+    int T = 3;
     for (int t = 0 ; t < T ; t++) {
+        std::cout << "---------------enter loop "<<t<<"--------------\n";
 
         // update R1
         mfem::BilinearForm blf_Rp(&ND);
@@ -247,7 +242,6 @@ int main(int argc, char *argv[]) {
         blf_Rd.FormSystemMatrix(RT_etdof,Rd);
         Rd.Add(1,N);
         Rd.Finalize();
-        std::cout << "progress: updated Rp,Rd\n";
 
         // update A1, A2
         A1.SetBlock(0,0, &Rp); // includes M
@@ -262,7 +256,7 @@ int main(int argc, char *argv[]) {
         A2.SetBlock(1,0, CT);
         A2.SetBlock(1,1, &Mn);
         A2.SetBlock(2,1, &Dd);
-        std::cout << "progress: updated A1,A2\n";
+        std::cout << "progress: updated system matrices\n";
 
         // update b1, b2
         // TODO add constants, like Re
@@ -277,9 +271,9 @@ int main(int argc, char *argv[]) {
         Rd.AddMult(v,b2sub,-1);
         C.AddMult(w,b2sub,-1);
         b2.AddSubVector(b2sub,0);
-        std::cout << "progress: updated b1,b2\n";
+        std::cout << "progress: updated RHS\n";
 
-        // TODO check why this RHS doesnt produce x=
+        // TODO check why this RHS doesnt produce x=...
         // TODO: 1) isolate problem 2) check other solver 3) precond.
         mfem::Vector helper(size_p);
         mfem::Vector newrhs(size_p);
@@ -300,7 +294,6 @@ int main(int argc, char *argv[]) {
         // mfem::MINRES(A1, b1, x, 0, iter, tol, tol); 
         // mfem::MINRES(A2, b2, y, 0, iter, tol, tol); 
         std::cout << "progress: MINRES\n";
-
         
         // extract solution values u,w,p,v,z,q from x,y
         // TODO: getsubvector ohne dofs
