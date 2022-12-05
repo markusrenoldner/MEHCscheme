@@ -8,8 +8,7 @@ using namespace mfem;
 
 
 // TODO: this does not work yet, try advice from wouter 
-
-
+// should actually work
 
 // assembly options:
 // 1) submatrices sind sparse und wie wouter
@@ -18,43 +17,24 @@ using namespace mfem;
 // 4) blockoperator mfem example 5
 
 
-// i = 4, j = 8
-void printmatrix(mfem::Matrix &mat) {
-    for (int i = 0; i<mat.NumRows(); i++) {
-        for (int j = 0; j<mat.NumCols(); j++) {
-            std::cout << std::setprecision(1) << std::fixed;
-            std::cout << mat.Elem(i,j) << " ";
-        }
-        std::cout <<"\n";
-    }
-    std::cout << "progress: matrix test\n";
-}
-//     int* I =  mat.GetI();
-//     for (int i = 0; i< mat.Height()+1 ; ++i){
-//         std::cout << I[i] << " ";
-//     }
-//     std::cout << "----------\n";
-//     int* J = mat.GetJ();
-//     for (int i = 0; i< I[mat.Height()] ; ++i){
-//         std::cout << J[i] << " ";
-//         if((i+1)%36 == 1){
-//             std::cout << std::endl;
-//         }
-//     }
-// }
+void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset); 
+void printmatrix(mfem::Matrix &mat);
+void printvector(mfem::Vector vec, int stride=1);
 
-void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset) {
-    for (int r = 0; r < submatrix.NumRows(); r++) {
-        mfem::Array<int> cols;
-        mfem::Vector srow;
-        submatrix.GetRow(r, cols, srow);
-        for (int c = 0; c < submatrix.NumCols(); c++) {
-            matrix.Add(rowoffset + r, coloffset + cols[c], srow[c]);
+void printsparse(mfem::SparseMatrix mat) {
+    int* I =  mat.GetI();
+    for (int i = 0; i< mat.Height()+1 ; ++i){
+        std::cout << I[i] << " ";
+    }
+    std::cout << "----------\n";
+    int* J = mat.GetJ();
+    for (int i = 0; i< I[mat.Height()] ; ++i){
+        std::cout << J[i] << " ";
+        if((i+1)%36 == 1){
+            std::cout << std::endl;
         }
-        cols.DeleteAll();
     }
 }
-
 
 
 
@@ -96,6 +76,14 @@ int main(int argc, char *argv[]) {
     Nn *= -1;
     Nn.Finalize();
 
+    N.PrintMatlab(std::cout);
+
+    // printsparse(N);
+
+    // printmatrix(N);
+
+    
+
     // Matrix C and CT
     mfem::MixedBilinearForm blf_C(&ND, &RT);
     mfem::SparseMatrix C;
@@ -121,25 +109,14 @@ int main(int argc, char *argv[]) {
     x = 0.924;
     A.Mult(x,b); // set b=A*x
     x = -1.1;
-
-    // check b
-    std::cout << "----check b----\n";
-    for (int j = 0; j<size_p; j++) {
-        std::cout << std::setprecision(3) << std::fixed;
-        std::cout << b[j]<< "\n";
-    }
-
+    
     // MINRES
     int iter = 200000;
     int tol = 1e-4;
-    std::cout << "----minres start----\n";
     mfem::MINRES(A, b, x, 0, iter, tol, tol); 
     
-    // check if x=[1,1,...1]
-    for (int j = 0; j<size_p; j++) {
-        std::cout << std::setprecision(3) << std::fixed;
-        std::cout << x[j]<< "\n";
-    }
+    // check if x=0.924
+    printvector(x,10);
 
 
     // assembly matrix A
