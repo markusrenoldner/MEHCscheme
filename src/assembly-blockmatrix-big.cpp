@@ -15,8 +15,11 @@ using namespace mfem;
 
 
 
-void printmatrix(mfem::Matrix &mat);
+void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset);
 void printvector(mfem::Vector vec, int stride=1);
+void printvector2(mfem::Vector vec, int stride=1);
+void printvector3(mfem::Vector vec, int stride=1, int start=0, int stop=0, int prec=3);
+void printmatrix(mfem::Matrix &mat);
 
 
 
@@ -26,6 +29,9 @@ int main(int argc, char *argv[]) {
     const char *mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     Mesh mesh(mesh_file, 1, 1);
     int dim = mesh.Dimension();
+
+    // Reynolds number
+    double Re = 1;
 
     // FE spaces
     int order = 1;
@@ -37,18 +43,31 @@ int main(int argc, char *argv[]) {
     FiniteElementSpace CG(&mesh, fec_CG);
 
     // unkowns and gridfunctions
-    mfem::GridFunction u(&ND);
-    mfem::GridFunction z(&RT); 
-    mfem::GridFunction p(&CG);
+    mfem::GridFunction u(&ND); u = 1.38;
+    mfem::GridFunction z(&RT); z = 1.38;
+    mfem::GridFunction p(&CG); p = 1.38;
+
+    // system size
+    int size_p = u.Size() + z.Size() + p.Size();
+
+    // initialize solution vectors
+    mfem::Vector x(size_p);
+    x.SetVector(u,0);
+    x.SetVector(z,u.Size());
+    x.SetVector(p,u.Size()+z.Size());
+    printvector3(x,1,0,20,6);
+
+    // helper dofs
+    mfem::Array<int> u_dofs (u.Size());
+    mfem::Array<int> z_dofs (z.Size());
+    mfem::Array<int> p_dofs (p.Size());
+    std::iota(&u_dofs[0], &u_dofs[u.Size()], 0);
+    std::iota(&z_dofs[0], &z_dofs[z.Size()], u.Size());
+    std::iota(&p_dofs[0], &p_dofs[p.Size()], u.Size()+z.Size());
+    std::cout << "progress: initialized unknowns\n";
 
     // boundary conditions
-    mfem::Array<int> RT_etdof;
-    mfem::Array<int> ND_etdof;
-    mfem::Array<int> CG_etdof;
-
-    // [M+R    CT     G]
-    // [C      -N      ]
-    // [GT             ] 
+    mfem::Array<int> RT_etdof, ND_etdof, CG_etdof;
 
     // Matrix M and -M
     mfem::BilinearForm blf_M(&ND);
@@ -94,14 +113,14 @@ int main(int argc, char *argv[]) {
     // update R1
     mfem::BilinearForm blf_Rp(&ND);
     mfem::SparseMatrix Rp;
+    mfem::SparseMatrix M_plus_Rp;
     mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
     blf_Rp.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff));
     blf_Rp.Assemble();
     blf_Rp.FormSystemMatrix(ND_etdof,Rp);
-    Rp.Add(1,M);
+    Rp.Add(1,M_plus_Rp);
     Rp.Finalize();
     std::cout << "progress: updated Rp\n";
-
 
     // initialize system matrices
     Array<int> offsets_1 (4); // number of variables + 1
@@ -110,43 +129,25 @@ int main(int argc, char *argv[]) {
     offsets_1[2] = RT.GetVSize();
     offsets_1[3] = CG.GetVSize();
     offsets_1.PartialSum();
-
-    // assemble blockmatrix A
-    int size_p = M.NumCols() + CT->NumCols();
-    Array<int> block_offsets (3); // number of variables + 1
-    block_offsets[0] = 0;
-    block_offsets[1] = ND.GetVSize();
-    block_offsets[2] = RT.GetVSize();
-    block_offsets.PartialSum(); // =exclusive scan
-    mfem::BlockMatrix A(block_offsets);
+    mfem::BlockMatrix A(offsets_1);
 
     // update A1, A2
-    A.SetBlock(0,0, &Rp); // includes M
+    A.SetBlock(0,0, &M_plus_Rp);
     A.SetBlock(0,1, CT);
     A.SetBlock(1,2, &G);
     A.SetBlock(1,0, &C);
     A.SetBlock(1,1, &Nn);
     A.SetBlock(2,1, GT);
+    std::cout << "progress: initialized system matrices\n";
 
-    // unknown dofs
-    mfem::Array<int> u_dofs (M.NumCols());
-    mfem::Array<int> z_dofs (CT->NumCols());
-    std::iota(&u_dofs[0], &u_dofs[M.NumCols()],0);
-    std::iota(&z_dofs[0], &z_dofs[CT->NumCols()],M.NumCols());
-
-    // unknown vector
-    mfem::Vector x(size_p); x = 1.5;
-    // mfem::GridFunction u(&ND);
-    // mfem::GridFunction z(&RT); 
-    x.GetSubVector(u_dofs, u);
-    x.GetSubVector(z_dofs, z);
-
-    // rhs
+    // update b1, b2
     mfem::Vector b(size_p); b = 0.0;
     mfem::Vector bsubv(ND.GetVSize()); bsubv = 0.0;
+    // TODO
     M.AddMult(u,bsubv);
+    Rp.AddMult(u,b1sub,-1);
     CT->AddMult(z,bsubv,-1);
-    b.AddSubVector(bsubv,0);
+    b.AddSubVector(bsubv,0);    
     
     // MINRES
     int iter = 2000;
@@ -156,8 +157,10 @@ int main(int argc, char *argv[]) {
     // extract subvectors
     x.GetSubVector(u_dofs, u);
     x.GetSubVector(z_dofs, z);
+    x.GetSubVector(p_dofs, p);
 
     // check 
+    printvector3(x,1,0,20,6);
     // mfem::Vector zz(size_p);
     // A.Mult(x,zz);
     // printvector(zz,1);
