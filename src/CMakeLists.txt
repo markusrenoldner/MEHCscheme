@@ -1,6 +1,6 @@
 
 
-add_executable(${PROJECT_NAME} assembly-blockmatrix.cpp)
+add_executable(${PROJECT_NAME} assembly-blockmatrix-big.cpp)
 
 
 
