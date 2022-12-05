@@ -40,6 +40,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "---------------launch MEHC---------------\n";
 
+
     // mesh
     const char *mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     Mesh mesh(mesh_file, 1, 1);
