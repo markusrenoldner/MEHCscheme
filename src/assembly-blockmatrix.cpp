@@ -7,13 +7,14 @@ using namespace mfem;
 
 
 // assembly options:
-// 1) sparse submatrices (wie wouter)
-// 2) dense submatrices
-// 3) blockmatrix (maybe works like blockoperator?)
-// 4) blockoperator (based on mfem example 5)
+// ?? 1) sparse submatrices (wie wouter)
+// ?? 2) dense submatrices
+// -- 3) blockmatrix (maybe works like blockoperator?)
+// ok 4) blockoperator (based on mfem example 5)
 
 
-
+// variable names lower case and underscores: vel_vec
+// function names upper case without underscores: AddMatrix
 
 
 void printmatrix(mfem::Matrix &mat);
@@ -47,6 +48,9 @@ int main(int argc, char *argv[]) {
     blf_M.FormSystemMatrix(ND_etdof,M);
     M.Finalize();
     M*=100;
+
+    
+    std::cout << M.NumCols() << "\n";
     
     // Matrix Nn
     mfem::BilinearForm blf_N(&RT);
@@ -71,11 +75,11 @@ int main(int argc, char *argv[]) {
 
     // assemble blockmatrix A
     int size_p = M.NumCols() + CT->NumCols();
-    Array<int> block_offsets(3); // number of variables + 1
+    Array<int> block_offsets (3); // number of variables + 1
     block_offsets[0] = 0;
     block_offsets[1] = ND.GetVSize();
     block_offsets[2] = RT.GetVSize();
-    block_offsets.PartialSum();
+    block_offsets.PartialSum(); // =exclusive scan
     mfem::BlockMatrix A(block_offsets);
     A.SetBlock(0,0, &M);
     A.SetBlock(0,1, CT);
@@ -105,14 +109,16 @@ int main(int argc, char *argv[]) {
     // MINRES
     int iter = 2000;
     int tol = 1e-4;
-    mfem::MINRES(A, b, x, 0, iter, tol, tol); 
+    mfem::MINRES(A, b, x, 0, iter, tol, tol);
 
     // extract subvectors
     x.GetSubVector(u_dofs, u);
     x.GetSubVector(z_dofs, z);
 
-    // check x
-    printvector(x,1);
+    // check 
+    // mfem::Vector zz(size_p);
+    // A.Mult(x,zz);
+    // printvector(zz,1);
 
     delete fec_RT;
     delete fec_ND;
