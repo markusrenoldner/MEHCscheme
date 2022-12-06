@@ -134,10 +134,10 @@ int main(int argc, char *argv[]) {
     // update A1, A2
     A.SetBlock(0,0, &M_plus_Rp);
     A.SetBlock(0,1, CT);
-    A.SetBlock(1,2, &G);
+    A.SetBlock(0,2, &G);
     A.SetBlock(1,0, &C);
     A.SetBlock(1,1, &Nn);
-    A.SetBlock(2,1, GT);
+    A.SetBlock(2,0, GT);
     std::cout << "progress: initialized system matrices\n";
 
     // update b1, b2

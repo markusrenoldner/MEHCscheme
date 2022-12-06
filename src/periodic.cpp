@@ -37,7 +37,7 @@ void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int r
 void printvector(mfem::Vector vec, int stride=1);
 void printvector2(mfem::Vector vec, int stride=1);
 void printvector3(mfem::Vector vec, int stride=1, int start=0, int stop=0, int prec=3);
-void printmatrix(mfem::Matrix &mat);
+void printmatrix(mfem::Matrix &mat, int prec=2);
 
 
 
@@ -225,12 +225,19 @@ int main(int argc, char *argv[]) {
         R2 *= 1/2;
         R2.Finalize();
 
-        printmatrix(R1);
+        // TODO check elements: why is R1 and R2 zero
+        std::cout<<"----------------------------------------\n";
+        R1.PrintInfo(std::cout);
+        std::cout<<"----------------------------------------\n";
+        R2.PrintInfo(std::cout);
+        std::cout<<"----------------------------------------\n";
+        M_dt.PrintInfo(std::cout);
+        std::cout<<"----------------------------------------\n";
 
         // M+R and N+R
         mfem::SparseMatrix MR = M_dt;
         mfem::SparseMatrix NR = N_dt;
-        R1.Add(1,MR);
+        R1.Add(1,MR); 
         R2.Add(1,NR);
         MR.Finalize();
         NR.Finalize();

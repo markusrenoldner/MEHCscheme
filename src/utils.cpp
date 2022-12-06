@@ -45,10 +45,10 @@ void printvector3(mfem::Vector vec, int stride=1, int start=0, int stop=0, int p
 }
 
 
-void printmatrix(mfem::Matrix &mat) {
+void printmatrix(mfem::Matrix &mat, int prec=2) {
     for (int i = 0; i<mat.NumRows(); i++) {
         for (int j = 0; j<mat.NumCols(); j++) {
-            std::cout << std::setprecision(1) << std::fixed;
+            std::cout << std::setprecision(prec) << std::fixed;
             std::cout << mat.Elem(i,j) << " ";
         }
         std::cout <<"\n";
