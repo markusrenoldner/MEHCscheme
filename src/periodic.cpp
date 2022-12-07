@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
     // simulation parameters
     double Re = 1;
     double dt = 0.1;
-    int timesteps = 1;
+    int timesteps = 5;
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -77,6 +77,7 @@ int main(int argc, char *argv[]) {
     // system size
     int size_1 = u.Size() + z.Size() + p.Size();
     int size_2 = v.Size() + w.Size() + q.Size();
+    std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
     
     // initialize solution vectors
     mfem::Vector x(size_1);
@@ -104,6 +105,8 @@ int main(int argc, char *argv[]) {
     std::cout << "progress: initialized unknowns\n";
 
     // boundary conditions
+    // TODO: check whether this is necessary
+    // TODO: check if boundary elements dont exist
     mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof;
 
     // Matrix M
@@ -115,7 +118,7 @@ int main(int argc, char *argv[]) {
     blf_M.FormSystemMatrix(ND_etdof,M_n);
     M_dt = M_n;
     M_dt *= dt;
-    M_n *= -1;
+    M_n *= -1./(2.*Re);
     M_dt.Finalize();
     M_n.Finalize();
 
@@ -128,7 +131,7 @@ int main(int argc, char *argv[]) {
     blf_N.FormSystemMatrix(RT_etdof,N_n);
     N_dt = N_n;
     N_dt *= dt;
-    N_n *= -1;
+    N_n *= -1./(2.*Re);
     N_dt.Finalize();
     N_n.Finalize();
 
@@ -144,8 +147,10 @@ int main(int argc, char *argv[]) {
     CT = Transpose(C);
     C_Re = C;
     CT_Re = *CT; 
-    C_Re *= 1/(2*Re);
-    CT_Re *= 1/(2*Re);
+    C_Re *= 1./(2.*Re);
+    CT_Re *= 1./(2.*Re);
+    *CT *= (1./(2.*Re));
+    C *= (1./(2.*Re));
     C.Finalize();
     CT->Finalize();
     C_Re.Finalize();
@@ -159,7 +164,7 @@ int main(int argc, char *argv[]) {
     blf_D.Assemble();
     blf_D.FormRectangularSystemMatrix(RT_etdof,DG_etdof,D);
     DT_n = Transpose(D);
-    *DT_n *= -1;
+    *DT_n *= -1.;
     D.Finalize();
     DT_n->Finalize();
 
@@ -180,7 +185,7 @@ int main(int argc, char *argv[]) {
     offsets_1[1] = ND.GetVSize();
     offsets_1[2] = RT.GetVSize();
     offsets_1[3] = CG.GetVSize();
-    offsets_1.PartialSum();
+    offsets_1.PartialSum(); // exclusive scan
     mfem::Array<int> offsets_2 (4);
     offsets_2[0] = 0;
     offsets_2[1] = ND.GetVSize();
@@ -211,7 +216,7 @@ int main(int argc, char *argv[]) {
         blf_R1.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff));
         blf_R1.Assemble();
         blf_R1.FormSystemMatrix(ND_etdof,R1);
-        R1 *= 1/2;
+        R1 *= 1.0/2.0;
         R1.Finalize();
 
         // update R2
@@ -221,10 +226,11 @@ int main(int argc, char *argv[]) {
         blf_R2.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff));
         blf_R2.Assemble();
         blf_R2.FormSystemMatrix(RT_etdof,R2);
-        R2 *= 1/2;
+        R2 *= 1.0/2.0;
         R2.Finalize();
 
         // TODO check elements: why is R1 and R2 zero
+        // they are not: just never use integer division for doubles!
         // std::cout<<"----------------------------------------\n";
         // R1.PrintInfo(std::cout);
         // std::cout<<"----------------------------------------\n";
@@ -270,24 +276,21 @@ int main(int argc, char *argv[]) {
         C_Re.AddMult(w,b2sub,-1);
         b2.AddSubVector(b2sub,0);
         std::cout << "progress: updated RHS\n";
-        
-        // TODO: test solvability
-        // mfem::Vector newrhs(size_1);
-        // mfem::Vector known(size_1); known = 11.3;
-        // mfem::Vector unknown(size_1); unknown = -0.7;
-        // A1.Mult(known,newrhs);
-        // double tol = 1e-6;
-        // int iter = 20000;
-        // mfem::MINRES(A1, newrhs, unknown, 0, iter, tol, tol); 
-        // printvector3(unknown,1,0,20,6);
+
+        // create symmetric system AT*A*x=AT*b
+        mfem::TransposeOperator AT1 (&A1), AT2 (&A2);
+        mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
+        mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
+        mfem::Vector ATb1 (size_1);
+        mfem::Vector ATb2 (size_2);
+        A1.MultTranspose(b1,ATb1);
+        A2.MultTranspose(b2,ATb2);
         
         // solve 
-        double tol = 1e-3;
-        int iter = 2000;
-        mfem::Vector drei(size_1); drei = 3.0;
-        A1.Mult(drei,b1);
-        mfem::MINRES(A1, b1, x, 0, iter, tol, tol); 
-        mfem::MINRES(A2, b2, y, 0, iter, tol, tol); 
+        double tol = 1e-12;
+        int iter = 10000;
+        mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol); 
+        mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol); 
         std::cout << "progress: MINRES\n";
         
         // extract solution values u,w,p,v,z,q from x,y
@@ -300,6 +303,7 @@ int main(int argc, char *argv[]) {
 
         // check solution after solver
         // printvector3(x,1,0,20,6);
+        // printvector3(y,1,0,20,6);
     }
 
     // free memory
