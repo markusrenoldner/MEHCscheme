@@ -6,32 +6,31 @@
 
 // MEHC scheme on periodic domain, like in the paper
 
+// primal: A1*x=b1
+// [M_dt+R1  CT_Re    G] [u]   [(M_dt-R1)*u - CT_Re*z  + f]
+// [C        N_n      0] [z] = [             0            ]
+// [GT       0        0] [p]   [             0            ]
+//
+// dual: A2*y=b2
+// [N_dt+R2  C_Re     DT_n] [v]   [(N_dt-R2)*u - C_Re*w + f]
+// [CT       M_n      0   ] [w] = [            0           ]
+// [D        0        0   ] [q]   [            0           ]
+
+// attention: the systems are coupled
+// z...vorticity of primal system, but corresponds to dual velocity v
+// w...vorticity of dual system, but corresponds to primal velocity u
+// u,z,p at half integer, and v,w,q at full integer time steps, hence:
+// R1 depends on w and is defined on full int time step, but is part of primal system
+// R2 depends on z and is defined on half int time step, but is part of dual system
+
+
+
 
 
 
 // TODO: use periodic mesh and no BC (4 functionspaces)
 // TODO: check conservation (not convergence) like in 5.1 with the given init cond.
-// TODO: change p,d into 1,2, matrix names simpler
 // TODO: are matrices and gridfunctions in right functionspaces? 
-
-
-// TODO update matrix names here
-// primal: A1*x=b1
-// [M+R    CT     G] [u]   [(M-R)*u - CT*z  + f]
-// [C      -N      ] [z] = [         0         ]
-// [GT             ] [p]   [         0         ]
-//
-// dual: A2*y=b2
-// [N+R    C    -DT] [v]   [(N-R)*u - C*w + f]
-// [CT     -M     0] [w] = [        0        ]
-// [D      0      0] [q]   [        0        ]
-
-// attention: the systems are coupled
-// z...vorticity of primal system, but corresponds to dual velocity v
-// w...vorticity of dual system, but corresponds to primal velocity u
-// R1 depends on w, but is part of primal system
-// R2 depends on z, but is part of dual system
-
 
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset);
 void printvector(mfem::Vector vec, int stride=1);
@@ -164,7 +163,7 @@ int main(int argc, char *argv[]) {
     D.Finalize();
     DT_n->Finalize();
 
-    // Matrix G and GT
+    // Matrix G
     mfem::MixedBilinearForm blf_G(&CG, &ND);
     mfem::SparseMatrix G;
     mfem::SparseMatrix *GT;
@@ -226,13 +225,13 @@ int main(int argc, char *argv[]) {
         R2.Finalize();
 
         // TODO check elements: why is R1 and R2 zero
-        std::cout<<"----------------------------------------\n";
-        R1.PrintInfo(std::cout);
-        std::cout<<"----------------------------------------\n";
-        R2.PrintInfo(std::cout);
-        std::cout<<"----------------------------------------\n";
-        M_dt.PrintInfo(std::cout);
-        std::cout<<"----------------------------------------\n";
+        // std::cout<<"----------------------------------------\n";
+        // R1.PrintInfo(std::cout);
+        // std::cout<<"----------------------------------------\n";
+        // R2.PrintInfo(std::cout);
+        // std::cout<<"----------------------------------------\n";
+        // M_dt.PrintInfo(std::cout);
+        // std::cout<<"----------------------------------------\n";
 
         // M+R and N+R
         mfem::SparseMatrix MR = M_dt;
@@ -258,7 +257,6 @@ int main(int argc, char *argv[]) {
         std::cout << "progress: updated system matrices\n";
 
         // update b1, b2
-        // TODO if det(CT) is small => consequences?
         b1 = 0.0;
         b1sub = 0.0;
         M_dt.AddMult(u,b1sub);
@@ -273,24 +271,21 @@ int main(int argc, char *argv[]) {
         b2.AddSubVector(b2sub,0);
         std::cout << "progress: updated RHS\n";
         
-        // TODO check why this RHS doesnt produce x=...
-        // TODO: 1) isolate problem 2) check other solver 3) precond.
-        // mfem::Vector helper(size_1);
+        // TODO: test solvability
         // mfem::Vector newrhs(size_1);
-        // mfem::Vector xxx(size_1);
-        // xxx=1.299;
-        // helper = 1.3;
-        // A1.Mult(helper,newrhs);
-        // double tol = 1e-3;
+        // mfem::Vector known(size_1); known = 11.3;
+        // mfem::Vector unknown(size_1); unknown = -0.7;
+        // A1.Mult(known,newrhs);
+        // double tol = 1e-6;
         // int iter = 20000;
-        // mfem::MINRES(A1, newrhs, xxx, 0, iter, tol, tol); 
-        // printvector3(xxx,1,0,20,6);
+        // mfem::MINRES(A1, newrhs, unknown, 0, iter, tol, tol); 
+        // printvector3(unknown,1,0,20,6);
         
         // solve 
         double tol = 1e-3;
         int iter = 2000;
-        // mfem::Vector drei(size_1); drei = 3.0;
-        // A1.Mult(drei,b1);
+        mfem::Vector drei(size_1); drei = 3.0;
+        A1.Mult(drei,b1);
         mfem::MINRES(A1, b1, x, 0, iter, tol, tol); 
         mfem::MINRES(A2, b2, y, 0, iter, tol, tol); 
         std::cout << "progress: MINRES\n";
@@ -313,6 +308,5 @@ int main(int argc, char *argv[]) {
     delete fec_RT;
     delete fec_DG;
 
-    
     std::cout << "---------------finish MEHC---------------\n";
 }
