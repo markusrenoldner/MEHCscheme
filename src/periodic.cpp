@@ -20,23 +20,26 @@
 // z...vorticity of primal system, but corresponds to dual velocity v
 // w...vorticity of dual system, but corresponds to primal velocity u
 // u,z,p at half integer, and v,w,q at full integer time steps, hence:
-// R1 depends on w and is defined on full int time step, but is part of primal system
-// R2 depends on z and is defined on half int time step, but is part of dual system
+// R1 depends on w and defined on full int time step, but part of primal syst
+// R2 depends on z and defined on half int time step, but part of dual system
 
 
 
 
 
-
-// TODO: use periodic mesh and no BC (4 functionspaces)
-// TODO: check conservation (not convergence) like in 5.1 with the given init cond.
+// TODO: explicit euler for u^(1/2) and z^(1/2)
+// TODO: check conservation first (not convergence) like 
+// in 5.1 with the given init cond.
 // TODO: are matrices and gridfunctions in right functionspaces? 
 
-void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset);
+void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix,
+                  int rowoffset, int coloffset);
 void printvector(mfem::Vector vec, int stride=1);
 void printvector2(mfem::Vector vec, int stride=1);
-void printvector3(mfem::Vector vec, int stride=1, int start=0, int stop=0, int prec=3);
+void printvector3(mfem::Vector vec, int stride=1, 
+                  int start=0, int stop=0, int prec=3);
 void printmatrix(mfem::Matrix &mat, int prec=2);
+double u0_function(const mfem::Vector &x);
 
 
 
@@ -57,22 +60,42 @@ int main(int argc, char *argv[]) {
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
-    mfem::FiniteElementCollection *fec_CG  = new mfem::H1_FECollection(order, dim);
-    mfem::FiniteElementCollection *fec_ND  = new mfem::ND_FECollection(order, dim);
-    mfem::FiniteElementCollection *fec_RT  = new mfem::RT_FECollection(order, dim);
-    mfem::FiniteElementCollection *fec_DG  = new mfem::L2_FECollection(order, dim);
+    mfem::FiniteElementCollection *fec_CG = new mfem::H1_FECollection(order,dim);
+    mfem::FiniteElementCollection *fec_ND = new mfem::ND_FECollection(order,dim);
+    mfem::FiniteElementCollection *fec_RT = new mfem::RT_FECollection(order,dim);
+    mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order,dim);
     mfem::FiniteElementSpace CG(&mesh, fec_CG);
     mfem::FiniteElementSpace ND(&mesh, fec_ND);
     mfem::FiniteElementSpace RT(&mesh, fec_RT);
     mfem::FiniteElementSpace DG(&mesh, fec_DG);
 
+
+
+
+
+    // initial value
+    // TODO: initial values u0=(cos(2piz),sin(2piz),sin(2pix))T
+    std::cout << "--check--\n";
+    mfem::VectorFunctionCoefficient u0(3,u0_function);
+    mfem::VectorFunctionCoefficient v0(3,u0_function);
+    std::cout << "--check--\n";
+    // mfem::FunctionCoefficient v0(v0_function);
+
     // unkowns and gridfunctions
-    mfem::GridFunction u(&ND); u = 4.3;
-    mfem::GridFunction z(&RT); z = 5.3; 
-    mfem::GridFunction p(&CG); p = 6.3;
-    mfem::GridFunction v(&RT); v = 7.3; 
-    mfem::GridFunction w(&ND); w = 8.3;
-    mfem::GridFunction q(&DG); q = 9.3;      
+    mfem::GridFunction u(&ND); // u = 4.3;
+    mfem::GridFunction z(&RT); // z = 5.3; 
+    mfem::GridFunction p(&CG); // p = 6.3;
+    mfem::GridFunction v(&RT); // v = 7.3; 
+    mfem::GridFunction w(&ND); // w = 8.3;
+    mfem::GridFunction q(&DG); // q = 9.3;
+    u.ProjectCoefficient(u0);
+    // v.ProjectCoefficient(v0);
+    std::cout << "--check--\n";
+    
+
+
+
+
 
     // system size
     int size_1 = u.Size() + z.Size() + p.Size();
@@ -213,7 +236,8 @@ int main(int argc, char *argv[]) {
         mfem::BilinearForm blf_R1(&ND);
         mfem::SparseMatrix R1;
         mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-        blf_R1.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff));
+        blf_R1.AddDomainIntegrator(
+            new mfem::MixedCrossProductIntegrator(w_gfcoeff));
         blf_R1.Assemble();
         blf_R1.FormSystemMatrix(ND_etdof,R1);
         R1 *= 1.0/2.0;
@@ -223,21 +247,12 @@ int main(int argc, char *argv[]) {
         mfem::BilinearForm blf_R2(&RT);
         mfem::SparseMatrix R2;
         mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-        blf_R2.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff));
+        blf_R2.AddDomainIntegrator(
+            new mfem::MixedCrossProductIntegrator(z_gfcoeff));
         blf_R2.Assemble();
         blf_R2.FormSystemMatrix(RT_etdof,R2);
         R2 *= 1.0/2.0;
         R2.Finalize();
-
-        // TODO check elements: why is R1 and R2 zero
-        // they are not: just never use integer division for doubles!
-        // std::cout<<"----------------------------------------\n";
-        // R1.PrintInfo(std::cout);
-        // std::cout<<"----------------------------------------\n";
-        // R2.PrintInfo(std::cout);
-        // std::cout<<"----------------------------------------\n";
-        // M_dt.PrintInfo(std::cout);
-        // std::cout<<"----------------------------------------\n";
 
         // M+R and N+R
         mfem::SparseMatrix MR = M_dt;
@@ -313,4 +328,29 @@ int main(int argc, char *argv[]) {
     delete fec_DG;
 
     std::cout << "---------------finish MEHC---------------\n";
+}
+
+
+// Initial condition
+double u0_function(const mfem::Vector &x) {
+    // int dim = x.Size();
+
+    // // map to the reference [-1,1] domain
+    // mfem::Vector X(dim);
+    // for (int i = 0; i < dim; i++)
+    // {
+    //     double center = (bb_min[i] + bb_max[i]) * 0.5;
+    //     X(i) = 2 * (x(i) - center) / (bb_max[i] - bb_min[i]);
+    // }
+
+    // double rx = 0.45, ry = 0.25, cx = 0., cy = -0.2, w = 10.;
+    // if (dim == 3)
+    // {
+    //     const double s = (1. + 0.25*cos(2*M_PI*X(2)));
+    //     rx *= s;
+    //     ry *= s;
+    // }
+    // return (erfc(w*(X(0)-cx-rx))*erfc(-w*(X(0)-cx+rx)) *
+    //         erfc(w*(X(1)-cy-ry))*erfc(-w*(X(1)-cy+ry))) /16;
+    return 1.;
 }

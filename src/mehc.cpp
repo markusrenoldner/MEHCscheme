@@ -331,17 +331,30 @@ int main(int argc, char *argv[]) {
     }
 
     // visuals
-    ofstream mesh_ofs("refined.mesh");
+    std::ofstream mesh_ofs("refined.mesh");
     mesh_ofs.precision(8);
     mesh.Print(mesh_ofs);
-    ofstream sol_ofs("sol.gf");
+    std::ofstream sol_ofs("sol.gf");
     sol_ofs.precision(8);
     u.Save(sol_ofs);
     char vishost[] = "localhost";
     int  visport   = 19916;
-    socketstream sol_sock(vishost, visport);
+    std::socketstream sol_sock(vishost, visport);
     sol_sock.precision(8);
     sol_sock << "solution\n" << mesh << u << flush;
+
+    // visuals
+    std::ofstream mesh_ofs("refined.mesh");
+    mesh_ofs.precision(8);
+    mesh.Print(mesh_ofs);
+    std::ofstream sol_ofs("sol.gf");
+    sol_ofs.precision(8);
+    u.Save(sol_ofs);
+    char vishost[] = "localhost";
+    int  visport   = 19916;
+    mfem::socketstream sol_sock(vishost, visport);
+    sol_sock.precision(8);
+    sol_sock << "solution\n" << mesh << u << std::flush;
     
     // free memory
     delete fec_CG;
