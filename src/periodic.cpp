@@ -39,7 +39,8 @@ void printvector2(mfem::Vector vec, int stride=1);
 void printvector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
 void printmatrix(mfem::Matrix &mat, int prec=2);
-double u0_function(const mfem::Vector &x);
+void u_0(const mfem::Vector &x, mfem::Vector &v);
+void w_0(const mfem::Vector &x, mfem::Vector &w);
 
 
 
@@ -69,18 +70,6 @@ int main(int argc, char *argv[]) {
     mfem::FiniteElementSpace RT(&mesh, fec_RT);
     mfem::FiniteElementSpace DG(&mesh, fec_DG);
 
-
-
-
-
-    // initial value
-    // TODO: initial values u0=(cos(2piz),sin(2piz),sin(2pix))T
-    std::cout << "--check--\n";
-    mfem::VectorFunctionCoefficient u0(3,u0_function);
-    mfem::VectorFunctionCoefficient v0(3,u0_function);
-    std::cout << "--check--\n";
-    // mfem::FunctionCoefficient v0(v0_function);
-
     // unkowns and gridfunctions
     mfem::GridFunction u(&ND); // u = 4.3;
     mfem::GridFunction z(&RT); // z = 5.3; 
@@ -88,13 +77,16 @@ int main(int argc, char *argv[]) {
     mfem::GridFunction v(&RT); // v = 7.3; 
     mfem::GridFunction w(&ND); // w = 8.3;
     mfem::GridFunction q(&DG); // q = 9.3;
-    u.ProjectCoefficient(u0);
-    // v.ProjectCoefficient(v0);
-    std::cout << "--check--\n";
+
+    // initial condition
+    // TODO p,q
+    mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
+    mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0);
+    u.ProjectCoefficient(u_0_coeff);
+    v.ProjectCoefficient(u_0_coeff);
+    z.ProjectCoefficient(w_0_coeff);
+    w.ProjectCoefficient(w_0_coeff);
     
-
-
-
 
 
     // system size
@@ -331,26 +323,25 @@ int main(int argc, char *argv[]) {
 }
 
 
-// Initial condition
-double u0_function(const mfem::Vector &x) {
-    // int dim = x.Size();
+void u_0(const mfem::Vector &x, mfem::Vector &v) {
+   
+    double pi = 3.14159265358979323846;
+    int dim = x.Size();
 
-    // // map to the reference [-1,1] domain
-    // mfem::Vector X(dim);
-    // for (int i = 0; i < dim; i++)
-    // {
-    //     double center = (bb_min[i] + bb_max[i]) * 0.5;
-    //     X(i) = 2 * (x(i) - center) / (bb_max[i] - bb_min[i]);
-    // }
-
-    // double rx = 0.45, ry = 0.25, cx = 0., cy = -0.2, w = 10.;
-    // if (dim == 3)
-    // {
-    //     const double s = (1. + 0.25*cos(2*M_PI*X(2)));
-    //     rx *= s;
-    //     ry *= s;
-    // }
-    // return (erfc(w*(X(0)-cx-rx))*erfc(-w*(X(0)-cx+rx)) *
-    //         erfc(w*(X(1)-cy-ry))*erfc(-w*(X(1)-cy+ry))) /16;
-    return 1.;
+    // u0=(cos(2piz), sin(2piz), sin(2pix))
+    v(0) = std::cos(2*pi*x(3));
+    v(1) = std::sin(2*pi*x(3)); 
+    v(2) = std::sin(2*pi*x(1));
 }
+
+void w_0(const mfem::Vector &x, mfem::Vector &w) {
+   
+    double pi = 3.14159265358979323846;
+    int dim = x.Size();
+
+    // w0=(-2pi cos(2piz), -2pi cos(2pix) -2pi sin(2piz), 0) 
+    w(0) = -2*pi*std::cos(2*pi*x(3));
+    w(1) = -2*pi*std::cos(2*pi*x(1)) -2*pi*std::sin(2*pi*x(3)); 
+    w(2) = 0;
+}
+
