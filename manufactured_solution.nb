@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[      2653,         82]
-NotebookOptionsPosition[      2111,         66]
-NotebookOutlinePosition[      2516,         82]
-CellTagsIndexPosition[      2473,         79]
+NotebookDataLength[      4665,        143]
+NotebookOptionsPosition[      3988,        124]
+NotebookOutlinePosition[      4398,        140]
+CellTagsIndexPosition[      4355,        137]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -57,15 +57,73 @@ Cell[BoxData[
  CellLabel->"In[1]:=",ExpressionUUID->"4158b0bd-2153-4f04-b403-e20e1ab5d4ca"],
 
 Cell[BoxData[""], "Input",
+ CellChangeTimes->{{3.8794847029267635`*^9, 3.8794847270714273`*^9}},
  EmphasizeSyntaxErrors->
   True,ExpressionUUID->"34dd7f23-aa1b-41d2-b68c-53babab788fe"],
 
-Cell[BoxData[""], "Input",
- EmphasizeSyntaxErrors->
-  True,ExpressionUUID->"14023f72-3421-4722-9272-7506d83b9097"]
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"u", " ", "=", " ", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"Cos", "[", 
+      RowBox[{"2", "*", "Pi", "*", "z"}], "]"}], ",", 
+     RowBox[{"Sin", "[", 
+      RowBox[{"2", "*", "Pi", "*", "z"}], "]"}], ",", 
+     RowBox[{"Sin", "[", 
+      RowBox[{"2", "*", "Pi", "*", "x"}], "]"}]}], "}"}]}], " ", 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Curl", "[", 
+   RowBox[{"u", ",", 
+    RowBox[{"{", 
+     RowBox[{"x", ",", "y", ",", "z"}], "}"}]}], "]"}], "//", 
+  "MatrixForm"}]}], "Input",
+ CellChangeTimes->{{3.879510614123445*^9, 3.879510745021044*^9}},
+ CellLabel->"In[12]:=",ExpressionUUID->"14023f72-3421-4722-9272-7506d83b9097"],
+
+Cell[BoxData[
+ TagBox[
+  RowBox[{"(", "\[NoBreak]", 
+   TagBox[GridBox[{
+      {
+       RowBox[{
+        RowBox[{"-", "2"}], " ", "\[Pi]", " ", 
+        RowBox[{"Cos", "[", 
+         RowBox[{"2", " ", "\[Pi]", " ", "z"}], "]"}]}]},
+      {
+       RowBox[{
+        RowBox[{
+         RowBox[{"-", "2"}], " ", "\[Pi]", " ", 
+         RowBox[{"Cos", "[", 
+          RowBox[{"2", " ", "\[Pi]", " ", "x"}], "]"}]}], "-", 
+        RowBox[{"2", " ", "\[Pi]", " ", 
+         RowBox[{"Sin", "[", 
+          RowBox[{"2", " ", "\[Pi]", " ", "z"}], "]"}]}]}]},
+      {"0"}
+     },
+     GridBoxAlignment->{"Columns" -> {{Center}}, "Rows" -> {{Baseline}}},
+     GridBoxSpacings->{"Columns" -> {
+         Offset[0.27999999999999997`], {
+          Offset[0.5599999999999999]}, 
+         Offset[0.27999999999999997`]}, "Rows" -> {
+         Offset[0.2], {
+          Offset[0.4]}, 
+         Offset[0.2]}}],
+    Column], "\[NoBreak]", ")"}],
+  Function[BoxForm`e$, 
+   MatrixForm[BoxForm`e$]]]], "Output",
+ CellChangeTimes->{{3.879510702266861*^9, 3.8795107049918795`*^9}, {
+  3.8795107389258423`*^9, 3.8795107453488026`*^9}},
+ CellLabel->
+  "Out[13]//MatrixForm=",ExpressionUUID->"b90f9326-d301-4774-b000-\
+58606427505c"]
+}, Open  ]]
 },
-WindowSize->{571.8, 524.4},
-WindowMargins->{{284.4, Automatic}, {18, Automatic}},
+WindowSize->{573., 524.25},
+WindowMargins->{{Automatic, 140.25}, {102.75, Automatic}},
 FrontEndVersion->"12.1 for Microsoft Windows (64-bit) (June 19, 2020)",
 StyleDefinitions->"Default.nb",
 ExpressionUUID->"40bd1af3-fcc6-49c9-aa15-6294ab34eaba"
@@ -81,9 +139,12 @@ CellTagsIndex->{}
 *)
 (*NotebookFileOutline
 Notebook[{
-Cell[558, 20, 1315, 36, 229, "Input",ExpressionUUID->"4158b0bd-2153-4f04-b403-e20e1ab5d4ca"],
-Cell[1876, 58, 114, 2, 45, "Input",ExpressionUUID->"34dd7f23-aa1b-41d2-b68c-53babab788fe"],
-Cell[1993, 62, 114, 2, 45, "Input",ExpressionUUID->"14023f72-3421-4722-9272-7506d83b9097"]
+Cell[558, 20, 1315, 36, 225, "Input",ExpressionUUID->"4158b0bd-2153-4f04-b403-e20e1ab5d4ca"],
+Cell[1876, 58, 184, 3, 44, "Input",ExpressionUUID->"34dd7f23-aa1b-41d2-b68c-53babab788fe"],
+Cell[CellGroupData[{
+Cell[2085, 65, 683, 19, 95, "Input",ExpressionUUID->"14023f72-3421-4722-9272-7506d83b9097"],
+Cell[2771, 86, 1201, 35, 118, "Output",ExpressionUUID->"b90f9326-d301-4774-b000-58606427505c"]
+}, Open  ]]
 }
 ]
 *)
