@@ -55,9 +55,9 @@ int main(int argc, char *argv[]) {
     // for (int l = 0; l < 2; l++) {mesh.UniformRefinement();}
 
     // simulation parameters
-    double Re = 1;
-    double dt = 0.1;
-    int timesteps = 5;
+    double Re = 100000000;
+    double dt = 1;
+    int timesteps = 10;
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -122,6 +122,7 @@ int main(int argc, char *argv[]) {
     // boundary conditions
     // TODO: check whether this is necessary
     // TODO: check if boundary elements dont exist
+    // TODO: set the arrays to zero!
     mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof;
 
     // Matrix M
@@ -311,6 +312,29 @@ int main(int argc, char *argv[]) {
         // check solution after solver
         // printvector3(x,1,0,20,6);
         // printvector3(y,1,0,20,6);
+
+        // helicity
+        // TODO
+        mfem::Array <int> ess_tdof_list;
+        mfem::BilinearForm h(&ND);
+        mfem::SparseMatrix H;
+        h.AddDomainIntegrator(new mfem::MixedVectorWeakCurlIntegrator());
+        h.Assemble();
+        h.FormSystemMatrix(ess_tdof_list,H);
+        double helicity = H.InnerProduct(u,u);
+        std::cout << "H = "<< helicity << "\n";
+
+        // kin energy
+        // TODO is zero?
+        mfem::BilinearForm e(&ND);
+        mfem::SparseMatrix E;
+        // e.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
+        e.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator());
+        e.Assemble();
+        e.FormSystemMatrix(ess_tdof_list,E);
+        double energy = 1/2 * E.InnerProduct(u,u);
+        std::cout << "E = "<< energy << "\n";
+        
     }
 
     // free memory
