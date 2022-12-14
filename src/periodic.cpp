@@ -28,8 +28,6 @@
 
 
 // TODO: explicit euler for u^(1/2) and z^(1/2)
-// TODO: check convergence after conservation
-// TODO: are matrices and gridfunctions in right functionspaces? 
 
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix,
                   int rowoffset, int coloffset);
@@ -54,9 +52,9 @@ int main(int argc, char *argv[]) {
     // for (int l = 0; l < 2; l++) {mesh.UniformRefinement();}
 
     // simulation parameters
-    double Re_inv = 0; // = 1/Re
-    double dt = 1;
-    int timesteps = 1;
+    double Re_inv = 0.; // = 1/Re
+    double dt = 1.;
+    int timesteps = 3;
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -82,8 +80,8 @@ int main(int argc, char *argv[]) {
     mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0);
     u.ProjectCoefficient(u_0_coeff);
     v.ProjectCoefficient(u_0_coeff);
-    z.ProjectCoefficient(w_0_coeff);
     w.ProjectCoefficient(w_0_coeff);
+    z.ProjectCoefficient(w_0_coeff);
 
     // system size
     int size_1 = u.Size() + z.Size() + p.Size();
@@ -116,10 +114,10 @@ int main(int argc, char *argv[]) {
     std::cout << "progress: initialized unknowns\n";
 
     // boundary conditions
-    // TODO: how to implement periodic BCs; set arrays to zero?
-    // TODO: in ex9, esstdof array is empty
-    // TODO: assemble submatrices without BC, see ex5??
-    // TODO: check ex5,8,19 for boundary cond in blockmatrix problems??
+    // TODO: is this correct?
+    // TODO: ex5: submatrices without BC, ex9: esstdof is empty
+    // TODO: ex5,8,19: BC in blockmatrix problems
+    // TODO: check if matrices have diagonal struct, or weird BC artefacts
     mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof;
 
     // Matrix M
@@ -131,12 +129,10 @@ int main(int argc, char *argv[]) {
     blf_M.FormSystemMatrix(ND_etdof,M_n);
     M_dt = M_n;
     M_dt *= dt;
-    M_n *= -1.*Re_inv/2.;
+    // M_n *= -1.*Re_inv/2.;
+    M_n *= -1.;
     M_dt.Finalize();
     M_n.Finalize();
-
-    // std::cout << std::setprecision(3) << std::fixed;
-    // M_n.PrintMatlab(std::cout);
 
     // Matrix N
     mfem::BilinearForm blf_N(&RT);
@@ -147,7 +143,8 @@ int main(int argc, char *argv[]) {
     blf_N.FormSystemMatrix(RT_etdof,N_n);
     N_dt = N_n;
     N_dt *= dt;
-    N_n *= -1.*Re_inv/2.;
+    // N_n *= -1.*Re_inv/2.;
+    N_n *= -1.;
     N_dt.Finalize();
     N_n.Finalize();
 
@@ -227,7 +224,7 @@ int main(int argc, char *argv[]) {
     e.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator());
     e.Assemble();
     e.FormSystemMatrix(ess_tdof_list,E);
-    double energy0 = 1/2.0 * E.InnerProduct(u,u);
+    double energy0 = 1./2. * E.InnerProduct(u,u);
     std::cout << "E0 = "<< energy0 << "\n";
 
     // time loop
@@ -244,7 +241,7 @@ int main(int argc, char *argv[]) {
             new mfem::MixedCrossProductIntegrator(w_gfcoeff));
         blf_R1.Assemble();
         blf_R1.FormSystemMatrix(ND_etdof,R1);
-        R1 *= 1.0/2.0;
+        R1 *= 1./2.;
         R1.Finalize();
 
         // update R2
@@ -255,7 +252,7 @@ int main(int argc, char *argv[]) {
             new mfem::MixedCrossProductIntegrator(z_gfcoeff));
         blf_R2.Assemble();
         blf_R2.FormSystemMatrix(RT_etdof,R2);
-        R2 *= 1.0/2.0;
+        R2 *= 1./2.;
         R2.Finalize();
 
         // M+R and N+R
@@ -332,7 +329,7 @@ int main(int argc, char *argv[]) {
         e.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator());
         e.Assemble();
         e.FormSystemMatrix(ess_tdof_list,E);
-        double energy0 = 1/2.0 * E.InnerProduct(u,u);
+        double energy0 = 1./2. * E.InnerProduct(u,u);
         std::cout << "E0 = "<< energy0 << "\n";
 
 
@@ -348,14 +345,13 @@ int main(int argc, char *argv[]) {
 
         // TODO is zero?
         // kin energy
-        double energy1 = 1/2.0 * E.InnerProduct(u,u);
+        double energy1 = 1./2. * E.InnerProduct(u,u);
         std::cout << "E1 = "<< energy1 << "\n";
 
         // kin energy 
-        double energy2 = 1/2.0 * E.InnerProduct(v,v);
+        double energy2 = 1./2. * E.InnerProduct(v,v);
         std::cout << "E2 = "<< energy2 << "\n";
 
-        
     }
 
     // free memory
