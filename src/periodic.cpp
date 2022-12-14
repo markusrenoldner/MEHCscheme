@@ -28,8 +28,7 @@
 
 
 // TODO: explicit euler for u^(1/2) and z^(1/2)
-// TODO: check conservation first (not convergence) like 
-// in 5.1 with the given init cond.
+// TODO: check convergence after conservation
 // TODO: are matrices and gridfunctions in right functionspaces? 
 
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix,
@@ -49,15 +48,15 @@ int main(int argc, char *argv[]) {
     std::cout << "---------------launch MEHC---------------\n";
 
     // mesh
-    const char *mesh_file = "extern/mfem-4.5/data/periodic-cube.mesh";
+    const char *mesh_file = "extern/mfem-4.5/data/periodic-cube.mesh"; 
     mfem::Mesh mesh(mesh_file, 1, 1);
     int dim = mesh.Dimension();
     // for (int l = 0; l < 2; l++) {mesh.UniformRefinement();}
 
     // simulation parameters
-    double Re = 100000000;
+    double Re_inv = 0; // = 1/Re
     double dt = 1;
-    int timesteps = 10;
+    int timesteps = 1;
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -79,15 +78,12 @@ int main(int argc, char *argv[]) {
     mfem::GridFunction q(&DG); // q = 9.3;
 
     // initial condition
-    // TODO p,q
     mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
     mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0);
     u.ProjectCoefficient(u_0_coeff);
     v.ProjectCoefficient(u_0_coeff);
     z.ProjectCoefficient(w_0_coeff);
     w.ProjectCoefficient(w_0_coeff);
-    
-
 
     // system size
     int size_1 = u.Size() + z.Size() + p.Size();
@@ -120,9 +116,10 @@ int main(int argc, char *argv[]) {
     std::cout << "progress: initialized unknowns\n";
 
     // boundary conditions
-    // TODO: check whether this is necessary
-    // TODO: check if boundary elements dont exist
-    // TODO: set the arrays to zero!
+    // TODO: how to implement periodic BCs; set arrays to zero?
+    // TODO: in ex9, esstdof array is empty
+    // TODO: assemble submatrices without BC, see ex5??
+    // TODO: check ex5,8,19 for boundary cond in blockmatrix problems??
     mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof;
 
     // Matrix M
@@ -134,9 +131,12 @@ int main(int argc, char *argv[]) {
     blf_M.FormSystemMatrix(ND_etdof,M_n);
     M_dt = M_n;
     M_dt *= dt;
-    M_n *= -1./(2.*Re);
+    M_n *= -1.*Re_inv/2.;
     M_dt.Finalize();
     M_n.Finalize();
+
+    // std::cout << std::setprecision(3) << std::fixed;
+    // M_n.PrintMatlab(std::cout);
 
     // Matrix N
     mfem::BilinearForm blf_N(&RT);
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
     blf_N.FormSystemMatrix(RT_etdof,N_n);
     N_dt = N_n;
     N_dt *= dt;
-    N_n *= -1./(2.*Re);
+    N_n *= -1.*Re_inv/2.;
     N_dt.Finalize();
     N_n.Finalize();
 
@@ -163,10 +163,10 @@ int main(int argc, char *argv[]) {
     CT = Transpose(C);
     C_Re = C;
     CT_Re = *CT; 
-    C_Re *= 1./(2.*Re);
-    CT_Re *= 1./(2.*Re);
-    *CT *= (1./(2.*Re));
-    C *= (1./(2.*Re));
+    C_Re *= Re_inv/2.;
+    CT_Re *= Re_inv/2.;
+    *CT *= Re_inv/2.;
+    C *= Re_inv/2.;
     C.Finalize();
     CT->Finalize();
     C_Re.Finalize();
@@ -218,6 +218,17 @@ int main(int argc, char *argv[]) {
     mfem::Vector b2(size_2); 
     mfem::Vector b2sub(v.Size());
     std::cout << "progress: initialized RHS\n";
+
+    // energy
+    mfem::Array <int> ess_tdof_list;
+    mfem::BilinearForm e(&ND);
+    mfem::SparseMatrix E;
+    // e.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
+    e.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator());
+    e.Assemble();
+    e.FormSystemMatrix(ess_tdof_list,E);
+    double energy0 = 1/2.0 * E.InnerProduct(u,u);
+    std::cout << "E0 = "<< energy0 << "\n";
 
     // time loop
     double T;
@@ -306,34 +317,44 @@ int main(int argc, char *argv[]) {
         x.GetSubVector(z_dofs, z);
         x.GetSubVector(p_dofs, p);
         y.GetSubVector(v_dofs, v);
-        y.GetSubVector(w_dofs, w);
+        y.GetSubVector(w_dofs, w);      
         y.GetSubVector(q_dofs, q);
 
         // check solution after solver
         // printvector3(x,1,0,20,6);
         // printvector3(y,1,0,20,6);
 
-        // helicity
-        // TODO
+        // check inner products from discrete form for energy cons.
         mfem::Array <int> ess_tdof_list;
-        mfem::BilinearForm h(&ND);
-        mfem::SparseMatrix H;
-        h.AddDomainIntegrator(new mfem::MixedVectorWeakCurlIntegrator());
-        h.Assemble();
-        h.FormSystemMatrix(ess_tdof_list,H);
-        double helicity = H.InnerProduct(u,u);
-        std::cout << "H = "<< helicity << "\n";
-
-        // kin energy
-        // TODO is zero?
         mfem::BilinearForm e(&ND);
         mfem::SparseMatrix E;
         // e.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
         e.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator());
         e.Assemble();
         e.FormSystemMatrix(ess_tdof_list,E);
-        double energy = 1/2 * E.InnerProduct(u,u);
-        std::cout << "E = "<< energy << "\n";
+        double energy0 = 1/2.0 * E.InnerProduct(u,u);
+        std::cout << "E0 = "<< energy0 << "\n";
+
+
+        // helicity
+        // TODO
+        mfem::BilinearForm h(&ND);
+        mfem::SparseMatrix H;
+        h.AddDomainIntegrator(new mfem::MixedVectorWeakCurlIntegrator());
+        h.Assemble();
+        h.FormSystemMatrix(ess_tdof_list,H);
+        double helicity = H.InnerProduct(u,u);
+        // std::cout << "H = "<< helicity << "\n";
+
+        // TODO is zero?
+        // kin energy
+        double energy1 = 1/2.0 * E.InnerProduct(u,u);
+        std::cout << "E1 = "<< energy1 << "\n";
+
+        // kin energy 
+        double energy2 = 1/2.0 * E.InnerProduct(v,v);
+        std::cout << "E2 = "<< energy2 << "\n";
+
         
     }
 
@@ -353,6 +374,7 @@ void u_0(const mfem::Vector &x, mfem::Vector &v) {
     int dim = x.Size();
 
     // u0=(cos(2piz), sin(2piz), sin(2pix))
+    // TODO: make periodic on [-1,1]^3
     v(0) = std::cos(2*pi*x(3));
     v(1) = std::sin(2*pi*x(3)); 
     v(2) = std::sin(2*pi*x(1));
@@ -364,6 +386,7 @@ void w_0(const mfem::Vector &x, mfem::Vector &w) {
     int dim = x.Size();
 
     // w0=(-2pi cos(2piz), -2pi cos(2pix) -2pi sin(2piz), 0) 
+    // TODO: make periodic on [-1,1]^3
     w(0) = -2*pi*std::cos(2*pi*x(3));
     w(1) = -2*pi*std::cos(2*pi*x(1)) -2*pi*std::sin(2*pi*x(3)); 
     w(2) = 0;
