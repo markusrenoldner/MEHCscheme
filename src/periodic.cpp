@@ -27,7 +27,6 @@
 
 
 
-// TODO: explicit euler for u^(1/2) and z^(1/2)
 
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix,
                   int rowoffset, int coloffset);
@@ -54,7 +53,7 @@ int main(int argc, char *argv[]) {
     // simulation parameters
     double Re_inv = 0.; // = 1/Re
     double dt = 1.;
-    int timesteps = 3;
+    int timesteps = 5;
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -110,7 +109,7 @@ int main(int argc, char *argv[]) {
     std::iota(&p_dofs[0], &p_dofs[p.Size()], u.Size()+z.Size());
     std::iota(&v_dofs[0], &v_dofs[v.Size()], 0);
     std::iota(&w_dofs[0], &w_dofs[w.Size()], v.Size());
-    std::iota(&q_dofs[0], &q_dofs[q.Size()], v.Size()+q.Size());
+    std::iota(&q_dofs[0], &q_dofs[q.Size()], v.Size()+w.Size());
     std::cout << "progress: initialized unknowns\n";
 
     // boundary conditions
@@ -124,12 +123,11 @@ int main(int argc, char *argv[]) {
     mfem::BilinearForm blf_M(&ND);
     mfem::SparseMatrix M_dt;
     mfem::SparseMatrix M_n;
-    blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
+    blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
     blf_M.Assemble();
     blf_M.FormSystemMatrix(ND_etdof,M_n);
     M_dt = M_n;
-    M_dt *= dt;
-    // M_n *= -1.*Re_inv/2.;
+    M_dt *= 1/dt;
     M_n *= -1.;
     M_dt.Finalize();
     M_n.Finalize();
@@ -138,12 +136,11 @@ int main(int argc, char *argv[]) {
     mfem::BilinearForm blf_N(&RT);
     mfem::SparseMatrix N_dt;
     mfem::SparseMatrix N_n;
-    blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
+    blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
     blf_N.Assemble();
     blf_N.FormSystemMatrix(RT_etdof,N_n);
     N_dt = N_n;
-    N_dt *= dt;
-    // N_n *= -1.*Re_inv/2.;
+    N_dt *= 1/dt;
     N_n *= -1.;
     N_dt.Finalize();
     N_n.Finalize();
@@ -154,7 +151,7 @@ int main(int argc, char *argv[]) {
     mfem::SparseMatrix *CT;
     mfem::SparseMatrix C_Re;
     mfem::SparseMatrix CT_Re;
-    blf_C.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator());
+    blf_C.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator()); //=(curl u,v)
     blf_C.Assemble();
     blf_C.FormRectangularSystemMatrix(ND_etdof,RT_etdof,C);
     CT = Transpose(C);
@@ -173,7 +170,7 @@ int main(int argc, char *argv[]) {
     mfem::MixedBilinearForm blf_D(&RT, &DG);
     mfem::SparseMatrix D;
     mfem::SparseMatrix *DT_n;
-    blf_D.AddDomainIntegrator(new mfem::MixedScalarDivergenceIntegrator());
+    blf_D.AddDomainIntegrator(new mfem::MixedScalarDivergenceIntegrator()); //=(div u,v)
     blf_D.Assemble();
     blf_D.FormRectangularSystemMatrix(RT_etdof,DG_etdof,D);
     DT_n = Transpose(D);
@@ -185,13 +182,14 @@ int main(int argc, char *argv[]) {
     mfem::MixedBilinearForm blf_G(&CG, &ND);
     mfem::SparseMatrix G;
     mfem::SparseMatrix *GT;
-    blf_G.AddDomainIntegrator(new mfem::MixedVectorGradientIntegrator());
+    blf_G.AddDomainIntegrator(new mfem::MixedVectorGradientIntegrator()); //=(grad u,v)
     blf_G.Assemble();
     blf_G.FormRectangularSystemMatrix(CG_etdof,ND_etdof,G);
     GT = Transpose(G);
     G.Finalize();
     GT->Finalize();
 
+    // TODO change getvsize to u.size usw
     // initialize system matrices
     mfem::Array<int> offsets_1 (4);
     offsets_1[0] = 0;
@@ -216,16 +214,72 @@ int main(int argc, char *argv[]) {
     mfem::Vector b2sub(v.Size());
     std::cout << "progress: initialized RHS\n";
 
-    // energy
-    mfem::Array <int> ess_tdof_list;
-    mfem::BilinearForm e(&ND);
-    mfem::SparseMatrix E;
-    // e.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
-    e.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator());
-    e.Assemble();
-    e.FormSystemMatrix(ess_tdof_list,E);
-    double energy0 = 1./2. * E.InnerProduct(u,u);
-    std::cout << "E0 = "<< energy0 << "\n";
+
+
+
+
+    // conserved quantities
+    mfem::Array<int> ess_tdof_list;
+    
+    // mass1
+    mfem::MixedBilinearForm mblf1(&ND,&CG);
+    mfem::SparseMatrix mmat1;
+    mblf1.AddDomainIntegrator(new mfem::MixedVectorWeakDivergenceIntegrator());//=(u,grad v)
+    mblf1.Assemble();
+    mblf1.FormRectangularSystemMatrix(ess_tdof_list,ess_tdof_list,mmat1);
+    double mass1 = mmat1.InnerProduct(u,p);
+    std::cout << "mass1=" << mass1 << "\n";
+
+    // mass2
+    mfem::MixedBilinearForm mblf2(&DG,&RT);
+    mfem::SparseMatrix mmat2;
+    mblf2.AddDomainIntegrator(new mfem::MixedScalarWeakGradientIntegrator()); //=(u,div v)
+    mblf2.Assemble();
+    mblf2.FormRectangularSystemMatrix(ess_tdof_list,ess_tdof_list,mmat2);
+    double mass2 = mmat2.InnerProduct(q,v);
+    std::cout << "mass2=" << mass2 << "\n";
+
+    
+
+
+    // mass2
+    // mfem::MixedBilinearForm m2(&DG,&RT);
+    // mfem::SparseMatrix Mass2;
+    // m2.AddDomainIntegrator(new mfem::MixedScalarWeakGradientIntegrator());
+    // m2.Assemble();
+    // m2.FormRectangularSystemMatrix(ess_tdof_list,ess_tdof_list,Mass2);
+    // double mass2 = Mass2.InnerProduct(q,v);
+
+    // energy1
+    // mfem::Array <int> ess_tdof_list;
+    // mfem::BilinearForm e(&ND);
+    // mfem::SparseMatrix E;
+    // e.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator());
+    // e.Assemble();
+    // e.FormSystemMatrix(ess_tdof_list,E);
+    // double energy0 = 1./2. * E.InnerProduct(u,u);
+
+    // helicity1
+    // mfem::BilinearForm h(&ND);
+    // mfem::SparseMatrix H;
+    // h.AddDomainIntegrator(new mfem::MixedVectorWeakCurlIntegrator());
+    // h.Assemble();
+    // h.FormSystemMatrix(ess_tdof_list,H);
+    // double helicity = H.InnerProduct(u,u);
+
+    // check GT*u
+    mfem::Vector solu (u.Size());
+    GT->Mult(u,solu);
+    printvector3(solu,1,0,20,15);
+    
+    // check D*v
+    mfem::Vector solv (v.Size());
+    D.Mult(v,solv);
+    printvector3(solv,1,0,20,15);
+
+
+
+    // TODO: integrate explicit euler code
 
     // time loop
     double T;
@@ -238,7 +292,7 @@ int main(int argc, char *argv[]) {
         mfem::SparseMatrix R1;
         mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
         blf_R1.AddDomainIntegrator(
-            new mfem::MixedCrossProductIntegrator(w_gfcoeff));
+            new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
         blf_R1.Assemble();
         blf_R1.FormSystemMatrix(ND_etdof,R1);
         R1 *= 1./2.;
@@ -249,7 +303,7 @@ int main(int argc, char *argv[]) {
         mfem::SparseMatrix R2;
         mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
         blf_R2.AddDomainIntegrator(
-            new mfem::MixedCrossProductIntegrator(z_gfcoeff));
+            new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
         blf_R2.Assemble();
         blf_R2.FormSystemMatrix(RT_etdof,R2);
         R2 *= 1./2.;
@@ -270,6 +324,7 @@ int main(int argc, char *argv[]) {
         A1.SetBlock(1,0, &C);
         A1.SetBlock(1,1, &N_n);
         A1.SetBlock(2,0, GT);
+
         A2.SetBlock(0,0, &NR);
         A2.SetBlock(0,1, &C_Re);
         A2.SetBlock(0,2, DT_n);
@@ -294,14 +349,15 @@ int main(int argc, char *argv[]) {
         std::cout << "progress: updated RHS\n";
 
         // create symmetric system AT*A*x=AT*b
-        mfem::TransposeOperator AT1 (&A1), AT2 (&A2);
+        mfem::TransposeOperator AT1 (&A1);
+        mfem::TransposeOperator AT2 (&A2);
         mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
         mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
         mfem::Vector ATb1 (size_1);
         mfem::Vector ATb2 (size_2);
         A1.MultTranspose(b1,ATb1);
         A2.MultTranspose(b2,ATb2);
-        
+
         // solve 
         double tol = 1e-12;
         int iter = 10000;
@@ -321,38 +377,45 @@ int main(int argc, char *argv[]) {
         // printvector3(x,1,0,20,6);
         // printvector3(y,1,0,20,6);
 
-        // check inner products from discrete form for energy cons.
-        mfem::Array <int> ess_tdof_list;
-        mfem::BilinearForm e(&ND);
-        mfem::SparseMatrix E;
-        // e.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
-        e.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator());
-        e.Assemble();
-        e.FormSystemMatrix(ess_tdof_list,E);
-        double energy0 = 1./2. * E.InnerProduct(u,u);
-        std::cout << "E0 = "<< energy0 << "\n";
 
 
-        // helicity
-        // TODO
-        mfem::BilinearForm h(&ND);
-        mfem::SparseMatrix H;
-        h.AddDomainIntegrator(new mfem::MixedVectorWeakCurlIntegrator());
-        h.Assemble();
-        h.FormSystemMatrix(ess_tdof_list,H);
-        double helicity = H.InnerProduct(u,u);
-        // std::cout << "H = "<< helicity << "\n";
+        
 
-        // TODO is zero?
-        // kin energy
-        double energy1 = 1./2. * E.InnerProduct(u,u);
-        std::cout << "E1 = "<< energy1 << "\n";
 
-        // kin energy 
-        double energy2 = 1./2. * E.InnerProduct(v,v);
-        std::cout << "E2 = "<< energy2 << "\n";
+        // conserved quantities
+        // TODO: check terms from conservation proof
+        
+        // mass1
+        double mass1 = mmat1.InnerProduct(u,p);
+        std::cout << "mass1=" << mass1 << "\n";
+
+        // mass2
+        double mass2 = mmat2.InnerProduct(q,v);
+        std::cout << "mass2=" << mass2 << "\n";
+        // TODO find out why mass2 not conserved
+
+        // energy1
+        // double energy1 = 1./2. * E.InnerProduct(u,u);
+        // std::cout << "E1 = "<< energy1 << "\n";
+        
+        // helicity1
+        // double helicity = H.InnerProduct(u,u);
+        // std::cout << "H1 = "<< helicity << "\n";
+        
+
+
+
+
+
 
     }
+    std::cout << "---------------exit loop, t="<<T+dt<<"------------\n";
+
+    // check GT*u, D*v
+    GT->Mult(u,solu);
+    printvector3(solu,1,0,20,15);
+    D.Mult(v,solv);
+    printvector3(solv,1,0,20,15);
 
     // free memory
     delete fec_CG;
