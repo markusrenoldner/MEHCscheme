@@ -189,19 +189,18 @@ int main(int argc, char *argv[]) {
     G.Finalize();
     GT->Finalize();
 
-    // TODO change getvsize to u.size usw
     // initialize system matrices
     mfem::Array<int> offsets_1 (4);
     offsets_1[0] = 0;
-    offsets_1[1] = ND.GetVSize();
-    offsets_1[2] = RT.GetVSize();
-    offsets_1[3] = CG.GetVSize();
+    offsets_1[1] = u.Size();
+    offsets_1[2] = z.Size();
+    offsets_1[3] = p.Size();
     offsets_1.PartialSum(); // exclusive scan
     mfem::Array<int> offsets_2 (4);
     offsets_2[0] = 0;
-    offsets_2[1] = ND.GetVSize();
-    offsets_2[2] = RT.GetVSize();
-    offsets_2[3] = DG.GetVSize();
+    offsets_2[1] = v.Size();
+    offsets_2[2] = w.Size();
+    offsets_2[3] = q.Size();
     offsets_2.PartialSum();
     mfem::BlockMatrix A1(offsets_1);
     mfem::BlockMatrix A2(offsets_2);
@@ -267,16 +266,20 @@ int main(int argc, char *argv[]) {
     // h.FormSystemMatrix(ess_tdof_list,H);
     // double helicity = H.InnerProduct(u,u);
 
-    // check GT*u
-    mfem::Vector solu (u.Size());
-    GT->Mult(u,solu);
-    printvector3(solu,1,0,20,15);
-    
-    // check D*v
-    mfem::Vector solv (v.Size());
-    D.Mult(v,solv);
-    printvector3(solv,1,0,20,15);
+    // check GT*u, D*v
+    // mfem::Vector solu (u.Size());
+    // GT->Mult(u,solu);
+    // printvector3(solu,1,0,20,15);
+    // mfem::Vector solv (v.Size());
+    // D.Mult(v,solv);
+    // printvector3(solv,1,0,20,15);
 
+    
+    // check constraint nr2 for system 1:
+    mfem::Vector sol2 (z.Size());
+    C.Mult(u,sol2);
+    N_n.AddMult(z,sol2);
+    printvector3(sol2,1,0,20,15); //TODO: why is this not zero?
 
 
     // TODO: integrate explicit euler code
@@ -286,7 +289,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0 ; i < timesteps ; i++) {
         T = i*dt;
         std::cout << "---------------enter loop, t="<<T<<"-----------\n";
-
+        
         // update R1
         mfem::BilinearForm blf_R1(&ND);
         mfem::SparseMatrix R1;
@@ -384,6 +387,7 @@ int main(int argc, char *argv[]) {
 
         // conserved quantities
         // TODO: check terms from conservation proof
+        // TODO: check why D*v != 0
         
         // mass1
         double mass1 = mmat1.InnerProduct(u,p);
@@ -412,10 +416,17 @@ int main(int argc, char *argv[]) {
     std::cout << "---------------exit loop, t="<<T+dt<<"------------\n";
 
     // check GT*u, D*v
-    GT->Mult(u,solu);
-    printvector3(solu,1,0,20,15);
-    D.Mult(v,solv);
-    printvector3(solv,1,0,20,15);
+    // GT->Mult(u,solu);
+    // printvector3(solu,1,0,20,15);
+    // D.Mult(v,solv);
+    // printvector3(solv,1,0,20,15);
+
+    // check constrain 2
+    C.Mult(u,sol2);
+    N_n.AddMult(z,sol2);
+    printvector3(sol2,1,0,20,15);
+
+    
 
     // free memory
     delete fec_CG;
