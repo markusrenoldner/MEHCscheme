@@ -14,7 +14,7 @@ void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int r
     }
 }
 
-void printvector2(mfem::Vector vec, int stride=1) {
+void PrintVector2(mfem::Vector vec, int stride=1) {
     std::cout << std::endl<<"vec =\n";
     for (int j = 0; j<vec.Size(); j+=stride) {
         std::cout << std::setprecision(3) << std::fixed;
@@ -25,7 +25,7 @@ void printvector2(mfem::Vector vec, int stride=1) {
     std::cout << "--------------\n";
 }
 
-void printvector(mfem::Vector vec, int stride=1) {
+void PrintVector(mfem::Vector vec, int stride=1) {
     std::cout << std::endl<<"vec[::"<<stride<<"]=\n";
     for (int j = 0; j<vec.Size(); j+=stride) {
         std::cout << std::setprecision(3) << std::fixed;
@@ -34,7 +34,7 @@ void printvector(mfem::Vector vec, int stride=1) {
     std::cout << "--------------\n";
 }
 
-void printvector3(mfem::Vector vec, int stride=1, int start=0, int stop=0, int prec=3) {
+void PrintVector3(mfem::Vector vec, int stride=1, int start=0, int stop=0, int prec=3) {
     if (stop==0) { stop = vec.Size(); }
     std::cout << std::endl<<"vec=\n";
     for (int j = start; j<stop; j+=stride) {
@@ -45,7 +45,7 @@ void printvector3(mfem::Vector vec, int stride=1, int start=0, int stop=0, int p
 }
 
 
-void printmatrix(mfem::Matrix &mat, int prec=2) {
+void PrintMatrix(mfem::Matrix &mat, int prec=2) {
     for (int i = 0; i<mat.NumRows(); i++) {
         for (int j = 0; j<mat.NumCols(); j++) {
             std::cout << std::setprecision(prec) << std::fixed;

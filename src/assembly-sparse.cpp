@@ -18,8 +18,8 @@ using namespace mfem;
 
 
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset); 
-void printmatrix(mfem::Matrix &mat);
-void printvector(mfem::Vector vec, int stride=1);
+void PrintMatrix(mfem::Matrix &mat);
+void PrintVector(mfem::Vector vec, int stride=1);
 
 void printsparse(mfem::SparseMatrix mat) {
     int* I =  mat.GetI();

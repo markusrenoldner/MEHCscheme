@@ -17,8 +17,8 @@ using namespace mfem;
 // function names upper case without underscores: AddMatrix
 
 
-void printmatrix(mfem::Matrix &mat);
-void printvector(mfem::Vector vec, int stride=1);
+void PrintMatrix(mfem::Matrix &mat);
+void PrintVector(mfem::Vector vec, int stride=1);
 
 
 

@@ -16,10 +16,10 @@ using namespace mfem;
 
 
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix, int rowoffset, int coloffset);
-void printvector(mfem::Vector vec, int stride=1);
-void printvector2(mfem::Vector vec, int stride=1);
-void printvector3(mfem::Vector vec, int stride=1, int start=0, int stop=0, int prec=3);
-void printmatrix(mfem::Matrix &mat);
+void PrintVector(mfem::Vector vec, int stride=1);
+void PrintVector2(mfem::Vector vec, int stride=1);
+void PrintVector3(mfem::Vector vec, int stride=1, int start=0, int stop=0, int prec=3);
+void PrintMatrix(mfem::Matrix &mat);
 
 
 
