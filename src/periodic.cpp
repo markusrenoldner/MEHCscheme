@@ -1,8 +1,7 @@
-#include "mfem.hpp"
 #include <fstream>
 #include <iostream>
 #include <algorithm>
-
+#include "mfem.hpp"
 
 // MEHC scheme on periodic domain, like in the paper
 
@@ -30,11 +29,11 @@
 
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix,
                   int rowoffset, int coloffset);
-void printvector(mfem::Vector vec, int stride=1);
-void printvector2(mfem::Vector vec, int stride=1);
-void printvector3(mfem::Vector vec, int stride=1, 
+void PrintVector(mfem::Vector vec, int stride=1);
+void PrintVector2(mfem::Vector vec, int stride=1);
+void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
-void printmatrix(mfem::Matrix &mat, int prec=2);
+void PrintMatrix(mfem::Matrix &mat, int prec=2);
 void u_0(const mfem::Vector &x, mfem::Vector &v);
 void w_0(const mfem::Vector &x, mfem::Vector &w);
 
@@ -53,7 +52,7 @@ int main(int argc, char *argv[]) {
     // simulation parameters
     double Re_inv = 0.; // = 1/Re
     double dt = 1.;
-    int timesteps = 5;
+    int timesteps = 2;
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -68,9 +67,9 @@ int main(int argc, char *argv[]) {
 
     // unkowns and gridfunctions
     mfem::GridFunction u(&ND); // u = 4.3;
-    mfem::GridFunction z(&RT); // z = 5.3; 
+    mfem::GridFunction z(&RT); // z = 5.3;
     mfem::GridFunction p(&CG); // p = 6.3;
-    mfem::GridFunction v(&RT); // v = 7.3; 
+    mfem::GridFunction v(&RT); // v = 7.3;
     mfem::GridFunction w(&ND); // w = 8.3;
     mfem::GridFunction q(&DG); // q = 9.3;
 
@@ -79,13 +78,15 @@ int main(int argc, char *argv[]) {
     mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0);
     u.ProjectCoefficient(u_0_coeff);
     v.ProjectCoefficient(u_0_coeff);
-    w.ProjectCoefficient(w_0_coeff);
     z.ProjectCoefficient(w_0_coeff);
+    w.ProjectCoefficient(w_0_coeff);
 
     // system size
     int size_1 = u.Size() + z.Size() + p.Size();
     int size_2 = v.Size() + w.Size() + q.Size();
     std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
+    std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
+    std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n";
     
     // initialize solution vectors
     mfem::Vector x(size_1);
@@ -212,74 +213,94 @@ int main(int argc, char *argv[]) {
     mfem::Vector b2(size_2); 
     mfem::Vector b2sub(v.Size());
     std::cout << "progress: initialized RHS\n";
-
-
-
-
-
-    // conserved quantities
+    
+    // empty boundary DOF array for conservation tests
     mfem::Array<int> ess_tdof_list;
     
-    // mass1
+    // mass conservation 1
+    // TODO implement mass conservation correctly (divergence of u as an inner product?)
     mfem::MixedBilinearForm mblf1(&ND,&CG);
     mfem::SparseMatrix mmat1;
     mblf1.AddDomainIntegrator(new mfem::MixedVectorWeakDivergenceIntegrator());//=(u,grad v)
     mblf1.Assemble();
     mblf1.FormRectangularSystemMatrix(ess_tdof_list,ess_tdof_list,mmat1);
-    double mass1 = mmat1.InnerProduct(u,p);
-    std::cout << "mass1=" << mass1 << "\n";
 
-    // mass2
+    // mass conservation 2
     mfem::MixedBilinearForm mblf2(&DG,&RT);
     mfem::SparseMatrix mmat2;
     mblf2.AddDomainIntegrator(new mfem::MixedScalarWeakGradientIntegrator()); //=(u,div v)
     mblf2.Assemble();
     mblf2.FormRectangularSystemMatrix(ess_tdof_list,ess_tdof_list,mmat2);
-    double mass2 = mmat2.InnerProduct(q,v);
-    std::cout << "mass2=" << mass2 << "\n";
 
-    
+    // energy conservation 1
+    // TODO: fix conservation of E
+    // TODO: energy, helicity of init cond not coherent with paper
+    // TODO: use vectormassintegrator? or mixed...?
+    // TODO: look for use of "innerproduct" in mfem examples
+    mfem::BilinearForm eblf1(&ND);
+    mfem::SparseMatrix emat1;
+    eblf1.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator()); //=(u,v)
+    eblf1.Assemble();
+    eblf1.FormSystemMatrix(ess_tdof_list,emat1);
+
+    // energy conservation 2
+    mfem::BilinearForm eblf2(&RT);
+    mfem::SparseMatrix emat2;
+    eblf2.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator()); //=(u,v)
+    eblf2.Assemble();
+    eblf2.FormSystemMatrix(ess_tdof_list,emat2);
+
+    // helicity conservation 1
+    // TODO: fix conservation of H
+    mfem::BilinearForm hblf1(&ND);
+    mfem::SparseMatrix hmat1;
+    hblf1.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator()); //=(u,v)
+    hblf1.Assemble();
+    hblf1.FormSystemMatrix(ess_tdof_list,hmat1);
+
+    // helicity conservation 2
+    mfem::BilinearForm hblf2(&RT);
+    mfem::SparseMatrix hmat2;
+    hblf2.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator()); //=(u,v)
+    hblf2.Assemble();
+    hblf2.FormSystemMatrix(ess_tdof_list,hmat2);
+
+    // print
+    std::cout << "div(u) = " << mmat1.InnerProduct(u,p) << "\n";
+    std::cout << "div(v) = " << mmat2.InnerProduct(q,v) << "\n";
+    std::cout << "    E1 = " << 1./2.*emat1.InnerProduct(u,u) << "\n";
+    std::cout << "    E2 = " << 1./2.*emat2.InnerProduct(v,v) << "\n";
+    std::cout << "    H1 = " << hmat1.InnerProduct(u,w) << "\n";
+    std::cout << "    H2 = " << hmat2.InnerProduct(v,z) << "\n";
 
 
-    // mass2
-    // mfem::MixedBilinearForm m2(&DG,&RT);
-    // mfem::SparseMatrix Mass2;
-    // m2.AddDomainIntegrator(new mfem::MixedScalarWeakGradientIntegrator());
-    // m2.Assemble();
-    // m2.FormRectangularSystemMatrix(ess_tdof_list,ess_tdof_list,Mass2);
-    // double mass2 = Mass2.InnerProduct(q,v);
 
-    // energy1
-    // mfem::Array <int> ess_tdof_list;
-    // mfem::BilinearForm e(&ND);
-    // mfem::SparseMatrix E;
-    // e.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator());
-    // e.Assemble();
-    // e.FormSystemMatrix(ess_tdof_list,E);
-    // double energy0 = 1./2. * E.InnerProduct(u,u);
 
-    // helicity1
-    // mfem::BilinearForm h(&ND);
-    // mfem::SparseMatrix H;
-    // h.AddDomainIntegrator(new mfem::MixedVectorWeakCurlIntegrator());
-    // h.Assemble();
-    // h.FormSystemMatrix(ess_tdof_list,H);
-    // double helicity = H.InnerProduct(u,u);
 
-    // check GT*u, D*v
-    // mfem::Vector solu (u.Size());
-    // GT->Mult(u,solu);
-    // printvector3(solu,1,0,20,15);
-    // mfem::Vector solv (v.Size());
-    // D.Mult(v,solv);
-    // printvector3(solv,1,0,20,15);
 
-    
-    // check constraint nr2 for system 1:
-    mfem::Vector sol2 (z.Size());
-    C.Mult(u,sol2);
-    N_n.AddMult(z,sol2);
-    printvector3(sol2,1,0,20,15); //TODO: why is this not zero?
+
+
+    // TODO: check: w2 =? curl u1; w2 =? curl u2; etc.
+
+    // TODO check why Cu-Nz!=0 for init cond
+    // mfem::Vector sol1 (z.Size());
+    // C.Mult(u,sol1);
+    // N_n.AddMult(z,sol1);
+    // printvector3(sol1,1,10,50,15); 
+
+    // TODO check why CTv-Mw=0 for init cond
+    // mfem::Vector sol2 (w.Size());
+    // CT->Mult(v,sol2);
+    // M_n.AddMult(w,sol2);
+    // printvector3(sol2,2,10,50,15); 
+
+
+
+
+
+
+
+
 
 
     // TODO: integrate explicit euler code
@@ -367,6 +388,14 @@ int main(int argc, char *argv[]) {
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol); 
         mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol); 
         std::cout << "progress: MINRES\n";
+
+        // check residuum
+        // mfem::Vector res1(size_1); res1=0.;
+        // mfem::Vector res2(size_2); res2=0.;
+        // A1.Mult(x,res1); A2.Mult(y,res2);
+        // res1 -= b1; res2 -= b2;
+        // printvector3(res1,1,0,20,15);
+        // printvector3(res2,1,0,20,15);
         
         // extract solution values u,w,p,v,z,q from x,y
         x.GetSubVector(u_dofs, u);
@@ -380,53 +409,16 @@ int main(int argc, char *argv[]) {
         // printvector3(x,1,0,20,6);
         // printvector3(y,1,0,20,6);
 
-
-
-        
-
-
         // conserved quantities
-        // TODO: check terms from conservation proof
-        // TODO: check why D*v != 0
+        std::cout << "div(u) = " << mmat1.InnerProduct(u,p) << "\n";
+        std::cout << "div(v) = " << mmat2.InnerProduct(q,v) << "\n";
+        std::cout << "    E1 = " << 1./2.*emat1.InnerProduct(u,u) << "\n";
+        std::cout << "    E2 = " << 1./2.*emat2.InnerProduct(v,v) << "\n";
+        std::cout << "    H1 = " << hmat1.InnerProduct(u,w) << "\n";
+        std::cout << "    H2 = " << hmat2.InnerProduct(v,z) << "\n";
         
-        // mass1
-        double mass1 = mmat1.InnerProduct(u,p);
-        std::cout << "mass1=" << mass1 << "\n";
-
-        // mass2
-        double mass2 = mmat2.InnerProduct(q,v);
-        std::cout << "mass2=" << mass2 << "\n";
-        // TODO find out why mass2 not conserved
-
-        // energy1
-        // double energy1 = 1./2. * E.InnerProduct(u,u);
-        // std::cout << "E1 = "<< energy1 << "\n";
-        
-        // helicity1
-        // double helicity = H.InnerProduct(u,u);
-        // std::cout << "H1 = "<< helicity << "\n";
-        
-
-
-
-
-
-
     }
     std::cout << "---------------exit loop, t="<<T+dt<<"------------\n";
-
-    // check GT*u, D*v
-    // GT->Mult(u,solu);
-    // printvector3(solu,1,0,20,15);
-    // D.Mult(v,solv);
-    // printvector3(solv,1,0,20,15);
-
-    // check constrain 2
-    C.Mult(u,sol2);
-    N_n.AddMult(z,sol2);
-    printvector3(sol2,1,0,20,15);
-
-    
 
     // free memory
     delete fec_CG;
@@ -437,28 +429,28 @@ int main(int argc, char *argv[]) {
     std::cout << "---------------finish MEHC---------------\n";
 }
 
-
-void u_0(const mfem::Vector &x, mfem::Vector &v) {
+void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
     double pi = 3.14159265358979323846;
     int dim = x.Size();
 
-    // u0=(cos(2piz), sin(2piz), sin(2pix))
-    // TODO: make periodic on [-1,1]^3
-    v(0) = std::cos(2*pi*x(3));
-    v(1) = std::sin(2*pi*x(3)); 
-    v(2) = std::sin(2*pi*x(1));
+    // old: u0=(cos(2piz), sin(2piz), sin(2pix))
+    // u0=(cos(piz), sin(piz), sin(pix))
+    // periodic on [-1,1]^3
+    returnvalue(0) = std::cos(pi*x(3));
+    returnvalue(1) = std::sin(pi*x(3)); 
+    returnvalue(2) = std::sin(pi*x(1));
 }
 
-void w_0(const mfem::Vector &x, mfem::Vector &w) {
+void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
     double pi = 3.14159265358979323846;
     int dim = x.Size();
 
-    // w0=(-2pi cos(2piz), -2pi cos(2pix) -2pi sin(2piz), 0) 
-    // TODO: make periodic on [-1,1]^3
-    w(0) = -2*pi*std::cos(2*pi*x(3));
-    w(1) = -2*pi*std::cos(2*pi*x(1)) -2*pi*std::sin(2*pi*x(3)); 
-    w(2) = 0;
+    // old: w0=(-2pi cos(2piz), -2pi cos(2pix) -2pi sin(2piz), 0) 
+    // w0=(-pi cos(piz), -pi cos(pix) -pi sin(piz), 0) 
+    // periodic on [-1,1]^3
+    returnvalue(0) = -pi*std::cos(pi*x(3));
+    returnvalue(1) = -pi*std::cos(pi*x(1)) -pi*std::sin(pi*x(3)); 
+    returnvalue(2) = 0;
 }
-
