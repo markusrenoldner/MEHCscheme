@@ -36,7 +36,7 @@ void PrintVector(mfem::Vector vec, int stride=1) {
 
 void PrintVector3(mfem::Vector vec, int stride=1, int start=0, int stop=0, int prec=3) {
     if (stop==0) { stop = vec.Size(); }
-    std::cout << std::endl<<"vec=\n";
+    std::cout << "vec=\n";
     for (int j = start; j<stop; j+=stride) {
         std::cout << std::setprecision(prec) << std::fixed;
         std::cout << vec[j]<< "\n";
