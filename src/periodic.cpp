@@ -254,34 +254,6 @@ int main(int argc, char *argv[]) {
     mfem::Vector vec_47a (u.Size()); vec_47a=0.;
     mfem::Vector vec_46a (v.Size()); vec_46a=0.;
 
-
-
-
-    
-
-
-
-    // check (w1xu1,u1)
-    // TODO either mixed blf + mixedintegrator or both non-mixed!!!
-    // mfem::BilinearForm eblf3(&ND);
-    // mfem::SparseMatrix emat3;
-    // mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-    // eblf3.AddDomainIntegrator(
-    //     new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-    // eblf3.Assemble();
-    // eblf3.FormSystemMatrix(ND_etdof,emat3);
-    // std::cout << "Etest "<<emat3.InnerProduct(u,u)<<"\n";
-
-    // // check (w2xu2,u2)
-    // mfem::BilinearForm eblf4(&RT);
-    // mfem::SparseMatrix emat4;
-    // mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-    // eblf4.AddDomainIntegrator(
-    //     new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-    // eblf4.Assemble();
-    // eblf4.FormSystemMatrix(RT_etdof,emat4);
-    // std::cout << "Etest "<<emat4.InnerProduct(v,v)<<"\n";
-
     // time loop
     double T;
     for (int i = 0 ; i < timesteps ; i++) {
@@ -392,12 +364,12 @@ int main(int argc, char *argv[]) {
         // std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
 
         // eq 47b,46b
-        vec_47b=0.;
-        C.Mult(u,vec_47b);
-        N_n.AddMult(z,vec_47b);
-        vec_46b=0.;
-        CT->Mult(v, vec_46b);
-        M_n.AddMult(w,vec_46b);
+        // vec_47b=0.;
+        // C.Mult(u,vec_47b);
+        // N_n.AddMult(z,vec_47b);
+        // vec_46b=0.;
+        // CT->Mult(v, vec_46b);
+        // M_n.AddMult(w,vec_46b);
         // std::cout << "---eq 47b, 46b---\n"<<vec_47b.Norml2() << "\n";
         // std::cout << vec_46b.Norml2() << "\n";
     
@@ -416,78 +388,29 @@ int main(int argc, char *argv[]) {
         wavg.Add(1.,wold);
 
         // eq 47a,46a
-        vec_47a = 0.;
-        M_dt.AddMult(udiff,vec_47a);
-        R1.AddMult(uavg,vec_47a); 
-        CT_Re.AddMult(zavg,vec_47a); 
-        G.AddMult(p,vec_47a);
-        vec_46a = 0.;
-        N_dt.AddMult(vdiff,vec_46a);
-        R2.AddMult(vavg,vec_46a);
-        C_Re.AddMult(wavg,vec_46a);
-        DT_n->AddMult(q,vec_46a);
+        // vec_47a = 0.;
+        // M_dt.AddMult(udiff,vec_47a);
+        // R1.AddMult(uavg,vec_47a); 
+        // CT_Re.AddMult(zavg,vec_47a); 
+        // G.AddMult(p,vec_47a);
+        // vec_46a = 0.;
+        // N_dt.AddMult(vdiff,vec_46a);
+        // R2.AddMult(vavg,vec_46a);
+        // C_Re.AddMult(wavg,vec_46a);
+        // DT_n->AddMult(q,vec_46a);
         // std::cout <<"---eq 47a,46a---\n"<<vec_47a.Norml2() << "\n";
         // std::cout << vec_46a.Norml2() << "\n";
 
-        // eq 27a,26a term1
-        std::cout<<"---eq 27a,26a term1---\n"<<-1.*M_n.InnerProduct(udiff,uavg);
-        std::cout << "\n"<<-1.*N_n.InnerProduct(vdiff,vavg)<<"\n";
-    	
-        // eq 27a,26a term2
-        std::cout<<"---eq 27a,26a term2---\n"<<R1.InnerProduct(uavg,uavg);
-        std::cout << "\n"<<R2.InnerProduct(vavg,vavg)<<"\n";
+        // eq 27a,26a: all 4 terms for energy cons
+        // std::cout<<"---eq 27a,26a term1---\n"<<-1.*M_n.InnerProduct(udiff,uavg);
+        // std::cout << "\n"<<-1.*N_n.InnerProduct(vdiff,vavg)<<"\n";
+        // std::cout<<"---eq 27a,26a term2---\n"<<R1.InnerProduct(uavg,uavg);
+        // std::cout << "\n"<<R2.InnerProduct(vavg,vavg)<<"\n";
+        // std::cout<<"---eq 27a,26a term3---\n"<<CT->InnerProduct(zavg,uavg);
+        // std::cout << "\n"<<C.InnerProduct(wavg,vavg)<<"\n";
+        // std::cout << "---eq 27a,26a term4---\n"<<G.InnerProduct(p,uavg);
+        // std::cout << "\n"<<DT_n->InnerProduct(q,vavg)<<"\n";
 
-        // eq 27a,26a term3
-        std::cout<<"---eq 27a,26a term3---\n"<<CT->InnerProduct(zavg,uavg);
-        std::cout << "\n"<<C.InnerProduct(wavg,vavg)<<"\n";
-
-        // eq 27a,26a term 4
-        std::cout << "---eq 27a,26a term4---\n"<<G.InnerProduct(p,uavg);
-        std::cout << "\n"<<DT_n->InnerProduct(q,vavg)<<"\n";
-
-        
-
-
-
-
-
-
-        // TODO: check section 3.2.2
-        // second term of discrete energy conservation for u
-        // mfem::BilinearForm eblf3(&ND);
-        // mfem::SparseMatrix emat3;
-        // mfem::VectorGridFunctionCoefficient z_gfcoeff1(&z);
-        // eblf3.AddDomainIntegrator(
-        //     new mfem::MixedCrossProductIntegrator(z_gfcoeff1)); //=(wxu,v) 
-        // eblf3.Assemble();
-        // eblf3.FormSystemMatrix(ND_etdof,emat3);
-        
-        // mfem::Vector uavg (u.Size());
-        // uavg = 0.;
-        // uavg.Add(1.,u);
-        // uavg.Add(1.,uold);
-        // uavg *= 0.5;
-        // mfem::Vector udiff(u.Size());
-        // udiff = 0.;
-        // udiff.Add(.5,u);
-        // udiff.Add(-.5,uold);
-        // std::cout << "second term for u:"<<emat3.InnerProduct(uavg,uavg)<< "\n";
-        // std::cout << "div(u) = " << mmat1.InnerProduct(uavg,p) << "\n";
-        
-        // mfem::BilinearForm disckinetic(&ND);
-        // mfem::SparseMatrix discmat;
-        // disckinetic.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
-        // disckinetic.Assemble();
-        // disckinetic.FormSystemMatrix(ND_etdof,discmat);
-        // std::cout << "K= " << discmat.InnerProduct(udiff,uavg)<<"\n";
-
-        // second term of discrete energy conservation for v
-        // mfem::BilinearForm eblf4(&RT);
-        // mfem::SparseMatrix emat4;
-        // mfem::VectorGridFunctionCoefficient z_gfcoeff1(&z);
-        // eblf3.AddDomainIntegrator(
-        //     new mfem::MixedCrossProductIntegrator(z_gfcoeff1)); //=(wxu,v)
-        
         // update old (previous time step) values for next time step
         uold = u;
         vold = v;
