@@ -80,10 +80,18 @@ int main(int argc, char *argv[]) {
     v.ProjectCoefficient(u_0_coeff);
     z.ProjectCoefficient(w_0_coeff);
     w.ProjectCoefficient(w_0_coeff);
+    
+    // helper vectors to compute some discrete objects
     mfem::Vector uold = u;
     mfem::Vector vold = v;
     mfem::Vector zold = z;
     mfem::Vector wold = w;
+    mfem::Vector udiff(u.Size()); 
+    mfem::Vector uavg (u.Size()); 
+    mfem::Vector zavg (z.Size()); 
+    mfem::Vector vdiff(v.Size()); 
+    mfem::Vector vavg (v.Size()); 
+    mfem::Vector wavg (w.Size()); 
 
     // system size
     int size_1 = u.Size() + z.Size() + p.Size();
@@ -227,9 +235,9 @@ int main(int argc, char *argv[]) {
     // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
     // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
     // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
+    // TODO fix helicity conservation
     // std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
     // std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
-    // TODO fix helicity conservation
 
 
     // check eq 47b,46b
@@ -380,8 +388,8 @@ int main(int argc, char *argv[]) {
         // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
         // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
         // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
-        std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
-        std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
+        // std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
+        // std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
 
         // eq 47b,46b
         vec_47b=0.;
@@ -394,23 +402,17 @@ int main(int argc, char *argv[]) {
         // std::cout << vec_46b.Norml2() << "\n";
     
         // diff and avg values
-        mfem::Vector udiff(u.Size()); udiff = 0.;
-        udiff.Add(1.,u);
+        udiff = u;
         udiff.Add(-1.,uold);
-        mfem::Vector uavg (u.Size()); uavg = 0.;
-        uavg.Add(1.,u);
+        uavg = u;
         uavg.Add(1.,uold);
-        mfem::Vector zavg (z.Size()); zavg = 0.;
-        zavg.Add(1.,z);
+        zavg = z;
         zavg.Add(1.,zold);
-        mfem::Vector vdiff(v.Size()); vdiff = 0.;
-        vdiff.Add(1.,v);
+        vdiff = v;
         vdiff.Add(-1.,vold);
-        mfem::Vector vavg (v.Size()); vavg = 0.;
-        vavg.Add(1.,v);
+        vavg = v;
         vavg.Add(1.,vold);
-        mfem::Vector wavg (w.Size()); wavg = 0.;
-        wavg.Add(1.,w);
+        wavg = w;
         wavg.Add(1.,wold);
 
         // eq 47a,46a
@@ -426,19 +428,26 @@ int main(int argc, char *argv[]) {
         DT_n->AddMult(q,vec_46a);
         // std::cout <<"---eq 47a,46a---\n"<<vec_47a.Norml2() << "\n";
         // std::cout << vec_46a.Norml2() << "\n";
-    	
-        // sec3.2.2/eq27a, 26a term 2: (wk x uk, uk), (zk-1/2 x vk-1/2 , vk-1/2)
-        uavg = 0.;
-        uavg.Add(1.,u);
-        uavg.Add(1.,uold);
-        vavg = 0.;
-        vavg.Add(1.,v);
-        vavg.Add(1.,vold);
-        // TODO replace R1 by blf_R1 for consistency
-        // std::cout<<"---sec 3.2.2/eq 27a,26a---\n"<<R1.InnerProduct(uavg,uavg)<<"\n";
-        // std::cout << R2.InnerProduct(vavg,vavg)<<"\n";
 
-        // sec3.2.2/eq27a term 3: 1/Re(zk,curl uk) TODO 3,4: use CT, C, G, DTn
+        // eq 27a,26a term1
+        std::cout<<"---eq 27a,26a term1---\n"<<-1.*M_n.InnerProduct(udiff,uavg);
+        std::cout << "\n"<<-1.*N_n.InnerProduct(vdiff,vavg)<<"\n";
+    	
+        // eq 27a,26a term2
+        std::cout<<"---eq 27a,26a term2---\n"<<R1.InnerProduct(uavg,uavg);
+        std::cout << "\n"<<R2.InnerProduct(vavg,vavg)<<"\n";
+
+        // eq 27a,26a term3
+        std::cout<<"---eq 27a,26a term3---\n"<<CT->InnerProduct(zavg,uavg);
+        std::cout << "\n"<<C.InnerProduct(wavg,vavg)<<"\n";
+
+        // eq 27a,26a term 4
+        std::cout << "---eq 27a,26a term4---\n"<<G.InnerProduct(p,uavg);
+        std::cout << "\n"<<DT_n->InnerProduct(q,vavg)<<"\n";
+
+        
+
+
 
 
 
@@ -449,7 +458,7 @@ int main(int argc, char *argv[]) {
         // mfem::SparseMatrix emat3;
         // mfem::VectorGridFunctionCoefficient z_gfcoeff1(&z);
         // eblf3.AddDomainIntegrator(
-        //     new mfem::MixedCrossProductIntegrator(z_gfcoeff1)); //=(wxu,v) TODO: is that correct? should it be (wxu,u)?
+        //     new mfem::MixedCrossProductIntegrator(z_gfcoeff1)); //=(wxu,v) 
         // eblf3.Assemble();
         // eblf3.FormSystemMatrix(ND_etdof,emat3);
         
