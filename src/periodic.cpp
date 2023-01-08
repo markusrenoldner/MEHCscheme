@@ -217,50 +217,29 @@ int main(int argc, char *argv[]) {
     // empty boundary DOF array for conservation tests
     mfem::Array<int> ess_tdof_list;
     
-    // mass conservation
+    // conservation properties
+    // TODO: look for use of "innerproduct" in mfem examples 10,27
     mfem::Vector mass_vec1 (p.Size());
     mfem::Vector mass_vec2 (q.Size());
     GT->Mult(u,mass_vec1);
     D.Mult(v,mass_vec2);
     // std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
     // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
+    // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
+    // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
+    // std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
+    // std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
+    // TODO fix helicity conservation
 
-    // TODO energy conservation
-    // TODO: use vectormassintegrator? or mixed...?
-    // TODO: look for use of "innerproduct" in mfem examples 10,27
-    // TODO either mixed blf + mixedintegrator or both non-mixed!!!
-    mfem::BilinearForm eblf1(&ND);
-    // eblf1.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator()); //=(u,v)
-    eblf1.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
-    
-    eblf1.Assemble();
-    mfem::BilinearForm eblf2(&RT);
-    // eblf2.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator()); //=(u,v)
-    eblf2.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
-    eblf2.Assemble();
-    std::cout << "    E1 = " << 1./2.*eblf1.InnerProduct(u,u) << "\n";
-    std::cout << "    E2 = " << 1./2.*eblf2.InnerProduct(v,v) << "\n";
 
-    // TODO helicity conservation
-    mfem::BilinearForm hblf1(&ND);
-    hblf1.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator()); //=(u,v)
-    hblf1.Assemble();
-    mfem::BilinearForm hblf2(&RT);
-    hblf2.AddDomainIntegrator(new mfem::MixedVectorMassIntegrator()); //=(u,v)
-    hblf2.Assemble();
-    // std::cout << "    H1 = " << hblf1.InnerProduct(u,w) << "\n";
-    // std::cout << "    H2 = " << hblf2.InnerProduct(v,z) << "\n";
-
-    // check eq 47b
+    // check eq 47b,46b
     mfem::Vector vec_47b (z.Size()); vec_47b=0.;
     C.Mult(u,vec_47b);
     N_n.AddMult(z,vec_47b);
-    // std::cout << "---eq 46b, 47b---\n" << vec_47b.Norml2() << "\n";
-    
-    // check eq 46b
     mfem::Vector vec_46b (w.Size()); vec_46b=0.;
     CT->Mult(v, vec_46b);
     M_n.AddMult(w,vec_46b);
+    // std::cout << "---eq 46b, 47b---\n" << vec_47b.Norml2() << "\n";
     // std::cout << vec_46b.Norml2() << "\n";
 
     // eq 46a,47a
@@ -270,17 +249,12 @@ int main(int argc, char *argv[]) {
 
 
 
-
-
-
-
-
-    
     
 
 
 
     // check (w1xu1,u1)
+    // TODO either mixed blf + mixedintegrator or both non-mixed!!!
     // mfem::BilinearForm eblf3(&ND);
     // mfem::SparseMatrix emat3;
     // mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
@@ -307,38 +281,31 @@ int main(int argc, char *argv[]) {
         std::cout << "---------------enter loop, t="<<T<<"-----------\n";
         
         // update R1
-        mfem::BilinearForm blf_R1(&ND);
+        mfem::MixedBilinearForm blf_R1(&ND,&ND);
         mfem::SparseMatrix R1;
         mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
         blf_R1.AddDomainIntegrator(
             new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
         blf_R1.Assemble();
-        blf_R1.FormSystemMatrix(ND_etdof,R1);
+        blf_R1.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1);
         R1 *= 1./2.;
         R1.Finalize();
 
         // update R2
-        mfem::BilinearForm blf_R2(&RT);
+        mfem::MixedBilinearForm blf_R2(&RT,&RT);
         mfem::SparseMatrix R2;
         mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
         blf_R2.AddDomainIntegrator(
             new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
         blf_R2.Assemble();
-        blf_R2.FormSystemMatrix(RT_etdof,R2);
+        blf_R2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2);
         R2 *= 1./2.;
         R2.Finalize();
 
         // M+R and N+R
         mfem::SparseMatrix MR = M_dt;
         mfem::SparseMatrix NR = N_dt;
-        
-        
-        // MR.PrintInfo(std::cout);
-        // MR.PrintInfo(std::cout);
-        
-        MR.Add(1,R1);  // TODO!!!!!!!!!!!!!!!!!!! should be MR.Add(1,R1); ?
         NR.Add(1,R2);
-        // MR.Add(1,R1)
         MR.Finalize();
         NR.Finalize();
 
@@ -411,24 +378,22 @@ int main(int argc, char *argv[]) {
         D.Mult(v,mass_vec2);
         // std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
         // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
-        std::cout << "    E1 = " << 1./2.*eblf1.InnerProduct(u,u) << "\n";
-        std::cout << "    E2 = " << 1./2.*eblf2.InnerProduct(v,v) << "\n";
-        // std::cout << "    H1 = " << hblf1.InnerProduct(u,w) << "\n";
-        // std::cout << "    H2 = " << hblf2.InnerProduct(v,z) << "\n";
+        // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
+        // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
+        std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
+        std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
 
-        // eq 47b
+        // eq 47b,46b
         vec_47b=0.;
         C.Mult(u,vec_47b);
         N_n.AddMult(z,vec_47b);
-        // std::cout << "---eq 47b, 46b---\n"<<vec_47b.Norml2() << "\n";
-
-        // eq 46b
         vec_46b=0.;
         CT->Mult(v, vec_46b);
         M_n.AddMult(w,vec_46b);
+        // std::cout << "---eq 47b, 46b---\n"<<vec_47b.Norml2() << "\n";
         // std::cout << vec_46b.Norml2() << "\n";
     
-        // eq 47a:  
+        // diff and avg values
         mfem::Vector udiff(u.Size()); udiff = 0.;
         udiff.Add(1.,u);
         udiff.Add(-1.,uold);
@@ -438,14 +403,6 @@ int main(int argc, char *argv[]) {
         mfem::Vector zavg (z.Size()); zavg = 0.;
         zavg.Add(1.,z);
         zavg.Add(1.,zold);
-        vec_47a = 0.;
-        M_dt.AddMult(udiff,vec_47a);
-        R1.AddMult(uavg,vec_47a); 
-        CT_Re.AddMult(zavg,vec_47a); 
-        G.AddMult(p,vec_47a);
-        // std::cout <<"---eq 47a,46a---\n"<<vec_47a.Norml2() << "\n";
-
-        // TODO eq 46a: doesnt work
         mfem::Vector vdiff(v.Size()); vdiff = 0.;
         vdiff.Add(1.,v);
         vdiff.Add(-1.,vold);
@@ -455,23 +412,30 @@ int main(int argc, char *argv[]) {
         mfem::Vector wavg (w.Size()); wavg = 0.;
         wavg.Add(1.,w);
         wavg.Add(1.,wold);
+
+        // eq 47a,46a
+        vec_47a = 0.;
+        M_dt.AddMult(udiff,vec_47a);
+        R1.AddMult(uavg,vec_47a); 
+        CT_Re.AddMult(zavg,vec_47a); 
+        G.AddMult(p,vec_47a);
         vec_46a = 0.;
         N_dt.AddMult(vdiff,vec_46a);
         R2.AddMult(vavg,vec_46a);
         C_Re.AddMult(wavg,vec_46a);
         DT_n->AddMult(q,vec_46a);
+        // std::cout <<"---eq 47a,46a---\n"<<vec_47a.Norml2() << "\n";
         // std::cout << vec_46a.Norml2() << "\n";
     	
-        // sec3.2.2/eq27a term 2: (wk x uk, uk)
+        // sec3.2.2/eq27a, 26a term 2: (wk x uk, uk), (zk-1/2 x vk-1/2 , vk-1/2)
         uavg = 0.;
         uavg.Add(1.,u);
         uavg.Add(1.,uold);
-        // std::cout<<"---sec 3.2.2/eq 27a,26a---\n"<<R1.InnerProduct(uavg,uavg)<<"\n";
-
-        // sec3.2.2/eq26a term 2: (zk-1/2 x vk-1/2 , vk-1/2)
         vavg = 0.;
         vavg.Add(1.,v);
         vavg.Add(1.,vold);
+        // TODO replace R1 by blf_R1 for consistency
+        // std::cout<<"---sec 3.2.2/eq 27a,26a---\n"<<R1.InnerProduct(uavg,uavg)<<"\n";
         // std::cout << R2.InnerProduct(vavg,vavg)<<"\n";
 
         // sec3.2.2/eq27a term 3: 1/Re(zk,curl uk) TODO 3,4: use CT, C, G, DTn
