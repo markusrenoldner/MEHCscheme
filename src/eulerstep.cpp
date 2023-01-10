@@ -64,6 +64,8 @@ int main(int argc, char *argv[]) {
     int size_1 = u.Size() + z.Size() + p.Size();
     int size_2 = v.Size() + w.Size() + q.Size();
     std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
+    std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
+    std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n";
     
     // initialize solution vectors
     mfem::Vector x(size_1);
@@ -78,7 +80,6 @@ int main(int argc, char *argv[]) {
     std::iota(&u_dofs[0], &u_dofs[u.Size()], 0);
     std::iota(&z_dofs[0], &z_dofs[z.Size()], u.Size());
     std::iota(&p_dofs[0], &p_dofs[p.Size()], u.Size()+z.Size());
-    std::cout << "progress: initialized unknowns\n";
 
     // boundary conditions
     mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof;
@@ -87,11 +88,11 @@ int main(int argc, char *argv[]) {
     mfem::BilinearForm blf_M(&ND);
     mfem::SparseMatrix M_dt;
     mfem::SparseMatrix M_n;
-    blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
+    blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
     blf_M.Assemble();
     blf_M.FormSystemMatrix(ND_etdof,M_n);
     M_dt = M_n;
-    M_dt *= dt;
+    M_dt *= 1/dt;
     M_n *= -1.;
     M_dt.Finalize();
     M_n.Finalize();
@@ -100,11 +101,11 @@ int main(int argc, char *argv[]) {
     mfem::BilinearForm blf_N(&RT);
     mfem::SparseMatrix N_dt;
     mfem::SparseMatrix N_n;
-    blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator());
+    blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
     blf_N.Assemble();
     blf_N.FormSystemMatrix(RT_etdof,N_n);
     N_dt = N_n;
-    N_dt *= dt;
+    N_dt *= 1/dt;
     N_n *= -1.;
     N_dt.Finalize();
     N_n.Finalize();
@@ -112,20 +113,39 @@ int main(int argc, char *argv[]) {
     // Matrix C
     mfem::MixedBilinearForm blf_C(&ND, &RT);
     mfem::SparseMatrix C;
-    mfem::SparseMatrix *CT_Re;
-    blf_C.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator());
+    mfem::SparseMatrix *CT;
+    mfem::SparseMatrix C_Re;
+    mfem::SparseMatrix CT_Re;
+    blf_C.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator()); //=(curl u,v)
     blf_C.Assemble();
     blf_C.FormRectangularSystemMatrix(ND_etdof,RT_etdof,C);
-    CT_Re = Transpose(C);
-    *CT_Re *= Re_inv;
+    CT = Transpose(C);
+    C_Re = C;
+    CT_Re = *CT; 
+    C_Re *= Re_inv/2.;
+    CT_Re *= Re_inv/2.;
     C.Finalize();
-    CT_Re->Finalize();
+    CT->Finalize();
+    C_Re.Finalize();
+    CT_Re.Finalize();
+
+    // Matrix D
+    mfem::MixedBilinearForm blf_D(&RT, &DG);
+    mfem::SparseMatrix D;
+    mfem::SparseMatrix *DT_n;
+    blf_D.AddDomainIntegrator(new mfem::MixedScalarDivergenceIntegrator()); //=(div u,v)
+    blf_D.Assemble();
+    blf_D.FormRectangularSystemMatrix(RT_etdof,DG_etdof,D);
+    DT_n = Transpose(D);
+    *DT_n *= -1.;
+    D.Finalize();
+    DT_n->Finalize();
 
     // Matrix G
     mfem::MixedBilinearForm blf_G(&CG, &ND);
     mfem::SparseMatrix G;
     mfem::SparseMatrix *GT;
-    blf_G.AddDomainIntegrator(new mfem::MixedVectorGradientIntegrator());
+    blf_G.AddDomainIntegrator(new mfem::MixedVectorGradientIntegrator()); //=(grad u,v)
     blf_G.Assemble();
     blf_G.FormRectangularSystemMatrix(CG_etdof,ND_etdof,G);
     GT = Transpose(G);
@@ -133,70 +153,78 @@ int main(int argc, char *argv[]) {
     GT->Finalize();
     
     // update R1
-    mfem::BilinearForm blf_R1(&ND);
+    mfem::MixedBilinearForm blf_R1(&ND,&ND);
     mfem::SparseMatrix R1;
     mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
     blf_R1.AddDomainIntegrator(
-        new mfem::MixedCrossProductIntegrator(w_gfcoeff));
+        new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
     blf_R1.Assemble();
-    blf_R1.FormSystemMatrix(ND_etdof,R1);
+    blf_R1.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1);
     R1 *= 1./2.;
     R1.Finalize();
 
     // initialize system matrices
     mfem::Array<int> offsets_1 (4);
     offsets_1[0] = 0;
-    offsets_1[1] = ND.GetVSize();
-    offsets_1[2] = RT.GetVSize();
-    offsets_1[3] = CG.GetVSize();
+    offsets_1[1] = u.Size();
+    offsets_1[2] = z.Size();
+    offsets_1[3] = p.Size();
     offsets_1.PartialSum(); // exclusive scan
-    mfem::BlockMatrix A1_0(offsets_1);
-    std::cout << "progress: initialized system matrices\n";
+    mfem::BlockMatrix A1(offsets_1);
 
     // initialize rhs
     mfem::Vector b1(size_1);
     mfem::Vector b1sub(u.Size());
     mfem::Vector b2(size_2); 
     mfem::Vector b2sub(v.Size());
-    std::cout << "progress: initialized RHS\n";
 
-    // update A1_0
-    A1_0.SetBlock(0,0, &M_dt);
-    A1_0.SetBlock(0,1, CT_Re);
-    A1_0.SetBlock(0,2, &G);
-    A1_0.SetBlock(1,0, &C);
-    A1_0.SetBlock(1,1, &N_n);
-    A1_0.SetBlock(2,0, GT);
+    ///////////////////////////////////////////////////////////////
 
-    // update b1, b2
+    // M,R,CT for eulerstep
+    mfem::SparseMatrix MR_0 = M_dt;
+    mfem::SparseMatrix CT_0 = CT_Re;
+    MR_0.Add(1,R1);
+    MR_0 *= 2;
+    CT_0 *= 2;
+    MR_0.Finalize();
+    CT_0.Finalize();
+
+    // update A1 for eulerstep
+    A1.SetBlock(0,0, &MR_0);
+    A1.SetBlock(0,1, &CT_0);
+    A1.SetBlock(0,2, &G);
+    A1.SetBlock(1,0, &C);
+    A1.SetBlock(1,1, &N_n);
+    A1.SetBlock(2,0, GT);
+
+    // update b1, b2 for eulerstep
     b1 = 0.0;
     b1sub = 0.0;
-    M_dt.AddMult(u,b1sub);
-    R1.AddMult(u,b1sub,-1);
-    CT_Re->AddMult(z,b1sub,-1);
+    M_dt.AddMult(u,b1sub,2);
     b1.AddSubVector(b1sub,0);
-    std::cout << "progress: updated RHS\n";
 
-    // create symmetric system AT*A*x=AT*b
-    mfem::TransposeOperator AT1_0 (&A1_0);
-    mfem::ProductOperator ATA1_0 (&AT1_0,&A1_0,false,false);
-    mfem::Vector ATb1_0 (size_1);
-    A1_0.MultTranspose(b1,ATb1_0);
+    // create symmetric system AT*A*x=AT*b for eulerstep
+    mfem::TransposeOperator AT1 (&A1);
+    mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
+    mfem::Vector ATb1 (size_1);
+    A1.MultTranspose(b1,ATb1);
     
-    // solve 
+    // solve eulerstep
     double tol = 1e-12;
     int iter = 10000;
-    mfem::MINRES(ATA1_0, ATb1_0, x, 0, iter, tol*tol, tol*tol); 
-    std::cout << "progress: MINRES\n";
-    
-    // extract solution values u,w,p,v,z,q from x,y
+    mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol); 
+
+    // extract solution values u,z,p from eulerstep
     x.GetSubVector(u_dofs, u);
     x.GetSubVector(z_dofs, z);
     x.GetSubVector(p_dofs, p);
 
-    printvector3(x,1,0,20);
-    printvector3(x,1,u.Size()+1,u.Size()+20);
-    printvector3(x,1,u.Size()+z.Size(),u.Size()+z.Size()+20);
+    ///////////////////////////////////////////////////////////////
+    
+
+    // PrintVector3(x,1,0,20);
+    // PrintVector3(x,1,u.Size()+1,u.Size()+20);
+    // PrintVector3(x,1,u.Size()+z.Size(),u.Size()+z.Size()+20);
 
 
     // free memory
@@ -208,9 +236,6 @@ int main(int argc, char *argv[]) {
     std::cout << "---------------finish MEHC---------------\n";
 
 }
-
-
-
 
 void u_0(const mfem::Vector &x, mfem::Vector &v) {
    
