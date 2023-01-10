@@ -35,7 +35,7 @@ void PrintVector3(mfem::Vector vec, int stride=1,
                   int start=0, int stop=0, int prec=3);
 void PrintMatrix(mfem::Matrix &mat, int prec=2);
 void u_0(const mfem::Vector &x, mfem::Vector &v);
-void w_0(const mfem::Vector &x, mfem::Vector &w);
+void v_0(const mfem::Vector &x, mfem::Vector &v);
 
 
 
@@ -45,14 +45,14 @@ int main(int argc, char *argv[]) {
 
     // mesh
     const char *mesh_file = "extern/mfem-4.5/data/periodic-cube.mesh"; 
-    mfem::Mesh mesh(mesh_file, 1, 1);
-    int dim = mesh.Dimension();
-    // for (int l = 0; l < 2; l++) {mesh.UniformRefinement();}
+    mfem::Mesh mesh(mesh_file, 1, 1); 
+    int dim = mesh.Dimension(); 
+    // for (int l = 0; l < 2; l++) {mesh.UniformRefinement();} 
 
     // simulation parameters
-    double Re_inv = 0.; // = 1/Re
-    double dt = 1.;
-    int timesteps = 10;
+    double Re_inv = 0.; // = 1/Re 
+    double dt = 1.; 
+    int timesteps = 30; 
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
 
     // initial condition
     mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
-    mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0);
+    mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0); 
     u.ProjectCoefficient(u_0_coeff);
     v.ProjectCoefficient(u_0_coeff);
     z.ProjectCoefficient(w_0_coeff);
@@ -92,6 +92,7 @@ int main(int argc, char *argv[]) {
     mfem::Vector vdiff(v.Size()); 
     mfem::Vector vavg (v.Size()); 
     mfem::Vector wavg (w.Size()); 
+    mfem::Vector wdiff (w.Size()); 
 
     // system size
     int size_1 = u.Size() + z.Size() + p.Size();
@@ -123,7 +124,7 @@ int main(int argc, char *argv[]) {
     std::iota(&v_dofs[0], &v_dofs[v.Size()], 0);
     std::iota(&w_dofs[0], &w_dofs[w.Size()], v.Size());
     std::iota(&q_dofs[0], &q_dofs[q.Size()], v.Size()+w.Size());
-    std::cout << "progress: initialized unknowns\n";
+    // std::cout << "progress: initialized unknowns\n";
 
     // boundary conditions
     mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof;
@@ -168,8 +169,6 @@ int main(int argc, char *argv[]) {
     CT_Re = *CT; 
     C_Re *= Re_inv/2.;
     CT_Re *= Re_inv/2.;
-    *CT *= Re_inv/2.;
-    C *= Re_inv/2.;
     C.Finalize();
     CT->Finalize();
     C_Re.Finalize();
@@ -213,20 +212,19 @@ int main(int argc, char *argv[]) {
     offsets_2.PartialSum();
     mfem::BlockMatrix A1(offsets_1);
     mfem::BlockMatrix A2(offsets_2);
-    std::cout << "progress: initialized system matrices\n";
+    // std::cout << "progress: initialized system matrices\n";
 
     // initialize rhs
     mfem::Vector b1(size_1);
     mfem::Vector b1sub(u.Size());
     mfem::Vector b2(size_2); 
     mfem::Vector b2sub(v.Size());
-    std::cout << "progress: initialized RHS\n";
+    // std::cout << "progress: initialized RHS\n";
     
     // empty boundary DOF array for conservation tests
     mfem::Array<int> ess_tdof_list;
     
     // conservation properties
-    // TODO: look for use of "innerproduct" in mfem examples 10,27
     mfem::Vector mass_vec1 (p.Size());
     mfem::Vector mass_vec2 (q.Size());
     GT->Mult(u,mass_vec1);
@@ -236,17 +234,16 @@ int main(int argc, char *argv[]) {
     // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
     // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
     // TODO fix helicity conservation
-    // std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
-    // std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
-
+    std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
+    std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
 
     // check eq 47b,46b
-    mfem::Vector vec_47b (z.Size()); vec_47b=0.;
-    C.Mult(u,vec_47b);
-    N_n.AddMult(z,vec_47b);
-    mfem::Vector vec_46b (w.Size()); vec_46b=0.;
-    CT->Mult(v, vec_46b);
-    M_n.AddMult(w,vec_46b);
+    // mfem::Vector vec_47b (z.Size()); vec_47b=0.;
+    // C.Mult(u,vec_47b);
+    // N_n.AddMult(z,vec_47b);
+    // mfem::Vector vec_46b (w.Size()); vec_46b=0.;
+    // CT->Mult(v, vec_46b);
+    // M_n.AddMult(w,vec_46b);
     // std::cout << "---eq 46b, 47b---\n" << vec_47b.Norml2() << "\n";
     // std::cout << vec_46b.Norml2() << "\n";
 
@@ -254,11 +251,13 @@ int main(int argc, char *argv[]) {
     mfem::Vector vec_47a (u.Size()); vec_47a=0.;
     mfem::Vector vec_46a (v.Size()); vec_46a=0.;
 
+    // TODO: eulerstep
+    
     // time loop
     double T;
-    for (int i = 0 ; i < timesteps ; i++) {
+    for (int i = 1 ; i <= timesteps ; i++) {
         T = i*dt;
-        std::cout << "---------------enter loop, t="<<T<<"-----------\n";
+        std::cout << "iter="<<i<<"-------------------------\n";
         
         // update R1
         mfem::MixedBilinearForm blf_R1(&ND,&ND);
@@ -303,7 +302,7 @@ int main(int argc, char *argv[]) {
         A2.SetBlock(1,0, CT);
         A2.SetBlock(1,1, &M_n);
         A2.SetBlock(2,0, &D);
-        std::cout << "progress: updated system matrices\n";
+        // std::cout << "progress: updated system matrices\n";
 
         // update b1, b2
         b1 = 0.0;
@@ -318,7 +317,7 @@ int main(int argc, char *argv[]) {
         R2.AddMult(v,b2sub,-1);
         C_Re.AddMult(w,b2sub,-1);
         b2.AddSubVector(b2sub,0);
-        std::cout << "progress: updated RHS\n";
+        // std::cout << "progress: updated RHS\n";
 
         // create symmetric system AT*A*x=AT*b
         mfem::TransposeOperator AT1 (&A1);
@@ -335,7 +334,7 @@ int main(int argc, char *argv[]) {
         int iter = 10000;
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol); 
         mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol); 
-        std::cout << "progress: MINRES\n";
+        // std::cout << "progress: MINRES\n";
 
         // check residuum
         // mfem::Vector res1(size_1); res1=0.;
@@ -354,14 +353,14 @@ int main(int argc, char *argv[]) {
         y.GetSubVector(q_dofs, q);
 
         // conserved quantities
-        GT->Mult(u,mass_vec1);
-        D.Mult(v,mass_vec2);
+        // GT->Mult(u,mass_vec1);
+        // D.Mult(v,mass_vec2);
         // std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
         // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
         // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
         // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
-        // std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
-        // std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
+        std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
+        std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
 
         // eq 47b,46b
         // vec_47b=0.;
@@ -374,6 +373,7 @@ int main(int argc, char *argv[]) {
         // std::cout << vec_46b.Norml2() << "\n";
     
         // diff and avg values
+        // TODO: fix 1/2 and 1/dt factors for udiff, uavg, ... use def above time loop
         udiff = u;
         udiff.Add(-1.,uold);
         uavg = u;
@@ -386,6 +386,8 @@ int main(int argc, char *argv[]) {
         vavg.Add(1.,vold);
         wavg = w;
         wavg.Add(1.,wold);
+        wdiff = w;
+        wdiff.Add(-1,wold);
 
         // eq 47a,46a
         // vec_47a = 0.;
@@ -411,13 +413,18 @@ int main(int argc, char *argv[]) {
         // std::cout << "---eq 27a,26a term4---\n"<<G.InnerProduct(p,uavg);
         // std::cout << "\n"<<DT_n->InnerProduct(q,vavg)<<"\n";
 
+        // helcitiy difference to prev timestep
+        std::cout<<"---eq 32,33---\n"<< -1.*M_n.InnerProduct(udiff,w);
+        std::cout << "\n"<< -1.*M_n.InnerProduct(u,wdiff)<< "\n";
+
+        // TODO implement terms from vorticity cons proof
+
         // update old (previous time step) values for next time step
         uold = u;
         vold = v;
         zold = z;
         wold = w;
     }
-    std::cout << "---------------exit loop, t="<<T+dt<<"------------\n";
 
     // free memory
     delete fec_CG;
@@ -438,7 +445,7 @@ void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
     returnvalue(2) = std::sin(pi*x(1));
 }
 
-void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
+void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
     double pi = 3.14159265358979323846;
     int dim = x.Size();
