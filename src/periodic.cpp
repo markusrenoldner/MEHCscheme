@@ -27,13 +27,13 @@
 
 
 
-void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix,
-                  int rowoffset, int coloffset);
-void PrintVector(mfem::Vector vec, int stride=1);
-void PrintVector2(mfem::Vector vec, int stride=1);
-void PrintVector3(mfem::Vector vec, int stride=1, 
-                  int start=0, int stop=0, int prec=3);
-void PrintMatrix(mfem::Matrix &mat, int prec=2);
+// void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix,
+//                   int rowoffset, int coloffset);
+// void PrintVector(mfem::Vector vec, int stride=1);
+// void PrintVector2(mfem::Vector vec, int stride=1);
+// void PrintVector3(mfem::Vector vec, int stride=1, 
+//                   int start=0, int stop=0, int prec=3);
+// void PrintMatrix(mfem::Matrix &mat, int prec=2);
 void u_0(const mfem::Vector &x, mfem::Vector &v);
 void w_0(const mfem::Vector &x, mfem::Vector &v);
 
@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     // simulation parameters
     double Re_inv = 0.; // = 1/Re 
     double dt = 1.; 
-    int timesteps = 30; 
+    int timesteps = 10; 
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -124,7 +124,6 @@ int main(int argc, char *argv[]) {
     std::iota(&v_dofs[0], &v_dofs[v.Size()], 0);
     std::iota(&w_dofs[0], &w_dofs[w.Size()], v.Size());
     std::iota(&q_dofs[0], &q_dofs[q.Size()], v.Size()+w.Size());
-    // std::cout << "progress: initialized unknowns\n";
 
     // boundary conditions
     mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof;
@@ -196,7 +195,7 @@ int main(int argc, char *argv[]) {
     GT = Transpose(G);
     G.Finalize();
     GT->Finalize();
-
+        
     // initialize system matrices
     mfem::Array<int> offsets_1 (4);
     offsets_1[0] = 0;
@@ -212,23 +211,21 @@ int main(int argc, char *argv[]) {
     offsets_2.PartialSum();
     mfem::BlockMatrix A1(offsets_1);
     mfem::BlockMatrix A2(offsets_2);
-    // std::cout << "progress: initialized system matrices\n";
 
     // initialize rhs
     mfem::Vector b1(size_1);
     mfem::Vector b1sub(u.Size());
     mfem::Vector b2(size_2); 
     mfem::Vector b2sub(v.Size());
-    // std::cout << "progress: initialized RHS\n";
     
     // empty boundary DOF array for conservation tests
     mfem::Array<int> ess_tdof_list;
     
     // conservation properties
-    mfem::Vector mass_vec1 (p.Size());
-    mfem::Vector mass_vec2 (q.Size());
-    GT->Mult(u,mass_vec1);
-    D.Mult(v,mass_vec2);
+    // mfem::Vector mass_vec1 (p.Size());
+    // mfem::Vector mass_vec2 (q.Size());
+    // GT->Mult(u,mass_vec1);
+    // D.Mult(v,mass_vec2);
     // std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
     // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
     // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
@@ -248,11 +245,9 @@ int main(int argc, char *argv[]) {
     // std::cout << vec_46b.Norml2() << "\n";
 
     // eq 46a,47a
-    mfem::Vector vec_47a (u.Size()); vec_47a=0.;
-    mfem::Vector vec_46a (v.Size()); vec_46a=0.;
+    // mfem::Vector vec_47a (u.Size()); vec_47a=0.;
+    // mfem::Vector vec_46a (v.Size()); vec_46a=0.;
 
-    // TODO: eulerstep
-    
     // time loop
     double T;
     for (int i = 1 ; i <= timesteps ; i++) {
@@ -303,7 +298,6 @@ int main(int argc, char *argv[]) {
         A2.SetBlock(1,0, CT);
         A2.SetBlock(1,1, &M_n);
         A2.SetBlock(2,0, &D);
-        // std::cout << "progress: updated system matrices\n";
 
         // update b1, b2
         b1 = 0.0;
@@ -318,7 +312,6 @@ int main(int argc, char *argv[]) {
         R2.AddMult(v,b2sub,-1);
         C_Re.AddMult(w,b2sub,-1);
         b2.AddSubVector(b2sub,0);
-        // std::cout << "progress: updated RHS\n";
 
         // create symmetric system AT*A*x=AT*b
         mfem::TransposeOperator AT1 (&A1);
@@ -335,7 +328,6 @@ int main(int argc, char *argv[]) {
         int iter = 10000;
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol); 
         mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol); 
-        // std::cout << "progress: MINRES\n";
 
         // check residuum
         // mfem::Vector res1(size_1); res1=0.;
@@ -414,9 +406,34 @@ int main(int argc, char *argv[]) {
         // std::cout << "---eq 27a,26a term4---\n"<<G.InnerProduct(p,uavg);
         // std::cout << "\n"<<DT_n->InnerProduct(q,vavg)<<"\n";
 
-        // helcitiy difference to prev timestep
-        std::cout<<"---eq 32,33---\n"<< -1.*M_n.InnerProduct(udiff,w);
-        std::cout << "\n"<< -1.*M_n.InnerProduct(u,wdiff)<< "\n";
+        
+        // helcitiy difference to prev timestep 
+
+        // M_n.PrintInfo(std::cout);
+        std::cout<<"---eq 32,33---\n"<< "delta H1a = "
+        <<-1.*M_n.InnerProduct(udiff,w);
+        std::cout << "\n"<<"delta H1b = "
+        << -1.*M_n.InnerProduct(u,wdiff)<< "\n";
+        // M_n.PrintInfo(std::cout);
+
+        // TODO if this works, and euler not => euler is the problem
+
+        // M_n.PrintInfo(std::cout);
+        // std::cout << udiff.Norml2() << "\n";
+        // std::cout << w.Norml2() << "\n";
+        // std::cout << u.Norml2() << "\n";
+ 
+        // double a = M_n.InnerProduct(udiff,w);
+        // double b = M_n.InnerProduct(u,wdiff);
+        // std::cout<<"---\n";
+
+        // std::cout << udiff.Norml2() << "\n";
+        // std::cout << w.Norml2() << "\n";
+        // std::cout << u.Norml2() << "\n";
+        // M_n.PrintInfo(std::cout);
+
+
+
 
         // TODO implement terms from vorticity cons proof
 
