@@ -3,8 +3,8 @@
 #include <algorithm>
 #include "mfem.hpp"
 
-void u_0(const mfem::Vector &x, mfem::Vector &v); // TODO possible memory problem
-void w_0(const mfem::Vector &x, mfem::Vector &v); // TODO possible memory problem
+void u_0(const mfem::Vector &x, mfem::Vector &v);
+void w_0(const mfem::Vector &x, mfem::Vector &v);
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
 
@@ -180,16 +180,11 @@ int main(int argc, char *argv[]) {
         mfem::Vector b2(size_2); 
         mfem::Vector b2sub(v.Size());
         
-        // empty boundary DOF array for conservation tests
-        //TODO unncessary
-        mfem::Array<int> ess_tdof_list;
-        
-        // TODO fix helicity conservation
+        // helicity conservation test
         std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
         std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
 
         // eq 27b,26b
-        // TODO: the following code leads to different helicity 
         // values for multiple successive runs
         // mfem::Vector eq27b (v.Size());
         // mfem::Vector eq26b (u.Size());
