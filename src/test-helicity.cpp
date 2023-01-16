@@ -210,25 +210,20 @@ int main(int argc, char *argv[]) {
         mfem::MixedBilinearForm blf_R1_0(&ND,&ND); 
         mfem::SparseMatrix R1_0;
         mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-        blf_R1_0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
-        blf_R1_0.AddDomainIntegrator(
-            new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
+        mfem::ConstantCoefficient two_over_dt(2.0/dt);
+        blf_R1_0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
+        blf_R1_0.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
         blf_R1_0.Assemble();
         blf_R1_0.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1_0);
-        R1_0 *= 1./2.; 
         R1_0.Finalize();
-
-        // M,R,CT for eulerstep
-        mfem::SparseMatrix MR_0 = M_dt;
+        
+        // CT for eulerstep
         mfem::SparseMatrix CT_0 = CT_Re;
-        MR_0.Add(1,R1_0); // TODO only entries in sparsity pattern of MR_0 are added
-        MR_0 *= 2; // TODO more efficient
         CT_0 *= 2;
-        MR_0.Finalize();
         CT_0.Finalize();
 
         // update A1 for eulerstep
-        A1.SetBlock(0,0, &MR_0);
+        A1.SetBlock(0,0, &R1_0);
         A1.SetBlock(0,1, &CT_0);
         A1.SetBlock(0,2, &G);
         A1.SetBlock(1,0, &C);
