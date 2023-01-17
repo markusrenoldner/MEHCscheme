@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     // simulation parameters
     double Re_inv = 0.; // = 1/Re 
     double dt = 1.; 
-    int timesteps = 1; 
+    int timesteps = 25; 
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -222,16 +222,22 @@ int main(int argc, char *argv[]) {
     // mfem::Array<int> ess_tdof_list;
     
     // conservation properties
-    // mfem::Vector mass_vec1 (p.Size());
-    // mfem::Vector mass_vec2 (q.Size());
-    // GT->Mult(u,mass_vec1);
-    // D.Mult(v,mass_vec2);
-    // std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
-    // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
-    // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
-    // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
-    std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
-    std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
+    mfem::Vector mass_vec1 (p.Size());
+    mfem::Vector mass_vec2 (q.Size());
+    GT->Mult(u,mass_vec1);
+    D.Mult(v,mass_vec2);
+    std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
+    std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
+    std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
+    std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
+    std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w)   << "\n";
+    std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z)   << "\n";
+
+    double e1_old= -1./2.*blf_M.InnerProduct(u,u);
+    double e2_old=-1./2.*blf_N.InnerProduct(v,v);
+    double h1_old=-1.*blf_M.InnerProduct(u,w)   ;
+    double h2_old= -1.*blf_N.InnerProduct(v,z)   ;
+
 
     // check eq 47b,46b
     // mfem::Vector vec_47b (z.Size()); vec_47b=0.;
@@ -324,17 +330,11 @@ int main(int argc, char *argv[]) {
         vold = v;
         zold = z;
         wold = w;
+        e1_old= -1./2.*blf_M.InnerProduct(u,u);
+        e2_old=-1./2.*blf_N.InnerProduct(v,v);
+        h1_old=-1.*blf_M.InnerProduct(u,w)   ;
+        h2_old= -1.*blf_N.InnerProduct(v,z)   ;
 
-        // update R1_2
-        mfem::MixedBilinearForm blf_R1_2(&ND,&ND);
-        mfem::SparseMatrix R1_2;
-        mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-        blf_R1_2.AddDomainIntegrator(
-            new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-        blf_R1_2.Assemble();
-        blf_R1_2.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1_2);
-        R1_2 *= 1./2.;
-        R1_2.Finalize();
 
         // update R2_2
         mfem::MixedBilinearForm blf_R2_2(&RT,&RT);
@@ -347,15 +347,6 @@ int main(int argc, char *argv[]) {
         R2_2 *= 1./2.;
         R2_2.Finalize();
 
-        // update MR
-        mfem::MixedBilinearForm blf_MR(&ND,&ND); 
-        mfem::SparseMatrix MR;
-        blf_MR.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
-        blf_MR.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-        blf_MR.Assemble();
-        blf_MR.FormRectangularSystemMatrix(ND_etdof,ND_etdof,MR);
-        MR *= 1./2.;
-        MR.Finalize();
 
         // update NR
         mfem::MixedBilinearForm blf_NR(&RT,&RT); 
@@ -367,13 +358,7 @@ int main(int argc, char *argv[]) {
         NR *= 1./2.;
         NR.Finalize();
 
-        // update A1, A2
-        A1.SetBlock(0,0, &MR);
-        A1.SetBlock(0,1, &CT_Re);
-        A1.SetBlock(0,2, &G);
-        A1.SetBlock(1,0, &C);
-        A1.SetBlock(1,1, &N_n);
-        A1.SetBlock(2,0, GT);
+        // update A2
         A2.SetBlock(0,0, &NR);
         A2.SetBlock(0,1, &C_Re);
         A2.SetBlock(0,2, DT_n);
@@ -381,13 +366,7 @@ int main(int argc, char *argv[]) {
         A2.SetBlock(1,1, &M_n);
         A2.SetBlock(2,0, &D);
 
-        // update b1, b2
-        b1 = 0.0;
-        b1sub = 0.0;
-        M_dt.AddMult(u,b1sub);
-        R1_2.AddMult(u,b1sub,-1);
-        CT_Re.AddMult(z,b1sub,-1);
-        b1.AddSubVector(b1sub,0);
+        // update b2
         b2 = 0.0;
         b2sub = 0.0;
         N_dt.AddMult(v,b2sub);
@@ -396,22 +375,18 @@ int main(int argc, char *argv[]) {
         b2.AddSubVector(b2sub,0);
 
         // create symmetric system AT*A*x=AT*b
-        mfem::TransposeOperator AT1 (&A1);
         mfem::TransposeOperator AT2 (&A2);
-        mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
         mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
-        mfem::Vector ATb1 (size_1);
         mfem::Vector ATb2 (size_2);
-        A1.MultTranspose(b1,ATb1);
         A2.MultTranspose(b2,ATb2);
 
         // solve 
         double tol = 1e-12;
         int iter = 10000;
         mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol); 
-        mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);  // TODO check timesteps
-        // mfem::MINRES(A2,b2,y,0, iter, tol*tol, tol*tol);
-        // mfem::MINRES(A1,b1,x,0, iter, tol*tol, tol*tol);
+        y.GetSubVector(v_dofs, v);
+        y.GetSubVector(w_dofs, w);
+        y.GetSubVector(q_dofs, q);
 
         // check residuum
         // mfem::Vector res1(size_1); res1=0.;
@@ -421,26 +396,93 @@ int main(int argc, char *argv[]) {
         // printvector3(res1,1,0,20,15);
         // printvector3(res2,1,0,20,15);
         
-        // extract solution values u,w,p,v,z,q from x,y
+
+
+
+
+
+
+
+
+
+
+        ////////////////////////////////////////////////////////////////////
+        // PRIMAL FIELD
+        ////////////////////////////////////////////////////////////////////
+
+
+        // update R1_2
+        mfem::MixedBilinearForm blf_R1_2(&ND,&ND);
+        mfem::SparseMatrix R1_2;
+        mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
+        blf_R1_2.AddDomainIntegrator(
+            new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
+        blf_R1_2.Assemble();
+        blf_R1_2.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1_2);
+        R1_2 *= 1./2.;
+        R1_2.Finalize();
+        // update MR
+        mfem::MixedBilinearForm blf_MR(&ND,&ND); 
+        mfem::SparseMatrix MR;
+        blf_MR.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
+        blf_MR.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
+        blf_MR.Assemble();
+        blf_MR.FormRectangularSystemMatrix(ND_etdof,ND_etdof,MR);
+        MR *= 1./2.;
+        MR.Finalize();
+
+
+        // update A1
+        A1.SetBlock(0,0, &MR);
+        A1.SetBlock(0,1, &CT_Re);
+        A1.SetBlock(0,2, &G);
+        A1.SetBlock(1,0, &C);
+        A1.SetBlock(1,1, &N_n);
+        A1.SetBlock(2,0, GT);
+
+        // update b1
+        b1 = 0.0;
+        b1sub = 0.0;
+        M_dt.AddMult(u,b1sub);
+        R1_2.AddMult(u,b1sub,-1);
+        CT_Re.AddMult(z,b1sub,-1);
+        b1.AddSubVector(b1sub,0);
+
+        // create symmetric system AT*A*x=AT*b
+        mfem::TransposeOperator AT1 (&A1);
+        mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
+        mfem::Vector ATb1 (size_1);
+        A1.MultTranspose(b1,ATb1);
+
+        // solve 
+        mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);  // TODO check timesteps
         x.GetSubVector(u_dofs, u);
         x.GetSubVector(z_dofs, z);
         x.GetSubVector(p_dofs, p);
-        y.GetSubVector(v_dofs, v);
-        y.GetSubVector(w_dofs, w);
-        y.GetSubVector(q_dofs, q);
         
+
+
+
+
         // std::cout <<"norm of z:"<< z.Norml2() << "\n";
         // std::cout <<"norm of w:"<< w.Norml2() << "\n";
 
         // conserved quantities
-        // GT->Mult(u,mass_vec1);
-        // D.Mult(v,mass_vec2);
-        // std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
-        // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
+        GT->Mult(u,mass_vec1);
+        D.Mult(v,mass_vec2);
+        std::cout << std::setprecision(20);
+        std::cout << "dm1 = " << mass_vec1.Norml2() << "\n";
+        std::cout << "dm2 = " << mass_vec2.Norml2() << "\n";
         // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
         // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
-        std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
-        std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
+        // std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
+        // std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
+        std::cout << "dE1 = " << e1_old+1./2.*blf_M.InnerProduct(u,u) << "\n";
+        std::cout << "dE2 = " << e2_old+1./2.*blf_N.InnerProduct(v,v) << "\n";
+        std::cout << "dH1 = " << h1_old+1.*blf_M.InnerProduct(u,w) << "\n";
+        std::cout << "dH2 = " << h2_old+1.*blf_N.InnerProduct(v,z) << "\n";
+        
+
 
         // TODO observations:
         // H1 = H2 for all t >= 1 , but H2 = 2*H1 for t < 1
@@ -459,20 +501,20 @@ int main(int argc, char *argv[]) {
     
         // diff and avg values
         // TODO: fix 1/2 and 1/dt factors for udiff, uavg, ... use def above time loop
-        udiff = u;
-        udiff.Add(-1.,uold);
-        uavg = u;
-        uavg.Add(1.,uold);
-        zavg = z;
-        zavg.Add(1.,zold);
-        vdiff = v;
-        vdiff.Add(-1.,vold);
-        vavg = v;
-        vavg.Add(1.,vold);
-        wavg = w;
-        wavg.Add(1.,wold);
-        wdiff = w;
-        wdiff.Add(-1,wold);
+        // udiff = u;
+        // udiff.Add(-1.,uold);
+        // uavg = u;
+        // uavg.Add(1.,uold);
+        // zavg = z;
+        // zavg.Add(1.,zold);
+        // vdiff = v;
+        // vdiff.Add(-1.,vold);
+        // vavg = v;
+        // vavg.Add(1.,vold);
+        // wavg = w;
+        // wavg.Add(1.,wold);
+        // wdiff = w;
+        // wdiff.Add(-1,wold);
 
         // eq 47a,46a
         // vec_47a = 0.;
