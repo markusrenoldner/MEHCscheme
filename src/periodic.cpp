@@ -3,7 +3,9 @@
 #include <algorithm>
 #include "mfem.hpp"
 
+
 // MEHC scheme on periodic domain, like in the paper
+
 
 // primal: A1*x=b1
 // [M_dt+R1  CT_Re    G] [u]   [(M_dt-R1)*u - CT_Re*z  + f]
@@ -24,13 +26,6 @@
 
 
 
-
-
-
-// void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix,
-//                   int rowoffset, int coloffset);
-// void PrintVector(mfem::Vector vec, int stride=1);
-// void PrintVector2(mfem::Vector vec, int stride=1);
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
 // void PrintMatrix(mfem::Matrix &mat, int prec=2);
@@ -47,7 +42,7 @@ int main(int argc, char *argv[]) {
     const char *mesh_file = "extern/mfem-4.5/data/periodic-cube.mesh"; 
     mfem::Mesh mesh(mesh_file, 1, 1); 
     int dim = mesh.Dimension(); 
-    for (int l = 0; l < 1; l++) {mesh.UniformRefinement();} 
+    // for (int l = 0; l < 1; l++) {mesh.UniformRefinement();} 
 
     // simulation parameters
     double Re_inv = 0.; // = 1/Re 
@@ -99,7 +94,8 @@ int main(int argc, char *argv[]) {
     int size_2 = v.Size() + w.Size() + q.Size();
     std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
     std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
-    std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n";
+    std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n"
+    <<"-------------------------------\n";
     
     // initialize solution vectors
     mfem::Vector x(size_1);
@@ -217,55 +213,12 @@ int main(int argc, char *argv[]) {
     mfem::Vector b1sub(u.Size());
     mfem::Vector b2(size_2); 
     mfem::Vector b2sub(v.Size());
-    
-    // conservation properties
-    mfem::Vector mass_vec1 (p.Size());
-    mfem::Vector mass_vec2 (q.Size());
-    GT->Mult(u,mass_vec1);
-    D.Mult(v,mass_vec2);
-    std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
-    std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
-    std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
-    std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
-    std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w)   << "\n";
-    std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z)   << "\n";
-
-    double e1_old= -1./2.*blf_M.InnerProduct(u,u);
-    double e2_old=-1./2.*blf_N.InnerProduct(v,v);
-    double h1_old=-1.*blf_M.InnerProduct(u,w)   ;
-    double h2_old= -1.*blf_N.InnerProduct(v,z)   ;
-
-
-    // check eq 47b,46b
-    // mfem::Vector vec_47b (z.Size()); vec_47b=0.;
-    // C.Mult(u,vec_47b);
-    // N_n.AddMult(z,vec_47b);
-    // mfem::Vector vec_46b (w.Size()); vec_46b=0.;
-    // CT->Mult(v, vec_46b);
-    // M_n.AddMult(w,vec_46b);
-    // std::cout << "---eq 46b, 47b---\n" << vec_47b.Norml2() << "\n";
-    // std::cout << vec_46b.Norml2() << "\n";
-
-    // eq 46a,47a
-    // mfem::Vector vec_47a (u.Size()); vec_47a=0.;
-    // mfem::Vector vec_46a (v.Size()); vec_46a=0.;
-
-    // eq 27b,26b
-    // mfem::Vector eq27b (v.Size());
-    // mfem::Vector eq26b (u.Size());
-    // C.Mult(u,eq27b);
-    // N_n.AddMult(z,eq27b);
-    // std::cout<<"eq27b "<< eq27b.Norml2() <<"\n";
-    // CT->Mult(v,eq26b);
-    // M_n.AddMult(w,eq26b);
-    // std::cout<<"eq26b "<< eq26b.Norml2() <<"\n";
-
 
     ////////////////////////////////////////////////////////////////////
     // EULERSTEP: code up to the loop computes euler step for primal sys
     ////////////////////////////////////////////////////////////////////
 
-    std::cout << "euler step---------------------\n";
+    // std::cout << "euler step---------------------\n";
 
     // Matrix MR_eul for eulerstep
     mfem::MixedBilinearForm blf_MR_eul(&ND,&ND); 
@@ -313,25 +266,25 @@ int main(int argc, char *argv[]) {
     x.GetSubVector(z_dofs, z);
     x.GetSubVector(p_dofs, p);
 
-    // check helicity
-    std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
+    // eulerstep helicity
+    // std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
         
     // time loop
-    double T;
+    double t;
     for (int i = 1 ; i <= timesteps ; i++) {
-        T = i*dt;
-        std::cout << "iter="<<i<<"-------------------------\n";
+        t = i*dt;
+        // std::cout << "---------- t = "<<t<<" ----------\n";
+        std::cout << t << ",";
 
         // update old values before computing new ones
         uold = u;
         vold = v;
         zold = z;
         wold = w;
-        e1_old= -1./2.*blf_M.InnerProduct(u,u);
-        e2_old=-1./2.*blf_N.InnerProduct(v,v);
-        h1_old=-1.*blf_M.InnerProduct(u,w)   ;
-        h2_old= -1.*blf_N.InnerProduct(v,z)   ;
 
+        ////////////////////////////////////////////////////////////////////
+        // DUAL FIELD
+        ////////////////////////////////////////////////////////////////////
 
         // update R2_2
         mfem::MixedBilinearForm blf_R2_2(&RT,&RT);
@@ -343,7 +296,6 @@ int main(int argc, char *argv[]) {
         blf_R2_2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2_2);
         R2_2 *= 1./2.;
         R2_2.Finalize();
-
 
         // update NR
         mfem::MixedBilinearForm blf_NR(&RT,&RT); 
@@ -384,14 +336,6 @@ int main(int argc, char *argv[]) {
         y.GetSubVector(v_dofs, v);
         y.GetSubVector(w_dofs, w);
         y.GetSubVector(q_dofs, q);
-
-        // check residuum
-        // mfem::Vector res1(size_1); res1=0.;
-        // mfem::Vector res2(size_2); res2=0.;
-        // A1.Mult(x,res1); A2.Mult(y,res2);
-        // res1 -= b1; res2 -= b2;
-        // printvector3(res1,1,0,20,15);
-        // printvector3(res2,1,0,20,15);
 
         ////////////////////////////////////////////////////////////////////
         // PRIMAL FIELD
@@ -440,129 +384,56 @@ int main(int argc, char *argv[]) {
         A1.MultTranspose(b1,ATb1);
 
         // solve 
-        mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);  // TODO check timesteps
+        mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
         x.GetSubVector(u_dofs, u);
         x.GetSubVector(z_dofs, z);
         x.GetSubVector(p_dofs, p);
+        
+        // check residuum
+        // mfem::Vector res1(size_1); res1=0.;
+        // mfem::Vector res2(size_2); res2=0.;
+        // A1.Mult(x,res1); A2.Mult(y,res2);
+        // res1 -= b1; res2 -= b2;
+        // printvector3(res1,1,0,20,15);
+        // printvector3(res2,1,0,20,15);
+        
+        ////////////////////////////////////////////////////////////////////
+        // CONSERVATION
+        ////////////////////////////////////////////////////////////////////
 
-        // conserved quantities
+        // conservation tests
+        mfem::Vector mass_vec1 (p.Size());
+        mfem::Vector mass_vec2 (q.Size());
         GT->Mult(u,mass_vec1);
         D.Mult(v,mass_vec2);
-        std::cout << std::setprecision(20);
-        std::cout << "dm1 = " << mass_vec1.Norml2() << "\n";
-        std::cout << "dm2 = " << mass_vec2.Norml2() << "\n";
-        std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
-        std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
-        std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
-        std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
-        // std::cout << "dE1 = " << e1_old+1./2.*blf_M.InnerProduct(u,u) << "\n";
-        // std::cout << "dE2 = " << e2_old+1./2.*blf_N.InnerProduct(v,v) << "\n";
-        // std::cout << "dH1 = " << h1_old+1.*blf_M.InnerProduct(u,w) << "\n";
-        // std::cout << "dH2 = " << h2_old+1.*blf_N.InnerProduct(v,z) << "\n";
-        
-
-
-        // TODO observations:
-        // H1 = H2 for all t >= 1 , but H2 = 2*H1 for t < 1
-
-        // PrintVector3(u,1,0,30);
-
-        // eq 47b,46b
-        // vec_47b=0.;
-        // C.Mult(u,vec_47b);
-        // N_n.AddMult(z,vec_47b);
-        // vec_46b=0.;
-        // CT->Mult(v, vec_46b);
-        // M_n.AddMult(w,vec_46b);
-        // std::cout << "---eq 47b, 46b---\n"<<vec_47b.Norml2() << "\n";
-        // std::cout << vec_46b.Norml2() << "\n";
-    
-        // diff and avg values
-        // TODO: fix 1/2 and 1/dt factors for udiff, uavg, ... use def above time loop
-        // udiff = u;
-        // udiff.Add(-1.,uold);
-        // uavg = u;
-        // uavg.Add(1.,uold);
-        // zavg = z;
-        // zavg.Add(1.,zold);
-        // vdiff = v;
-        // vdiff.Add(-1.,vold);
-        // vavg = v;
-        // vavg.Add(1.,vold);
-        // wavg = w;
-        // wavg.Add(1.,wold);
-        // wdiff = w;
-        // wdiff.Add(-1,wold);
-
-        // eq 47a,46a
-        // vec_47a = 0.;
-        // M_dt.AddMult(udiff,vec_47a);
-        // R1.AddMult(uavg,vec_47a); 
-        // CT_Re.AddMult(zavg,vec_47a); 
-        // G.AddMult(p,vec_47a);
-        // vec_46a = 0.;
-        // N_dt.AddMult(vdiff,vec_46a);
-        // R2.AddMult(vavg,vec_46a);
-        // C_Re.AddMult(wavg,vec_46a);
-        // DT_n->AddMult(q,vec_46a);
-        // std::cout <<"---eq 47a,46a---\n"<<vec_47a.Norml2() << "\n";
-        // std::cout << vec_46a.Norml2() << "\n";
-
-        // eq 27a,26a: all 4 terms for energy cons
-        // std::cout<<"---eq 27a,26a term1---\n"<<-1.*M_n.InnerProduct(udiff,uavg);
-        // std::cout << "\n"<<-1.*N_n.InnerProduct(vdiff,vavg)<<"\n";
-        // std::cout<<"---eq 27a,26a term2---\n"<<R1.InnerProduct(uavg,uavg);
-        // std::cout << "\n"<<R2.InnerProduct(vavg,vavg)<<"\n";
-        // std::cout<<"---eq 27a,26a term3---\n"<<CT->InnerProduct(zavg,uavg);
-        // std::cout << "\n"<<C.InnerProduct(wavg,vavg)<<"\n";
-        // std::cout << "---eq 27a,26a term4---\n"<<G.InnerProduct(p,uavg);
-        // std::cout << "\n"<<DT_n->InnerProduct(q,vavg)<<"\n";
-
-        // eq 27b
-        // C.Mult(u,eq27b);
-        // N_n.AddMult(z,eq27b);
-        // std::cout<<"eq27b "<< eq27b.Norml2() <<"\n";
-        // CT->Mult(v,eq26b);
-        // M_n.AddMult(w,eq26b);
-        // std::cout<<"eq26b "<< eq26b.Norml2() <<"\n";
-
-        
-
-
-
-
-
-
-        // TODO implement terms from vorticity cons proof
-
-        // helcitiy difference to prev timestep
-        // std::cout<<"---eq 32,33---\n"<< "delta H1a = "
-        // <<-1.*M_n.InnerProduct(udiff,w);
-        // std::cout << "\n"<<"delta H1b = "
-        // << -1.*M_n.InnerProduct(u,wdiff)<< "\n";
-
-        // eq 17, 23
-        // 27a with e=w^k 
-        // 26a with e=u^k-1/2
-        // std::cout//<<"---eq 27a term1---\n"
-        // << -1.*M_n.InnerProduct(udiff,wold) <<"\n"
-        // << -1.*M_n.InnerProduct(udiff,w) <<"\n"
-        // << -1.*M_n.InnerProduct(wdiff,uold) <<"\n";
-        // << -1.*M_n.InnerProduct(wdiff,u) <<"\n";
+        double K1_old = -1./2.*blf_M.InnerProduct(uold,uold);
+        double K1 = -1./2.*blf_M.InnerProduct(u,u);
+        double K2_old = -1./2.*blf_N.InnerProduct(vold,vold);
+        double K2 = -1./2.*blf_N.InnerProduct(v,v);
+        double H1_old = -1.*blf_M.InnerProduct(uold,wold);
+        double H1 = -1.*blf_M.InnerProduct(u,w);
+        double H2_old = -1.*blf_N.InnerProduct(vold,zold);
+        double H2 = -1.*blf_N.InnerProduct(v,z);
+        std::cout << mass_vec1.Norml2() << ",";
+        std::cout << mass_vec2.Norml2() << ",";
+        std::cout << (K1-K1_old)/dt << ",";
+        std::cout << (K2-K2_old)/dt << ",";
+        std::cout << (H1-H1_old)/dt << ",";
+        std::cout << (H2-H2_old)/dt << ",\n";
     }
 
     // visuals
-    std::ofstream mesh_ofs("refined.mesh");
-    mesh_ofs.precision(8);
-    mesh.Print(mesh_ofs);
-    std::ofstream sol_ofs("sol.gf");
-    sol_ofs.precision(8);
-    u.Save(sol_ofs);
-    char vishost[] = "localhost";
-    int  visport   = 19916;
-    mfem::socketstream sol_sock(vishost, visport);
-    sol_sock.precision(8);
-    sol_sock << "solution\n" << mesh << u << std::flush;
+    // std::ofstream mesh_ofs("refined.mesh");
+    // mesh_ofs.precision(8);
+    // mesh.Print(mesh_ofs);
+    // std::ofstream sol_ofs("sol.gf");
+    // sol_ofs.precision(8);
+    // u.Save(sol_ofs);
+    // char vishost[] = "localhost";
+    // int  visport   = 19916;
+    // mfem::socketstream sol_sock(vishost, visport);
+    // sol_sock.precision(8);
+    // sol_sock << "solution\n" << mesh << u << std::flush;
 
     // free memory
     delete fec_CG;
