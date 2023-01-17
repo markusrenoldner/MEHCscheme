@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     // simulation parameters
     double Re_inv = 0.; // = 1/Re 
     double dt = 1.; 
-    int timesteps = 10; 
+    int timesteps = 1; 
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -82,10 +82,10 @@ int main(int argc, char *argv[]) {
     w.ProjectCoefficient(w_0_coeff);
     
     // helper vectors to compute some discrete objects
-    mfem::Vector uold = u;
-    mfem::Vector vold = v;
-    mfem::Vector zold = z;
-    mfem::Vector wold = w;
+    mfem::Vector uold;
+    mfem::Vector vold;
+    mfem::Vector zold;
+    mfem::Vector wold;
     mfem::Vector udiff(u.Size()); 
     mfem::Vector uavg (u.Size()); 
     mfem::Vector zavg (z.Size()); 
@@ -230,7 +230,6 @@ int main(int argc, char *argv[]) {
     // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
     // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
     // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
-    // TODO fix helicity conservation
     std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
     std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
 
@@ -263,16 +262,18 @@ int main(int argc, char *argv[]) {
     // EULERSTEP: code up to the loop computes euler step for primal sys
     ////////////////////////////////////////////////////////////////////
 
-    // Matrix R1_0 for eulerstep
-    mfem::MixedBilinearForm blf_R1_0(&ND,&ND); 
-    mfem::SparseMatrix R1_0;
+    std::cout << "euler step---------------------\n";
+
+    // Matrix MR_eul for eulerstep
+    mfem::MixedBilinearForm blf_MR_eul(&ND,&ND); 
+    mfem::SparseMatrix MR_eul;
     mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
     mfem::ConstantCoefficient two_over_dt(2.0/dt);
-    blf_R1_0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
-    blf_R1_0.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-    blf_R1_0.Assemble();
-    blf_R1_0.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1_0);
-    R1_0.Finalize();
+    blf_MR_eul.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
+    blf_MR_eul.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
+    blf_MR_eul.Assemble();
+    blf_MR_eul.FormRectangularSystemMatrix(ND_etdof,ND_etdof,MR_eul);
+    MR_eul.Finalize();
     
     // CT for eulerstep
     mfem::SparseMatrix CT_0 = CT_Re;
@@ -280,7 +281,7 @@ int main(int argc, char *argv[]) {
     CT_0.Finalize();
 
     // update A1 for eulerstep
-    A1.SetBlock(0,0, &R1_0);
+    A1.SetBlock(0,0, &MR_eul);
     A1.SetBlock(0,1, &CT_0);
     A1.SetBlock(0,2, &G);
     A1.SetBlock(1,0, &C);
@@ -298,11 +299,11 @@ int main(int argc, char *argv[]) {
     mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
     mfem::Vector ATb1 (size_1);
     A1.MultTranspose(b1,ATb1);
-    
+
     // solve eulerstep
     double tol = 1e-12;
     int iter = 10000;
-    mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol); 
+    mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
 
     // extract solution values u,z,p from eulerstep
     x.GetSubVector(u_dofs, u);
@@ -310,7 +311,7 @@ int main(int argc, char *argv[]) {
     x.GetSubVector(p_dofs, p);
 
     // check helicity
-    std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n"; // H differs
+    std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
         
     // time loop
     double T;
@@ -318,34 +319,38 @@ int main(int argc, char *argv[]) {
         T = i*dt;
         std::cout << "iter="<<i<<"-------------------------\n";
 
-        // update R1
-        mfem::MixedBilinearForm blf_R1(&ND,&ND);
-        mfem::SparseMatrix R1;
+        // update old values before computing new ones
+        uold = u;
+        vold = v;
+        zold = z;
+        wold = w;
+
+        // update R1_2
+        mfem::MixedBilinearForm blf_R1_2(&ND,&ND);
+        mfem::SparseMatrix R1_2;
         mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-        blf_R1.AddDomainIntegrator(
+        blf_R1_2.AddDomainIntegrator(
             new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-        blf_R1.Assemble();
-        blf_R1.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1);
-        R1 *= 1./2.;
-        R1.Finalize();
+        blf_R1_2.Assemble();
+        blf_R1_2.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1_2);
+        R1_2 *= 1./2.;
+        R1_2.Finalize();
 
-        // update R2
-        mfem::MixedBilinearForm blf_R2(&RT,&RT);
-        mfem::SparseMatrix R2;
+        // update R2_2
+        mfem::MixedBilinearForm blf_R2_2(&RT,&RT);
+        mfem::SparseMatrix R2_2;
         mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-        blf_R2.AddDomainIntegrator(
+        blf_R2_2.AddDomainIntegrator(
             new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-        blf_R2.Assemble();
-        blf_R2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2);
-        R2 *= 1./2.;
-        R2.Finalize();
+        blf_R2_2.Assemble();
+        blf_R2_2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2_2);
+        R2_2 *= 1./2.;
+        R2_2.Finalize();
 
-        // TODO check all factors in front of M,N,R1,R2,MR,NR
         // update MR
         mfem::MixedBilinearForm blf_MR(&ND,&ND); 
         mfem::SparseMatrix MR;
-        mfem::ConstantCoefficient one_over_dt(2./dt);
-        blf_MR.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(one_over_dt)); //=(u,v)
+        blf_MR.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
         blf_MR.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
         blf_MR.Assemble();
         blf_MR.FormRectangularSystemMatrix(ND_etdof,ND_etdof,MR);
@@ -355,7 +360,7 @@ int main(int argc, char *argv[]) {
         // update NR
         mfem::MixedBilinearForm blf_NR(&RT,&RT); 
         mfem::SparseMatrix NR;
-        blf_NR.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(one_over_dt)); //=(u,v)
+        blf_NR.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
         blf_NR.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
         blf_NR.Assemble();
         blf_NR.FormRectangularSystemMatrix(RT_etdof,RT_etdof,NR);
@@ -369,7 +374,6 @@ int main(int argc, char *argv[]) {
         A1.SetBlock(1,0, &C);
         A1.SetBlock(1,1, &N_n);
         A1.SetBlock(2,0, GT);
-
         A2.SetBlock(0,0, &NR);
         A2.SetBlock(0,1, &C_Re);
         A2.SetBlock(0,2, DT_n);
@@ -381,13 +385,13 @@ int main(int argc, char *argv[]) {
         b1 = 0.0;
         b1sub = 0.0;
         M_dt.AddMult(u,b1sub);
-        R1.AddMult(u,b1sub,-1);
+        R1_2.AddMult(u,b1sub,-1);
         CT_Re.AddMult(z,b1sub,-1);
         b1.AddSubVector(b1sub,0);
         b2 = 0.0;
         b2sub = 0.0;
         N_dt.AddMult(v,b2sub);
-        R2.AddMult(v,b2sub,-1);
+        R2_2.AddMult(v,b2sub,-1);
         C_Re.AddMult(w,b2sub,-1);
         b2.AddSubVector(b2sub,0);
 
@@ -405,7 +409,9 @@ int main(int argc, char *argv[]) {
         double tol = 1e-12;
         int iter = 10000;
         mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol); 
-        mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol); 
+        mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);  // TODO check timesteps
+        // mfem::MINRES(A2,b2,y,0, iter, tol*tol, tol*tol);
+        // mfem::MINRES(A1,b1,x,0, iter, tol*tol, tol*tol);
 
         // check residuum
         // mfem::Vector res1(size_1); res1=0.;
@@ -435,6 +441,9 @@ int main(int argc, char *argv[]) {
         // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
         std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
         std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
+
+        // TODO observations:
+        // H1 = H2 for all t >= 1 , but H2 = 2*H1 for t < 1
 
         // PrintVector3(u,1,0,30);
 
@@ -520,20 +529,6 @@ int main(int argc, char *argv[]) {
         // << -1.*M_n.InnerProduct(udiff,w) <<"\n"
         // << -1.*M_n.InnerProduct(wdiff,uold) <<"\n";
         // << -1.*M_n.InnerProduct(wdiff,u) <<"\n";
-
-
-
-
-
-
-
-
-
-        // update old (previous time step) values for next time step
-        uold = u;
-        vold = v;
-        zold = z;
-        wold = w;
     }
 
     // free memory
