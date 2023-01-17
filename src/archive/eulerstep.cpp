@@ -5,6 +5,17 @@
 
 
 
+// outdated!
+
+// this file just contains the eulerstep
+
+// outdated assembly of M+R matrix
+
+
+
+
+
+
 void AddSubmatrix(mfem::SparseMatrix submatrix, mfem::SparseMatrix matrix,
                   int rowoffset, int coloffset);
 void PrintVector(mfem::Vector vec, int stride=1);

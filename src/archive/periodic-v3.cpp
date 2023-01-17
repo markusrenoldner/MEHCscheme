@@ -3,6 +3,23 @@
 #include <algorithm>
 #include "mfem.hpp"
 
+
+
+
+// outdated:
+
+// doesnt contain eulerstep
+// incorrect ordering of dual and primal system
+
+
+
+
+
+
+
+
+
+
 // MEHC scheme on periodic domain, like in the paper
 
 // primal: A1*x=b1
@@ -31,8 +48,8 @@
 //                   int rowoffset, int coloffset);
 // void PrintVector(mfem::Vector vec, int stride=1);
 // void PrintVector2(mfem::Vector vec, int stride=1);
-void PrintVector3(mfem::Vector vec, int stride=1, 
-                  int start=0, int stop=0, int prec=3);
+// void PrintVector3(mfem::Vector vec, int stride=1, 
+//                   int start=0, int stop=0, int prec=3);
 // void PrintMatrix(mfem::Matrix &mat, int prec=2);
 void u_0(const mfem::Vector &x, mfem::Vector &v);
 void w_0(const mfem::Vector &x, mfem::Vector &v);
@@ -52,7 +69,7 @@ int main(int argc, char *argv[]) {
     // simulation parameters
     double Re_inv = 0.; // = 1/Re 
     double dt = 1.; 
-    int timesteps = 25; 
+    int timesteps = 10; 
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -82,10 +99,10 @@ int main(int argc, char *argv[]) {
     w.ProjectCoefficient(w_0_coeff);
     
     // helper vectors to compute some discrete objects
-    mfem::Vector uold;
-    mfem::Vector vold;
-    mfem::Vector zold;
-    mfem::Vector wold;
+    mfem::Vector uold = u;
+    mfem::Vector vold = v;
+    mfem::Vector zold = z;
+    mfem::Vector wold = w;
     mfem::Vector udiff(u.Size()); 
     mfem::Vector uavg (u.Size()); 
     mfem::Vector zavg (z.Size()); 
@@ -219,25 +236,20 @@ int main(int argc, char *argv[]) {
     mfem::Vector b2sub(v.Size());
     
     // empty boundary DOF array for conservation tests
-    // mfem::Array<int> ess_tdof_list;
+    mfem::Array<int> ess_tdof_list;
     
     // conservation properties
-    mfem::Vector mass_vec1 (p.Size());
-    mfem::Vector mass_vec2 (q.Size());
-    GT->Mult(u,mass_vec1);
-    D.Mult(v,mass_vec2);
-    std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
-    std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
-    std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
-    std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
-    std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w)   << "\n";
-    std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z)   << "\n";
-
-    double e1_old= -1./2.*blf_M.InnerProduct(u,u);
-    double e2_old=-1./2.*blf_N.InnerProduct(v,v);
-    double h1_old=-1.*blf_M.InnerProduct(u,w)   ;
-    double h2_old= -1.*blf_N.InnerProduct(v,z)   ;
-
+    // mfem::Vector mass_vec1 (p.Size());
+    // mfem::Vector mass_vec2 (q.Size());
+    // GT->Mult(u,mass_vec1);
+    // D.Mult(v,mass_vec2);
+    // std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
+    // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
+    // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
+    // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
+    // TODO fix helicity conservation
+    std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
+    std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
 
     // check eq 47b,46b
     // mfem::Vector vec_47b (z.Size()); vec_47b=0.;
@@ -253,112 +265,50 @@ int main(int argc, char *argv[]) {
     // mfem::Vector vec_47a (u.Size()); vec_47a=0.;
     // mfem::Vector vec_46a (v.Size()); vec_46a=0.;
 
-    // eq 27b,26b
-    // mfem::Vector eq27b (v.Size());
-    // mfem::Vector eq26b (u.Size());
-    // C.Mult(u,eq27b);
-    // N_n.AddMult(z,eq27b);
-    // std::cout<<"eq27b "<< eq27b.Norml2() <<"\n";
-    // CT->Mult(v,eq26b);
-    // M_n.AddMult(w,eq26b);
-    // std::cout<<"eq26b "<< eq26b.Norml2() <<"\n";
-
-
-    ////////////////////////////////////////////////////////////////////
-    // EULERSTEP: code up to the loop computes euler step for primal sys
-    ////////////////////////////////////////////////////////////////////
-
-    std::cout << "euler step---------------------\n";
-
-    // Matrix MR_eul for eulerstep
-    mfem::MixedBilinearForm blf_MR_eul(&ND,&ND); 
-    mfem::SparseMatrix MR_eul;
-    mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-    mfem::ConstantCoefficient two_over_dt(2.0/dt);
-    blf_MR_eul.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
-    blf_MR_eul.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-    blf_MR_eul.Assemble();
-    blf_MR_eul.FormRectangularSystemMatrix(ND_etdof,ND_etdof,MR_eul);
-    MR_eul.Finalize();
-    
-    // CT for eulerstep
-    mfem::SparseMatrix CT_0 = CT_Re;
-    CT_0 *= 2;
-    CT_0.Finalize();
-
-    // update A1 for eulerstep
-    A1.SetBlock(0,0, &MR_eul);
-    A1.SetBlock(0,1, &CT_0);
-    A1.SetBlock(0,2, &G);
-    A1.SetBlock(1,0, &C);
-    A1.SetBlock(1,1, &N_n);
-    A1.SetBlock(2,0, GT);
-
-    // update b1, b2 for eulerstep
-    b1 = 0.0;
-    b1sub = 0.0;
-    M_dt.AddMult(u,b1sub,2);
-    b1.AddSubVector(b1sub,0);
-
-    // create symmetric system AT*A*x=AT*b for eulerstep
-    mfem::TransposeOperator AT1 (&A1);
-    mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
-    mfem::Vector ATb1 (size_1);
-    A1.MultTranspose(b1,ATb1);
-
-    // solve eulerstep
-    double tol = 1e-12;
-    int iter = 10000;
-    mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
-
-    // extract solution values u,z,p from eulerstep
-    x.GetSubVector(u_dofs, u);
-    x.GetSubVector(z_dofs, z);
-    x.GetSubVector(p_dofs, p);
-
-    // check helicity
-    std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
-        
     // time loop
     double T;
     for (int i = 1 ; i <= timesteps ; i++) {
         T = i*dt;
         std::cout << "iter="<<i<<"-------------------------\n";
+        
+        // update R1
+        mfem::MixedBilinearForm blf_R1(&ND,&ND);
+        mfem::SparseMatrix R1;
+        mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
+        blf_R1.AddDomainIntegrator(
+            new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
+        blf_R1.Assemble();
+        blf_R1.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1);
+        R1 *= 1./2.;
+        R1.Finalize();
 
-        // update old values before computing new ones
-        uold = u;
-        vold = v;
-        zold = z;
-        wold = w;
-        e1_old= -1./2.*blf_M.InnerProduct(u,u);
-        e2_old=-1./2.*blf_N.InnerProduct(v,v);
-        h1_old=-1.*blf_M.InnerProduct(u,w)   ;
-        h2_old= -1.*blf_N.InnerProduct(v,z)   ;
-
-
-        // update R2_2
-        mfem::MixedBilinearForm blf_R2_2(&RT,&RT);
-        mfem::SparseMatrix R2_2;
+        // update R2
+        mfem::MixedBilinearForm blf_R2(&RT,&RT);
+        mfem::SparseMatrix R2;
         mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-        blf_R2_2.AddDomainIntegrator(
+        blf_R2.AddDomainIntegrator(
             new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-        blf_R2_2.Assemble();
-        blf_R2_2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2_2);
-        R2_2 *= 1./2.;
-        R2_2.Finalize();
+        blf_R2.Assemble();
+        blf_R2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2);
+        R2 *= 1./2.;
+        R2.Finalize();
 
-
-        // update NR
-        mfem::MixedBilinearForm blf_NR(&RT,&RT); 
-        mfem::SparseMatrix NR;
-        blf_NR.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
-        blf_NR.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-        blf_NR.Assemble();
-        blf_NR.FormRectangularSystemMatrix(RT_etdof,RT_etdof,NR);
-        NR *= 1./2.;
+        // M+R and N+R
+        mfem::SparseMatrix MR = M_dt;
+        mfem::SparseMatrix NR = N_dt;
+        MR.Add(1,R1);
+        NR.Add(1,R2);
+        MR.Finalize();
         NR.Finalize();
 
-        // update A2
+        // update A1, A2
+        A1.SetBlock(0,0, &MR);
+        A1.SetBlock(0,1, &CT_Re);
+        A1.SetBlock(0,2, &G);
+        A1.SetBlock(1,0, &C);
+        A1.SetBlock(1,1, &N_n);
+        A1.SetBlock(2,0, GT);
+
         A2.SetBlock(0,0, &NR);
         A2.SetBlock(0,1, &C_Re);
         A2.SetBlock(0,2, DT_n);
@@ -366,27 +316,35 @@ int main(int argc, char *argv[]) {
         A2.SetBlock(1,1, &M_n);
         A2.SetBlock(2,0, &D);
 
-        // update b2
+        // update b1, b2
+        b1 = 0.0;
+        b1sub = 0.0;
+        M_dt.AddMult(u,b1sub);
+        R1.AddMult(u,b1sub,-1);
+        CT_Re.AddMult(z,b1sub,-1);
+        b1.AddSubVector(b1sub,0);
         b2 = 0.0;
         b2sub = 0.0;
         N_dt.AddMult(v,b2sub);
-        R2_2.AddMult(v,b2sub,-1);
+        R2.AddMult(v,b2sub,-1);
         C_Re.AddMult(w,b2sub,-1);
         b2.AddSubVector(b2sub,0);
 
         // create symmetric system AT*A*x=AT*b
+        mfem::TransposeOperator AT1 (&A1);
         mfem::TransposeOperator AT2 (&A2);
+        mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
         mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
+        mfem::Vector ATb1 (size_1);
         mfem::Vector ATb2 (size_2);
+        A1.MultTranspose(b1,ATb1);
         A2.MultTranspose(b2,ATb2);
 
         // solve 
         double tol = 1e-12;
         int iter = 10000;
+        mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol); 
         mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol); 
-        y.GetSubVector(v_dofs, v);
-        y.GetSubVector(w_dofs, w);
-        y.GetSubVector(q_dofs, q);
 
         // check residuum
         // mfem::Vector res1(size_1); res1=0.;
@@ -396,98 +354,23 @@ int main(int argc, char *argv[]) {
         // printvector3(res1,1,0,20,15);
         // printvector3(res2,1,0,20,15);
         
-
-
-
-
-
-
-
-
-
-
-        ////////////////////////////////////////////////////////////////////
-        // PRIMAL FIELD
-        ////////////////////////////////////////////////////////////////////
-
-
-        // update R1_2
-        mfem::MixedBilinearForm blf_R1_2(&ND,&ND);
-        mfem::SparseMatrix R1_2;
-        mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-        blf_R1_2.AddDomainIntegrator(
-            new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-        blf_R1_2.Assemble();
-        blf_R1_2.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1_2);
-        R1_2 *= 1./2.;
-        R1_2.Finalize();
-        // update MR
-        mfem::MixedBilinearForm blf_MR(&ND,&ND); 
-        mfem::SparseMatrix MR;
-        blf_MR.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
-        blf_MR.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-        blf_MR.Assemble();
-        blf_MR.FormRectangularSystemMatrix(ND_etdof,ND_etdof,MR);
-        MR *= 1./2.;
-        MR.Finalize();
-
-
-        // update A1
-        A1.SetBlock(0,0, &MR);
-        A1.SetBlock(0,1, &CT_Re);
-        A1.SetBlock(0,2, &G);
-        A1.SetBlock(1,0, &C);
-        A1.SetBlock(1,1, &N_n);
-        A1.SetBlock(2,0, GT);
-
-        // update b1
-        b1 = 0.0;
-        b1sub = 0.0;
-        M_dt.AddMult(u,b1sub);
-        R1_2.AddMult(u,b1sub,-1);
-        CT_Re.AddMult(z,b1sub,-1);
-        b1.AddSubVector(b1sub,0);
-
-        // create symmetric system AT*A*x=AT*b
-        mfem::TransposeOperator AT1 (&A1);
-        mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
-        mfem::Vector ATb1 (size_1);
-        A1.MultTranspose(b1,ATb1);
-
-        // solve 
-        mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);  // TODO check timesteps
+        // extract solution values u,w,p,v,z,q from x,y
         x.GetSubVector(u_dofs, u);
         x.GetSubVector(z_dofs, z);
         x.GetSubVector(p_dofs, p);
-        
-
-
-
-
-        // std::cout <<"norm of z:"<< z.Norml2() << "\n";
-        // std::cout <<"norm of w:"<< w.Norml2() << "\n";
+        y.GetSubVector(v_dofs, v);
+        y.GetSubVector(w_dofs, w);      
+        y.GetSubVector(q_dofs, q);
 
         // conserved quantities
-        GT->Mult(u,mass_vec1);
-        D.Mult(v,mass_vec2);
-        std::cout << std::setprecision(20);
-        std::cout << "dm1 = " << mass_vec1.Norml2() << "\n";
-        std::cout << "dm2 = " << mass_vec2.Norml2() << "\n";
+        // GT->Mult(u,mass_vec1);
+        // D.Mult(v,mass_vec2);
+        // std::cout << "div(u) = " << mass_vec1.Norml2() << "\n";
+        // std::cout << "div(v) = " << mass_vec2.Norml2() << "\n";
         // std::cout << "    E1 = " << -1./2.*blf_M.InnerProduct(u,u) << "\n";
         // std::cout << "    E2 = " << -1./2.*blf_N.InnerProduct(v,v) << "\n";
-        // std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
-        // std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
-        std::cout << "dE1 = " << e1_old+1./2.*blf_M.InnerProduct(u,u) << "\n";
-        std::cout << "dE2 = " << e2_old+1./2.*blf_N.InnerProduct(v,v) << "\n";
-        std::cout << "dH1 = " << h1_old+1.*blf_M.InnerProduct(u,w) << "\n";
-        std::cout << "dH2 = " << h2_old+1.*blf_N.InnerProduct(v,z) << "\n";
-        
-
-
-        // TODO observations:
-        // H1 = H2 for all t >= 1 , but H2 = 2*H1 for t < 1
-
-        // PrintVector3(u,1,0,30);
+        std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
+        std::cout << "    H2 = " << -1.*blf_N.InnerProduct(v,z) << "\n";
 
         // eq 47b,46b
         // vec_47b=0.;
@@ -501,20 +384,20 @@ int main(int argc, char *argv[]) {
     
         // diff and avg values
         // TODO: fix 1/2 and 1/dt factors for udiff, uavg, ... use def above time loop
-        // udiff = u;
-        // udiff.Add(-1.,uold);
-        // uavg = u;
-        // uavg.Add(1.,uold);
-        // zavg = z;
-        // zavg.Add(1.,zold);
-        // vdiff = v;
-        // vdiff.Add(-1.,vold);
-        // vavg = v;
-        // vavg.Add(1.,vold);
-        // wavg = w;
-        // wavg.Add(1.,wold);
-        // wdiff = w;
-        // wdiff.Add(-1,wold);
+        udiff = u;
+        udiff.Add(-1.,uold);
+        uavg = u;
+        uavg.Add(1.,uold);
+        zavg = z;
+        zavg.Add(1.,zold);
+        vdiff = v;
+        vdiff.Add(-1.,vold);
+        vavg = v;
+        vavg.Add(1.,vold);
+        wavg = w;
+        wavg.Add(1.,wold);
+        wdiff = w;
+        wdiff.Add(-1,wold);
 
         // eq 47a,46a
         // vec_47a = 0.;
@@ -540,37 +423,42 @@ int main(int argc, char *argv[]) {
         // std::cout << "---eq 27a,26a term4---\n"<<G.InnerProduct(p,uavg);
         // std::cout << "\n"<<DT_n->InnerProduct(q,vavg)<<"\n";
 
-        // eq 27b
-        // C.Mult(u,eq27b);
-        // N_n.AddMult(z,eq27b);
-        // std::cout<<"eq27b "<< eq27b.Norml2() <<"\n";
-        // CT->Mult(v,eq26b);
-        // M_n.AddMult(w,eq26b);
-        // std::cout<<"eq26b "<< eq26b.Norml2() <<"\n";
-
         
+        // helcitiy difference to prev timestep 
 
+        // M_n.PrintInfo(std::cout);
+        std::cout<<"---eq 32,33---\n"<< "delta H1a = "
+        <<-1.*M_n.InnerProduct(udiff,w);
+        std::cout << "\n"<<"delta H1b = "
+        << -1.*M_n.InnerProduct(u,wdiff)<< "\n";
+        // M_n.PrintInfo(std::cout);
 
+        // TODO if this works, and euler not => euler is the problem
+
+        // M_n.PrintInfo(std::cout);
+        // std::cout << udiff.Norml2() << "\n";
+        // std::cout << w.Norml2() << "\n";
+        // std::cout << u.Norml2() << "\n";
+ 
+        // double a = M_n.InnerProduct(udiff,w);
+        // double b = M_n.InnerProduct(u,wdiff);
+        // std::cout<<"---\n";
+
+        // std::cout << udiff.Norml2() << "\n";
+        // std::cout << w.Norml2() << "\n";
+        // std::cout << u.Norml2() << "\n";
+        // M_n.PrintInfo(std::cout);
 
 
 
 
         // TODO implement terms from vorticity cons proof
 
-        // helcitiy difference to prev timestep
-        // std::cout<<"---eq 32,33---\n"<< "delta H1a = "
-        // <<-1.*M_n.InnerProduct(udiff,w);
-        // std::cout << "\n"<<"delta H1b = "
-        // << -1.*M_n.InnerProduct(u,wdiff)<< "\n";
-
-        // eq 17, 23
-        // 27a with e=w^k 
-        // 26a with e=u^k-1/2
-        // std::cout//<<"---eq 27a term1---\n"
-        // << -1.*M_n.InnerProduct(udiff,wold) <<"\n"
-        // << -1.*M_n.InnerProduct(udiff,w) <<"\n"
-        // << -1.*M_n.InnerProduct(wdiff,uold) <<"\n";
-        // << -1.*M_n.InnerProduct(wdiff,u) <<"\n";
+        // update old (previous time step) values for next time step
+        uold = u;
+        vold = v;
+        zold = z;
+        wold = w;
     }
 
     // free memory
@@ -585,21 +473,19 @@ int main(int argc, char *argv[]) {
 void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
     double pi = 3.14159265358979323846;
-    // int dim = x.Size();
-    // std::cout << "size ----" <<returnvalue.Size() << "\n";
+    int dim = x.Size();
 
-    returnvalue.SetSize(3);
-    returnvalue(0) = std::cos(pi*x.Elem(2)); 
-    returnvalue(1) = std::sin(pi*x.Elem(2));
-    returnvalue(2) = std::sin(pi*x.Elem(0));
+    returnvalue(0) = std::cos(pi*x(3));
+    returnvalue(1) = std::sin(pi*x(3)); 
+    returnvalue(2) = std::sin(pi*x(1));
 }
 
 void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
     double pi = 3.14159265358979323846;
-    // int dim = x.Size();
+    int dim = x.Size();
 
-    returnvalue(0) = -pi*std::cos(pi*x(2));
-    returnvalue(1) = -pi*std::cos(pi*x(0)) -  pi*std::sin(pi*x(2)); 
+    returnvalue(0) = -pi*std::cos(pi*x(3));
+    returnvalue(1) = -pi*std::cos(pi*x(1)) -pi*std::sin(pi*x(3)); 
     returnvalue(2) = 0;
 }

@@ -8,8 +8,7 @@ using namespace mfem;
 
 
 
-
-// same as periodic.cpp, aber weniger aufgeräumt
+// outdated!
 
 
 

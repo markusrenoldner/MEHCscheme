@@ -3,6 +3,24 @@
 #include <algorithm>
 #include "mfem.hpp"
 
+
+
+// outdated
+
+// this file just contains the eulerstep
+// it was used to find the memory leak that caused
+// "random" changes of the helicity value of multiple 
+// successive code executionts
+
+
+
+
+
+
+
+
+
+
 void u_0(const mfem::Vector &x, mfem::Vector &v);
 void w_0(const mfem::Vector &x, mfem::Vector &v);
 void PrintVector3(mfem::Vector vec, int stride=1, 

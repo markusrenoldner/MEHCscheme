@@ -5,6 +5,25 @@
 using namespace std;
 using namespace mfem;
 
+
+
+
+// outdated: 
+
+// doesnt contain eulerstep
+// incorrect ordering of dual and primal system
+
+// previous file name: "mehc.cpp"
+
+
+
+
+
+
+
+
+
+
 // TODO: umordnen der unbekannten, z ist primal, w ist dual
 
 // primal: A1*x=b1
