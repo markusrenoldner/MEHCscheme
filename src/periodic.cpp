@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
     // for (int l = 0; l < 1; l++) {mesh.UniformRefinement();} 
 
     // simulation parameters
-    double Re_inv = 0.0; // = 1/Re 
+    double Re_inv = 0.01; // = 1/Re 
     double dt = 0.05;
     double tmax = 10.;
 
@@ -434,33 +434,36 @@ int main(int argc, char *argv[]) {
         z_avg_old.Add(0.5,z_old_old);
 
         // conservation test, Re=0
-        mfem::Vector mass_vec1 (p.Size());
-        mfem::Vector mass_vec2 (q.Size());
-        GT->Mult(u,mass_vec1);
-        D.Mult(v,mass_vec2);
-        double K1_old = -1./2.*blf_M.InnerProduct(u_old,u_old);
-        double K1 = -1./2.*blf_M.InnerProduct(u,u);
-        double K2_old = -1./2.*blf_N.InnerProduct(v_old,v_old);
-        double K2 = -1./2.*blf_N.InnerProduct(v,v);
-        double H1_old = -1.*blf_M.InnerProduct(u_avg_old,w_old);
-        double H1 = -1.*blf_M.InnerProduct(u_avg,w);
-        double H2_old = -1.*blf_N.InnerProduct(v_old,z_avg_old); 
-        double H2 = -1.*blf_N.InnerProduct(v,z_avg); //definition in paper!!
-        // std::cout << std::setprecision(20);
-        std::cout << mass_vec1.Norml2() << ",";
-        std::cout << mass_vec2.Norml2() << ",";
-        std::cout << (K1-K1_old)/dt << ",";
-        std::cout << (K2-K2_old)/dt << ",";
-        std::cout << (H1-H1_old)/dt << ",";
-        std::cout << (H2-H2_old)/dt << ",\n"; 
+        // TODO check signs of K1K2H1H2
+        // mfem::Vector mass_vec1 (p.Size());
+        // mfem::Vector mass_vec2 (q.Size());
+        // GT->Mult(u,mass_vec1);
+        // D.Mult(v,mass_vec2);
+        // double K1_old = -1./2.*blf_M.InnerProduct(u_old,u_old);
+        // double K1 = -1./2.*blf_M.InnerProduct(u,u);
+        // double K2_old = -1./2.*blf_N.InnerProduct(v_old,v_old);
+        // double K2 = -1./2.*blf_N.InnerProduct(v,v);
+        // double H1_old = -1.*blf_M.InnerProduct(u_avg_old,w_old);
+        // double H1 = -1.*blf_M.InnerProduct(u_avg,w);
+        // double H2_old = -1.*blf_N.InnerProduct(v_old,z_avg_old); 
+        // double H2 = -1.*blf_N.InnerProduct(v,z_avg); //definition in paper!!
+        // std::cout << mass_vec1.Norml2() << ",";
+        // std::cout << mass_vec2.Norml2() << ",";
+        // std::cout << (K1-K1_old)/dt << ",";
+        // std::cout << (K2-K2_old)/dt << ",";
+        // std::cout << (H1-H1_old)/dt << ",";
+        // std::cout << (H2-H2_old)/dt << ",\n"; 
         
-        
-
-
         // conservation test, Re=100
-        // TODO energy, helicity dissipation for Re=100 (Re_inv = 1/100)
-        // double E2 = 1/2.*blf_N.InnerProduct()
-        // std::cout << (K1-K1_old)/dt + 2*Re_inv* << ",";       
+        // double E2 = 1/2.*blf_N.InnerProduct(z_avg,z_avg);
+        // double E1 = 1/2.*blf_M.InnerProduct(w_avg,w_avg);
+        // double D = -Re_inv*C.InnerProduct(w_avg,z_old)
+        //            -Re_inv/2*CT->InnerProduct(z_avg,w)
+        //            -Re_inv/2*CT->InnerProduct(z_avg_old,w_old); 
+        // std::cout << (K1-K1_old)/dt - 2*Re_inv*E2 << ",";
+        // std::cout << (K2-K2_old)/dt - 2*Re_inv*E1 << ",";
+        // std::cout << (H1-H1_old)/dt - D << ",";
+        // std::cout << (H2-H2_old)/dt - D << ",\n";
 
     }
 
