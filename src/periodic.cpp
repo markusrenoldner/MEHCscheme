@@ -28,7 +28,6 @@
 
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
-// void PrintMatrix(mfem::Matrix &mat, int prec=2);
 void u_0(const mfem::Vector &x, mfem::Vector &v);
 void w_0(const mfem::Vector &x, mfem::Vector &v);
 
@@ -45,9 +44,9 @@ int main(int argc, char *argv[]) {
     // for (int l = 0; l < 1; l++) {mesh.UniformRefinement();} 
 
     // simulation parameters
-    double Re_inv = 0.; // = 1/Re 
-    double dt = 1; 
-    int timesteps = 10; 
+    double Re_inv = 0.0; // = 1/Re 
+    double dt = 0.05;
+    double tmax = 10.;
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -76,18 +75,23 @@ int main(int argc, char *argv[]) {
     z.ProjectCoefficient(w_0_coeff);
     w.ProjectCoefficient(w_0_coeff);
     
-    // helper vectors to compute some discrete objects
-    mfem::Vector uold;
-    mfem::Vector vold;
-    mfem::Vector zold;
-    mfem::Vector wold;
-    mfem::Vector udiff(u.Size()); 
-    mfem::Vector uavg (u.Size()); 
-    mfem::Vector zavg (z.Size()); 
-    mfem::Vector vdiff(v.Size()); 
-    mfem::Vector vavg (v.Size()); 
-    mfem::Vector wavg (w.Size()); 
-    mfem::Vector wdiff (w.Size()); 
+    // helper vectors for old values
+    mfem::Vector u_old(u.Size()); u_old = 0.;
+    mfem::Vector v_old(v.Size()); v_old = 0.;
+    mfem::Vector z_old(z.Size()); z_old = 0.;
+    mfem::Vector w_old(w.Size()); w_old = 0.;
+    mfem::Vector u_old_old(u.Size()); u_old_old = 0.;
+    mfem::Vector v_old_old(v.Size()); v_old_old = 0.;
+    mfem::Vector z_old_old(z.Size()); z_old_old = 0.;
+
+    // helper vectors for average values
+    mfem::Vector u_avg (u.Size()); 
+    mfem::Vector z_avg (z.Size()); 
+    mfem::Vector v_avg (v.Size()); 
+    mfem::Vector w_avg (w.Size()); 
+    mfem::Vector u_avg_old (u.Size());
+    mfem::Vector v_avg_old (v.Size());
+    mfem::Vector z_avg_old (z.Size());
 
     // system size
     int size_1 = u.Size() + z.Size() + p.Size();
@@ -191,7 +195,7 @@ int main(int argc, char *argv[]) {
     GT = Transpose(G);
     G.Finalize();
     GT->Finalize();
-        
+
     // initialize system matrices
     mfem::Array<int> offsets_1 (4);
     offsets_1[0] = 0;
@@ -270,17 +274,19 @@ int main(int argc, char *argv[]) {
     // std::cout << "    H1 = " << -1.*blf_M.InnerProduct(u,w) << "\n";
         
     // time loop
-    double t;
-    for (int i = 1 ; i <= timesteps ; i++) {
-        t = i*dt;
+    // double t;
+    for (double t = dt ; t < tmax+dt ; t+=dt) {
         // std::cout << "---------- t = "<<t<<" ----------\n";
         std::cout << t << ",";
 
         // update old values before computing new ones
-        uold = u;
-        vold = v;
-        zold = z;
-        wold = w;
+        u_old_old = u_old;
+        v_old_old = v_old;
+        z_old_old = z_old;
+        u_old = u;
+        v_old = v;
+        z_old = z;
+        w_old = w;
 
         ////////////////////////////////////////////////////////////////////
         // DUAL FIELD
@@ -330,7 +336,7 @@ int main(int argc, char *argv[]) {
         A2.MultTranspose(b2,ATb2);
 
         // solve 
-        double tol = 1e-12;
+        double tol = 1e-15;
         int iter = 10000;
         mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol); 
         y.GetSubVector(v_dofs, v);
@@ -351,6 +357,7 @@ int main(int argc, char *argv[]) {
         blf_R1_2.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1_2);
         R1_2 *= 1./2.;
         R1_2.Finalize();
+
         // update MR
         mfem::MixedBilinearForm blf_MR(&ND,&ND); 
         mfem::SparseMatrix MR;
@@ -401,25 +408,60 @@ int main(int argc, char *argv[]) {
         // CONSERVATION
         ////////////////////////////////////////////////////////////////////
 
-        // conservation tests
+        // averaged values
+        u_avg = 0.;
+        u_avg.Add(0.5,u);
+        u_avg.Add(0.5,u_old);
+        z_avg = 0.;
+        z_avg.Add(0.5,z);
+        z_avg.Add(0.5,z_old);
+        v_avg = 0.;
+        v_avg.Add(0.5,v);
+        v_avg.Add(0.5,v_old);
+        w_avg = 0.;
+        w_avg.Add(0.5,w);
+        w_avg.Add(0.5,w_old);
+
+        // averaged old values
+        u_avg_old = 0.;
+        u_avg_old.Add(0.5,u_old);
+        u_avg_old.Add(0.5,u_old_old);
+        v_avg_old = 0.;
+        v_avg_old.Add(0.5,v_old);
+        v_avg_old.Add(0.5,v_old_old);
+        z_avg_old = 0.;
+        z_avg_old.Add(0.5,z_old);
+        z_avg_old.Add(0.5,z_old_old);
+
+        // conservation test, Re=0
         mfem::Vector mass_vec1 (p.Size());
         mfem::Vector mass_vec2 (q.Size());
         GT->Mult(u,mass_vec1);
         D.Mult(v,mass_vec2);
-        double K1_old = -1./2.*blf_M.InnerProduct(uold,uold);
+        double K1_old = -1./2.*blf_M.InnerProduct(u_old,u_old);
         double K1 = -1./2.*blf_M.InnerProduct(u,u);
-        double K2_old = -1./2.*blf_N.InnerProduct(vold,vold);
+        double K2_old = -1./2.*blf_N.InnerProduct(v_old,v_old);
         double K2 = -1./2.*blf_N.InnerProduct(v,v);
-        double H1_old = -1.*blf_M.InnerProduct(uold,wold);
-        double H1 = -1.*blf_M.InnerProduct(u,w);
-        double H2_old = -1.*blf_N.InnerProduct(vold,zold);
-        double H2 = -1.*blf_N.InnerProduct(v,z);
+        double H1_old = -1.*blf_M.InnerProduct(u_avg_old,w_old);
+        double H1 = -1.*blf_M.InnerProduct(u_avg,w);
+        double H2_old = -1.*blf_N.InnerProduct(v_old,z_avg_old); 
+        double H2 = -1.*blf_N.InnerProduct(v,z_avg); //definition in paper!!
+        // std::cout << std::setprecision(20);
         std::cout << mass_vec1.Norml2() << ",";
         std::cout << mass_vec2.Norml2() << ",";
         std::cout << (K1-K1_old)/dt << ",";
         std::cout << (K2-K2_old)/dt << ",";
         std::cout << (H1-H1_old)/dt << ",";
-        std::cout << (H2-H2_old)/dt << ",\n";
+        std::cout << (H2-H2_old)/dt << ",\n"; 
+        
+        
+
+
+        // conservation test, Re=100
+        // TODO energy, helicity dissipation for Re=100 (Re_inv = 1/100)
+        // double E2 = 1/2.*blf_N.InnerProduct()
+        // std::cout << (K1-K1_old)/dt + 2*Re_inv* << ",";       
+
     }
 
     // visuals
