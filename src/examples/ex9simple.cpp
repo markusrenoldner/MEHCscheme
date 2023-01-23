@@ -1,6 +1,6 @@
 //                                MFEM Example 9
 
-//               du/dt + v.grad(u) = 0where v is a given fluid velocity
+//               du/dt + v.grad(u) = 0 where v is a given fluid velocity
 //
 //               The example demonstrates the use of Discontinuous Galerkin (DG)
 //               bilinear forms in MFEM (face integrators), the use of implicit
