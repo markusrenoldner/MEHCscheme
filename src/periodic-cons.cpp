@@ -35,6 +35,13 @@ void w_0(const mfem::Vector &x, mfem::Vector &v);
 
 int main(int argc, char *argv[]) {
 
+    // simulation parameters
+    double Re_inv = 0.01; // = 1/Re 
+    double dt = 0.05;
+    double tmax = 10.;
+    std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
+    <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
+
     std::cout << "---------------launch MEHC---------------\n";
 
     // mesh
@@ -42,11 +49,6 @@ int main(int argc, char *argv[]) {
     mfem::Mesh mesh(mesh_file, 1, 1); 
     int dim = mesh.Dimension(); 
     // for (int l = 0; l < 1; l++) {mesh.UniformRefinement();} 
-
-    // simulation parameters
-    double Re_inv = 0.01; // = 1/Re 
-    double dt = 0.05;
-    double tmax = 10.;
 
     // FE spaces (CG \in H1, DG \in L2)
     int order = 1;
@@ -99,7 +101,7 @@ int main(int argc, char *argv[]) {
     std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
     std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
     std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n"
-    <<"-------------------------------\n";
+    <<"----------------------\n";
     
     // initialize solution vectors
     mfem::Vector x(size_1);
