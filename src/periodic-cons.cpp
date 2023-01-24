@@ -398,14 +398,6 @@ int main(int argc, char *argv[]) {
         x.GetSubVector(z_dofs, z);
         x.GetSubVector(p_dofs, p);
         
-        // check residuum
-        // mfem::Vector res1(size_1); res1=0.;
-        // mfem::Vector res2(size_2); res2=0.;
-        // A1.Mult(x,res1); A2.Mult(y,res2);
-        // res1 -= b1; res2 -= b2;
-        // printvector3(res1,1,0,20,15);
-        // printvector3(res2,1,0,20,15);
-        
         ////////////////////////////////////////////////////////////////////
         // CONSERVATION
         ////////////////////////////////////////////////////////////////////
