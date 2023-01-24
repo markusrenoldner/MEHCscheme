@@ -10,30 +10,39 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[     22838,        627]
-NotebookOptionsPosition[     20196,        574]
-NotebookOutlinePosition[     20596,        590]
-CellTagsIndexPosition[     20553,        587]
+NotebookDataLength[     23992,        633]
+NotebookOptionsPosition[     21433,        581]
+NotebookOutlinePosition[     21839,        597]
+CellTagsIndexPosition[     21796,        594]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
 Notebook[{
 Cell["\<\
 We are now interested to use a manufactured solution technique, i.e. we use \
-the functions u, p form below, plug them into the Navier Stokes equations and \
-get a time-dependent, vector-valued forcing term/right hand side\
+the functions u, p from below, plug them into the Navier Stokes equations and \
+get f(x,y,z,t), the source term/right hand side
+
+if curl(f)=0 => f is conservative and, one can \[OpenCurlyDoubleQuote]include\
+\[CloseCurlyDoubleQuote] (add) the scalar potential of f into the pressure. \
+that means, if one is not interested in the pressure, and just checks whether \
+the velocity fields converge, one can use such a conservative f by \
+implementing a zero-source term f!\
 \>", "Text",
  CellChangeTimes->{
-  3.8833630883466835`*^9},ExpressionUUID->"fff4e9ae-ce03-4505-88a5-\
+  3.8833630883466835`*^9, {3.8835376401301184`*^9, 3.883537714035531*^9}, {
+   3.8835377612745304`*^9, 
+   3.883537910455406*^9}},ExpressionUUID->"fff4e9ae-ce03-4505-88a5-\
 d37a5fd07b8a"],
 
 Cell[CellGroupData[{
 
-Cell["Manufactured solution - sec 5.1.2", "Section",
+Cell["Manufactured solution - paper sec5.1.2", "Section",
  CellChangeTimes->{{3.8830488752910833`*^9, 3.883048875767123*^9}, {
-  3.883048923216614*^9, 3.8830489297514944`*^9}, {3.883217554914356*^9, 
-  3.883217555775358*^9}, {3.8833630603262177`*^9, 
-  3.883363063946186*^9}},ExpressionUUID->"f223caa3-3927-4fd7-abd7-\
+   3.883048923216614*^9, 3.8830489297514944`*^9}, {3.883217554914356*^9, 
+   3.883217555775358*^9}, {3.8833630603262177`*^9, 3.883363063946186*^9}, {
+   3.8835376310553703`*^9, 3.8835376315902157`*^9}, 
+   3.8835381343151894`*^9},ExpressionUUID->"f223caa3-3927-4fd7-abd7-\
 1e85ee222ca4"],
 
 Cell[CellGroupData[{
@@ -169,32 +178,23 @@ Cell[BoxData[
   "Out[375]=",ExpressionUUID->"d9998c8c-e40e-483a-bf56-cd6229ca4fa4"]
 }, Open  ]],
 
-Cell["curl(f) is not 0", "Text",
+Cell["Observation: curl(f) is not 0", "Text",
  CellChangeTimes->{{3.8833685028671474`*^9, 3.8833685176798744`*^9}, 
-   3.8833686198401365`*^9, 
-   3.8834741075460863`*^9},ExpressionUUID->"c24a78d8-d820-4808-b04b-\
+   3.8833686198401365`*^9, 3.8834741075460863`*^9, {3.883537725400035*^9, 
+   3.8835377499922185`*^9}, {3.8835379275225554`*^9, 
+   3.8835379285686646`*^9}},ExpressionUUID->"c24a78d8-d820-4808-b04b-\
 899fb53dc7c5"]
 }, Open  ]],
 
 Cell[CellGroupData[{
 
-Cell["TGV from sec 5.2, Re = \\infty", "Section",
+Cell["TGV (Taylor Green Vortex) - paper sec5.2 with 1/Re = 0", "Section",
  CellChangeTimes->{{3.8830488752910833`*^9, 3.883048875767123*^9}, {
   3.883048923216614*^9, 3.8830489297514944`*^9}, {3.883217554914356*^9, 
   3.8832175803949537`*^9}, {3.8833666219240217`*^9, 3.8833666312929897`*^9}, {
-  3.8834740687976484`*^9, 
-  3.8834740832612906`*^9}},ExpressionUUID->"975c7a2b-5070-4dbf-8a33-\
+  3.8834740687976484`*^9, 3.8834740832612906`*^9}, {3.8835380533707542`*^9, 
+  3.8835381328271956`*^9}},ExpressionUUID->"975c7a2b-5070-4dbf-8a33-\
 94ccedba18b0"],
-
-Cell["\<\
-if you want to check Re smaller than \\infty add this to the NSequ:\
-\[LineSeparator]-Laplacian[u0]
-or
-+Curl[w0,{x,x,z}]\
-\>", "Text",
- CellChangeTimes->{{3.883474328232293*^9, 
-  3.8834743843786287`*^9}},ExpressionUUID->"cc5a62e4-9f28-464b-b29e-\
-9d8eac8e8c2f"],
 
 Cell[CellGroupData[{
 
@@ -227,6 +227,8 @@ Cell[BoxData[{
       RowBox[{"x", ",", "y", ",", "z"}], "}"}]}], "]"}]}], 
   ";"}], "\[IndentingNewLine]", 
  RowBox[{
+  RowBox[{"REinv", " ", "=", "0"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
   RowBox[{"f", "=", 
    RowBox[{
     RowBox[{"D", "[", 
@@ -240,7 +242,12 @@ Cell[BoxData[{
        RowBox[{"Dot", "[", 
         RowBox[{"u0", ",", "u0"}], "]"}], ",", 
        RowBox[{"{", 
-        RowBox[{"x", ",", "y", ",", "z"}], "}"}]}], "]"}]}]}]}], 
+        RowBox[{"x", ",", "y", ",", "z"}], "}"}]}], "]"}]}], "+", 
+    RowBox[{"REinv", "*", 
+     RowBox[{"Curl", "[", 
+      RowBox[{"w0", ",", 
+       RowBox[{"{", 
+        RowBox[{"x", ",", "x", ",", "z"}], "}"}]}], "]"}]}]}]}], 
   ";"}], "\[IndentingNewLine]", 
  RowBox[{"FullSimplify", "[", 
   RowBox[{"Curl", "[", 
@@ -258,9 +265,8 @@ Cell[BoxData[{
    3.88321812216018*^9, 3.8832181488899994`*^9}, {3.8833666647342076`*^9, 
    3.88336684461385*^9}, {3.8833685821776085`*^9, 3.883368598722267*^9}, {
    3.8833705295689745`*^9, 3.8833705299130363`*^9}, {3.883473612217426*^9, 
-   3.8834736289808397`*^9}},
- CellLabel->
-  "In[134]:=",ExpressionUUID->"de15d92d-2daf-4923-9fc7-9503d269f9ef"],
+   3.8834736289808397`*^9}, {3.8835379758496585`*^9, 3.8835380295430408`*^9}},
+ CellLabel->"In[7]:=",ExpressionUUID->"de15d92d-2daf-4923-9fc7-9503d269f9ef"],
 
 Cell[BoxData[
  RowBox[{"{", 
@@ -282,27 +288,27 @@ Cell[BoxData[
    3.883366746920266*^9, 3.8833667850642257`*^9}, {3.8833668310007873`*^9, 
    3.883366845120685*^9}, 3.8833685990141335`*^9, 3.883370530164693*^9, 
    3.8834736296529684`*^9, 3.883474085431799*^9, 3.8834741621392975`*^9, 
-   3.883474229576645*^9},
- CellLabel->
-  "Out[138]=",ExpressionUUID->"13f08d0c-1e68-4807-be16-960cd938562b"]
+   3.883474229576645*^9, {3.88353800021239*^9, 3.883538030014252*^9}},
+ CellLabel->"Out[12]=",ExpressionUUID->"67945387-bf8a-4756-b4a0-3db689c0ad93"]
 }, Open  ]],
 
-Cell["curl(f) is not 0", "Text",
+Cell["Observation: curl(f) is not 0", "Text",
  CellChangeTimes->{{3.8833686077876277`*^9, 3.8833686181013465`*^9}, {
-  3.8834740894847546`*^9, 
-  3.8834740972165036`*^9}},ExpressionUUID->"e09fe1ab-7cb3-4736-8056-\
+   3.8834740894847546`*^9, 3.8834740972165036`*^9}, 
+   3.883538140698683*^9},ExpressionUUID->"e09fe1ab-7cb3-4736-8056-\
 f40a8e51af26"]
 }, Open  ]],
 
 Cell[CellGroupData[{
 
-Cell["TGV wikipedia,  Re = \\infty", "Section",
+Cell["TGV - wikipedia with 1/Re = 0", "Section",
  CellChangeTimes->{{3.8830488752910833`*^9, 3.883048875767123*^9}, {
   3.883048923216614*^9, 3.8830489297514944`*^9}, {3.883217554914356*^9, 
   3.8832175803949537`*^9}, {3.8833666219240217`*^9, 3.8833666312929897`*^9}, {
   3.8834702523279943`*^9, 3.883470257218269*^9}, {3.8834713496132517`*^9, 
-  3.883471358885708*^9}, {3.8834740567862206`*^9, 
-  3.883474063093822*^9}},ExpressionUUID->"c860bc8c-660f-4640-b9e3-\
+  3.883471358885708*^9}, {3.8834740567862206`*^9, 3.883474063093822*^9}, {
+  3.8835381460116615`*^9, 
+  3.883538153840245*^9}},ExpressionUUID->"c860bc8c-660f-4640-b9e3-\
 8752657d1aff"],
 
 Cell[CellGroupData[{
@@ -387,12 +393,13 @@ Cell[BoxData[
 
 Cell["\<\
 Here we finally have: curl(f) = 0
+But this solution is completely time-independent and a bit boring.
 
-No rescaled it for [-1,1]^3 :\
+Now rescaled it for our domain [-1,1]^3 :\
 \>", "Text",
  CellChangeTimes->{{3.883474015251499*^9, 3.8834740463027663`*^9}, {
-  3.8834744267284093`*^9, 
-  3.8834744484577045`*^9}},ExpressionUUID->"11c9cb4d-8f75-4579-8a6d-\
+  3.8834744267284093`*^9, 3.8834744484577045`*^9}, {3.883538175795375*^9, 
+  3.883538206426301*^9}},ExpressionUUID->"11c9cb4d-8f75-4579-8a6d-\
 fac86b2f3cb6"],
 
 Cell[CellGroupData[{
@@ -457,10 +464,7 @@ Cell[BoxData[
 
 Cell[CellGroupData[{
 
-Cell["\<\
-TGV wikipedia,  Re =100, L=1, nu = uL/Re
-on [0, 2pi]^2\
-\>", "Section",
+Cell["TGV - wikipedia with Re =100, L=1, nu = uL/Re", "Section",
  CellChangeTimes->{{3.8830488752910833`*^9, 3.883048875767123*^9}, {
   3.883048923216614*^9, 3.8830489297514944`*^9}, {3.883217554914356*^9, 
   3.8832175803949537`*^9}, {3.8833666219240217`*^9, 3.8833666312929897`*^9}, {
@@ -469,7 +473,8 @@ on [0, 2pi]^2\
   3.883479047957181*^9, 3.8834790570871887`*^9}, {3.883479114695826*^9, 
   3.8834791271612887`*^9}, {3.8834792698529696`*^9, 3.8834792816104393`*^9}, {
   3.8834795125799336`*^9, 3.8834795163320937`*^9}, {3.883479681840354*^9, 
-  3.8834796849936466`*^9}},ExpressionUUID->"7294571d-63d5-4d63-8579-\
+  3.8834796849936466`*^9}, {3.8835382263339295`*^9, 
+  3.883538239810237*^9}},ExpressionUUID->"7294571d-63d5-4d63-8579-\
 ca3ea403a52e"],
 
 Cell[CellGroupData[{
@@ -563,16 +568,18 @@ Cell[BoxData[
 }, Open  ]],
 
 Cell["\<\
-warum ist curl(f)=0 nur dann wenn L=1 ?
-\
+And now we found a time-dependent solution with curl(f)=0 which is fantastic!
+Interestingly, the curl(f) is only 0 if the reference length that we need to \
+find the viscosity from Re has to be chosen as L:=1
+Why is that?\
 \>", "Text",
  CellChangeTimes->{{3.883479417228888*^9, 3.883479439564588*^9}, {
-  3.8834796530530787`*^9, 
-  3.883479668371497*^9}},ExpressionUUID->"eb00f407-f1fb-4f9c-a634-\
+  3.8834796530530787`*^9, 3.883479668371497*^9}, {3.883538253791877*^9, 
+  3.8835383467986827`*^9}},ExpressionUUID->"eb00f407-f1fb-4f9c-a634-\
 b61e331894d4"]
 }, Open  ]]
 },
-WindowSize->{498, 831},
+WindowSize->{882.75, 825.75},
 WindowMargins->{{Automatic, -5.25}, {Automatic, 0}},
 FrontEndVersion->"12.1 for Microsoft Windows (64-bit) (June 19, 2020)",
 StyleDefinitions->"Default.nb",
@@ -589,45 +596,44 @@ CellTagsIndex->{}
 *)
 (*NotebookFileOutline
 Notebook[{
-Cell[558, 20, 350, 7, 72, "Text",ExpressionUUID->"fff4e9ae-ce03-4505-88a5-d37a5fd07b8a"],
+Cell[558, 20, 779, 15, 160, "Text",ExpressionUUID->"fff4e9ae-ce03-4505-88a5-d37a5fd07b8a"],
 Cell[CellGroupData[{
-Cell[933, 31, 328, 5, 66, "Section",ExpressionUUID->"f223caa3-3927-4fd7-abd7-1e85ee222ca4"],
+Cell[1362, 39, 414, 6, 66, "Section",ExpressionUUID->"f223caa3-3927-4fd7-abd7-1e85ee222ca4"],
 Cell[CellGroupData[{
-Cell[1286, 40, 2423, 63, 202, "Input",ExpressionUUID->"d1a6d0cb-9600-4351-80e0-acaef9b9057b"],
-Cell[3712, 105, 2231, 63, 75, "Output",ExpressionUUID->"d9998c8c-e40e-483a-bf56-cd6229ca4fa4"]
+Cell[1801, 49, 2423, 63, 202, "Input",ExpressionUUID->"d1a6d0cb-9600-4351-80e0-acaef9b9057b"],
+Cell[4227, 114, 2231, 63, 75, "Output",ExpressionUUID->"d9998c8c-e40e-483a-bf56-cd6229ca4fa4"]
 }, Open  ]],
-Cell[5958, 171, 215, 4, 50, "Text",ExpressionUUID->"c24a78d8-d820-4808-b04b-899fb53dc7c5"]
-}, Open  ]],
-Cell[CellGroupData[{
-Cell[6210, 180, 382, 6, 66, "Section",ExpressionUUID->"975c7a2b-5070-4dbf-8a33-94ccedba18b0"],
-Cell[6595, 188, 272, 8, 116, "Text",ExpressionUUID->"cc5a62e4-9f28-464b-b29e-9d8eac8e8c2f"],
-Cell[CellGroupData[{
-Cell[6892, 200, 2449, 62, 202, "Input",ExpressionUUID->"de15d92d-2daf-4923-9fc7-9503d269f9ef"],
-Cell[9344, 264, 967, 22, 68, "Output",ExpressionUUID->"13f08d0c-1e68-4807-be16-960cd938562b"]
-}, Open  ]],
-Cell[10326, 289, 215, 4, 50, "Text",ExpressionUUID->"e09fe1ab-7cb3-4736-8056-f40a8e51af26"]
+Cell[6473, 180, 330, 5, 50, "Text",ExpressionUUID->"c24a78d8-d820-4808-b04b-899fb53dc7c5"]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[10578, 298, 477, 7, 66, "Section",ExpressionUUID->"c860bc8c-660f-4640-b9e3-8752657d1aff"],
+Cell[6840, 190, 456, 6, 66, "Section",ExpressionUUID->"975c7a2b-5070-4dbf-8a33-94ccedba18b0"],
 Cell[CellGroupData[{
-Cell[11080, 309, 1951, 53, 237, "Input",ExpressionUUID->"d962146d-8c6a-4657-acec-00a43d09696a"],
-Cell[13034, 364, 482, 11, 48, "Output",ExpressionUUID->"c60c8f85-d697-41dd-b4eb-3a23f79cb0fe"],
-Cell[13519, 377, 364, 7, 48, "Output",ExpressionUUID->"f9bb6eef-7677-4cf2-a59a-3c19be516892"]
+Cell[7321, 200, 2739, 68, 221, "Input",ExpressionUUID->"de15d92d-2daf-4923-9fc7-9503d269f9ef"],
+Cell[10063, 270, 1008, 21, 48, "Output",ExpressionUUID->"67945387-bf8a-4756-b4a0-3db689c0ad93"]
 }, Open  ]],
-Cell[13898, 387, 269, 8, 94, "Text",ExpressionUUID->"11c9cb4d-8f75-4579-8a6d-fac86b2f3cb6"],
+Cell[11086, 294, 252, 4, 50, "Text",ExpressionUUID->"e09fe1ab-7cb3-4736-8056-f40a8e51af26"]
+}, Open  ]],
 Cell[CellGroupData[{
-Cell[14192, 399, 750, 23, 114, "Input",ExpressionUUID->"d23ec152-27b7-47eb-8cea-ecc1a3bedb1b"],
-Cell[14945, 424, 536, 16, 48, "Output",ExpressionUUID->"e2fad92e-a300-4372-8e47-82de7735a249"],
-Cell[15484, 442, 413, 11, 48, "Output",ExpressionUUID->"7bee1a32-e71e-4d63-b7de-68fea9190439"]
+Cell[11375, 303, 529, 8, 66, "Section",ExpressionUUID->"c860bc8c-660f-4640-b9e3-8752657d1aff"],
+Cell[CellGroupData[{
+Cell[11929, 315, 1951, 53, 202, "Input",ExpressionUUID->"d962146d-8c6a-4657-acec-00a43d09696a"],
+Cell[13883, 370, 482, 11, 48, "Output",ExpressionUUID->"c60c8f85-d697-41dd-b4eb-3a23f79cb0fe"],
+Cell[14368, 383, 364, 7, 48, "Output",ExpressionUUID->"f9bb6eef-7677-4cf2-a59a-3c19be516892"]
+}, Open  ]],
+Cell[14747, 393, 394, 9, 116, "Text",ExpressionUUID->"11c9cb4d-8f75-4579-8a6d-fac86b2f3cb6"],
+Cell[CellGroupData[{
+Cell[15166, 406, 750, 23, 95, "Input",ExpressionUUID->"d23ec152-27b7-47eb-8cea-ecc1a3bedb1b"],
+Cell[15919, 431, 536, 16, 48, "Output",ExpressionUUID->"e2fad92e-a300-4372-8e47-82de7735a249"],
+Cell[16458, 449, 413, 11, 48, "Output",ExpressionUUID->"7bee1a32-e71e-4d63-b7de-68fea9190439"]
 }, Open  ]]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[15946, 459, 764, 13, 140, "Section",ExpressionUUID->"7294571d-63d5-4d63-8579-ca3ea403a52e"],
+Cell[16920, 466, 798, 11, 66, "Section",ExpressionUUID->"7294571d-63d5-4d63-8579-ca3ea403a52e"],
 Cell[CellGroupData[{
-Cell[16735, 476, 2804, 76, 365, "Input",ExpressionUUID->"31b3dc77-fa26-4cdb-a7a4-1c29050acca5"],
-Cell[19542, 554, 382, 7, 71, "Output",ExpressionUUID->"1c8284c9-e8b4-4b53-aa4c-f1afc6446aca"]
+Cell[17743, 481, 2804, 76, 275, "Input",ExpressionUUID->"31b3dc77-fa26-4cdb-a7a4-1c29050acca5"],
+Cell[20550, 559, 382, 7, 48, "Output",ExpressionUUID->"1c8284c9-e8b4-4b53-aa4c-f1afc6446aca"]
 }, Open  ]],
-Cell[19939, 564, 241, 7, 72, "Text",ExpressionUUID->"eb00f407-f1fb-4f9c-a634-b61e331894d4"]
+Cell[20947, 569, 470, 9, 94, "Text",ExpressionUUID->"eb00f407-f1fb-4f9c-a634-b61e331894d4"]
 }, Open  ]]
 }
 ]
