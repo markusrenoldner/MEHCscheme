@@ -29,20 +29,16 @@
 
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
-// void u_0(const mfem::Vector &x, mfem::Vector &v);
-// void w_0(const mfem::Vector &x, mfem::Vector &v);
-// void f(const mfem::Vector &x, mfem::Vector &v); 
-// void u_exact(const mfem::Vector &x, mfem::Vector &returnvalue); // TODO timedependence
 void u_0_TGV(const mfem::Vector &x, mfem::Vector &v);
 void w_0_TGV(const mfem::Vector &x, mfem::Vector &v);
 void   f_TGV(const mfem::Vector &x, mfem::Vector &v); 
 void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue);
 
-
-
 int main(int argc, char *argv[]) {
 
     // simulation parameters
+    // careful: Re also has to be defined in the manufactured
+    //  solution functions at the end of the code 
     double Re_inv = 1/500.; // = 1/Re 
     double dt = 1/20.;
     double tmax = 3*dt;
@@ -276,12 +272,6 @@ int main(int argc, char *argv[]) {
             // std::cout << "--- t = "<<t<<"\n";
             // std::cout << t << ",";
 
-            // update source term
-            // TODO: get new source term for time t 
-            // https://stackoverflow.com/questions/20353210/what-is-the-purpose-of-stdfunction-and-how-to-use-it
-            f1.ProjectCoefficient(f_coeff);
-            f2.ProjectCoefficient(f_coeff);
-
             ////////////////////////////////////////////////////////////////////
             // DUAL FIELD
             ////////////////////////////////////////////////////////////////////
@@ -390,14 +380,6 @@ int main(int argc, char *argv[]) {
             x.GetSubVector(z_dofs, z);
             x.GetSubVector(p_dofs, p);
             
-            // check residuum
-            // mfem::Vector res1(size_1); res1=0.;
-            // mfem::Vector res2(size_2); res2=0.;
-            // A1.Mult(x,res1); A2.Mult(y,res2);
-            // res1 -= b1; res2 -= b2;
-            // printvector3(res1,1,0,20,15);
-            // printvector3(res2,1,0,20,15);
-
         } // time loop
 
         // convergence error
@@ -444,19 +426,17 @@ int main(int argc, char *argv[]) {
     } // refinement loop
 }
 
-
-
-/////////////////////////////////////
-// decaying TGV
-/////////////////////////////////////
-
-
 void u_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
     double pi = 3.14159265358979323846;
     returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi);
     returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi);
     returnvalue(2) = 0;
+
+    // manuf. sol from paper sec5.1.2
+    // returnvalue(0) = std::sin(x(0))*std::cos(x(1))*std::cos(x(2)); 
+    // returnvalue(1) = -1*std::cos(x(0))*std::sin(x(1))*std::cos(x(2)); 
+    // returnvalue(2) = 0.;
 }
 
 void w_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
@@ -465,6 +445,11 @@ void w_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
     returnvalue(0) = 0;
     returnvalue(1) = 0;
     returnvalue(2) = -2*pi* std::cos(x(0)*pi) * std::cos(x(1)*pi);
+
+    // manuf. sol from paper sec5.1.2
+    // returnvalue(0) = -1*std::cos(x(0))*std::sin(x(1))*std::sin(x(2));
+    // returnvalue(1) = -1*std::cos(x(1))*std::sin(x(0))*std::sin(x(2));
+    // returnvalue(2) = 2*std::cos(x(2))*std::sin(x(0))*std::sin(x(1));
 }
 
 void f_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
@@ -476,8 +461,7 @@ void f_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
 void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
     double pi = 3.14159265358979323846;
-
-    double Re = 500.;
+    double Re = 500.; // chose Re here!
     double nu = 1*1/Re; // = u*L/Re
     double t = 0.15;
     double F = std::exp(-2*nu*t);
@@ -485,112 +469,9 @@ void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
     returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi) * F;
     returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi) * F;
     returnvalue(2) = 0;
-}
 
-
-
-
-
-
-
-/////////////////////////////////////
-// steady TGV (u0,w0,f sind gleich wie beim decay case)
-/////////////////////////////////////
-
-void u_0_TGV_s(const mfem::Vector &x, mfem::Vector &returnvalue) {
-   
-    double pi = 3.14159265358979323846;
-    // int dim = x.Size();
-    // std::cout << "size ----" <<returnvalue.Size() << "\n";
-
-    // returnvalue(0) = std::sin(x(0))*std::cos(x(1))*std::cos(x(2)); //paper
-    // returnvalue(1) = -1*std::cos(x(0))*std::sin(x(1))*std::cos(x(2)); 
-    // returnvalue(2) = 0.;
-    returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi);
-    returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi);
-    returnvalue(2) = 0;
-}
-
-void w_0_TGV_s(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-   
-    double pi = 3.14159265358979323846;
-    // int dim = x.Size();
-
-    // returnvalue(0) = -1*std::cos(x(0))*std::sin(x(1))*std::sin(x(2));
-    // returnvalue(1) = -1*std::cos(x(1))*std::sin(x(0))*std::sin(x(2));
-    // returnvalue(2) = 2*std::cos(x(2))*std::sin(x(0))*std::sin(x(1));//paper
-    returnvalue(0) = 0;
-    returnvalue(1) = 0;
-    // returnvalue(2) = -2* std::cos(x(0)) * std::cos(x(1));
-    returnvalue(2) = -2*pi* std::cos(x(0)*pi) * std::cos(x(1)*pi);
-}
-
-void f_TGV_s(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-    returnvalue(0) = 0.;
-    returnvalue(1) = 0.;
-    returnvalue(2) = 0.;
-}
-
-void u_exact_TGV_s(const mfem::Vector &x, mfem::Vector &returnvalue) {
-   
-    double pi = 3.14159265358979323846;
-    // int dim = x.Size();
-    double t = 1.;
-
-    double nu = 1*2/500.; // = u*L/Re
-
+    // manuf. sol from paper sec5.1.2
     // returnvalue(0) = std::cos(x(0)) * sin(x(1)) * std::exp(-2*nu*t);
     // returnvalue(1) = -1* std::sin(x(0)) * cos(x(1)) * std::exp(-2*nu*t);
-    // returnvalue(2) = 0.; //paper
-
-    returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi);
-    returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi);
-    returnvalue(2) = 0;
+    // returnvalue(2) = 0.; 
 }
-
-
-
-// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
-//     // TODO timedependence
-//     double pi = 3.14159265358979323846;
-//     // int dim = x.Size();
-//     // std::cout << "size ----" <<returnvalue.Size() << "\n";
-//     // returnvalue.SetSize(3);
-
-//     returnvalue(0) = std::cos(pi*x.Elem(2)); 
-//     returnvalue(1) = std::sin(pi*x.Elem(2));
-//     returnvalue(2) = std::sin(pi*x.Elem(0));
-// }
-
-// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-//     // TODO timedependence
-//     double pi = 3.14159265358979323846;
-//     double t = 0;
-
-//     returnvalue(0)=2 *pi* std::cos(2 *pi* (t + x(0) + x(1))) + 
-//     (-1 - 4 *pi*pi *(-2 + t)) *std::cos(2 *pi* x(2)) +
-//     2 *pi* (-1 + t) *((-1 + t) *std::sin(4 *pi* x(0)) + 
-//     (-2 + t)* std::sin(2 *pi* x(0)) *std::sin(2 *pi* x(2)));
-
-//     returnvalue(1)=std::sin(2 *pi* x(2)) + 2 *pi* 
-//     (std::cos(2 *pi* (t + x(0) + x(1))) + (-1 + t*t) *
-//     std::cos(2 *pi* x(2)) *std::sin(2 *pi* x(0)) +
-//     2 *pi* (1 + t) *std::sin(2 *pi* x(2)));
-
-//     returnvalue(2)=-2 *pi* (-2 + t) *(-1 + t) *std::cos(2 *pi* x(0)) *
-//     std::cos(2 *pi* x(2)) + (-1 - 4 *pi*pi* (-1 + t)) *
-//     std::sin(2 *pi* x(0)) + 6 *pi* (-1 + 2* t) *std::sin(4 *pi* x(2));
-// }
-
-// void u_exact(const mfem::Vector &x, mfem::Vector &returnvalue) {
-   
-//     double pi = 3.14159265358979323846;
-//     // int dim = x.Size();
-
-//     // TODO timedependence
-//     double t = 2.;
-
-//     returnvalue(0) = (2-t)*std::cos(2*pi*x(2));
-//     returnvalue(1) = (1+t)*std::sin(2*pi*x(2));
-//     returnvalue(2) = (1-t)*std::sin(2*pi*x(0));
-// }
