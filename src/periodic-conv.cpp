@@ -276,16 +276,16 @@ int main(int argc, char *argv[]) {
             // DUAL FIELD
             ////////////////////////////////////////////////////////////////////
 
-            // update R2_2
-            mfem::MixedBilinearForm blf_R2_2(&RT,&RT);
-            mfem::SparseMatrix R2_2;
+            // update R2
+            mfem::MixedBilinearForm blf_R2(&RT,&RT);
+            mfem::SparseMatrix R2;
             mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-            blf_R2_2.AddDomainIntegrator(
+            blf_R2.AddDomainIntegrator(
                 new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-            blf_R2_2.Assemble();
-            blf_R2_2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2_2);
-            R2_2 *= 1./2.;
-            R2_2.Finalize();
+            blf_R2.Assemble();
+            blf_R2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2);
+            R2 *= 1./2.;
+            R2.Finalize();
 
             // update NR
             mfem::MixedBilinearForm blf_NR(&RT,&RT); 
@@ -309,7 +309,7 @@ int main(int argc, char *argv[]) {
             b2 = 0.0;
             b2sub = 0.0;
             N_dt.AddMult(v,b2sub);
-            R2_2.AddMult(v,b2sub,-1);
+            R2.AddMult(v,b2sub,-1);
             C_Re.AddMult(w,b2sub,-1);
             b2.AddSubVector(f2,0);
             b2.AddSubVector(b2sub,0);
@@ -330,16 +330,16 @@ int main(int argc, char *argv[]) {
             // PRIMAL FIELD
             ////////////////////////////////////////////////////////////////////
 
-            // update R1_2
-            mfem::MixedBilinearForm blf_R1_2(&ND,&ND);
-            mfem::SparseMatrix R1_2;
+            // update R1
+            mfem::MixedBilinearForm blf_R1(&ND,&ND);
+            mfem::SparseMatrix R1;
             mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-            blf_R1_2.AddDomainIntegrator(
+            blf_R1.AddDomainIntegrator(
                 new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-            blf_R1_2.Assemble();
-            blf_R1_2.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1_2);
-            R1_2 *= 1./2.;
-            R1_2.Finalize();
+            blf_R1.Assemble();
+            blf_R1.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1);
+            R1 *= 1./2.;
+            R1.Finalize();
 
             // update MR
             mfem::MixedBilinearForm blf_MR(&ND,&ND); 
@@ -363,7 +363,7 @@ int main(int argc, char *argv[]) {
             b1 = 0.0;
             b1sub = 0.0;
             M_dt.AddMult(u,b1sub);
-            R1_2.AddMult(u,b1sub,-1);
+            R1.AddMult(u,b1sub,-1);
             CT_Re.AddMult(z,b1sub,-1);
             b1.AddSubVector(b1sub,0);
             b1.AddSubVector(f1,0);
