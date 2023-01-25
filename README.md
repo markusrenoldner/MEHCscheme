@@ -7,6 +7,6 @@ TODO (basically download and unpack mfem and glvis into the extern folder, then 
 # folder structure
 * /build will contain all files produced by cmake
 * /extern contains the mfem (v4.5) and glvis (v4.2) library
-* /playgound contains some files that are not necessary to run the main code
+* /scripts contains some files necessary for plotting etc
 * /src contains the cpp files that implement the mehc scheme
 * .sh are all shell scripts, that contain some handy commands for building, compiling, running and cleaning
