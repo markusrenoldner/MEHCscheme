@@ -36,9 +36,9 @@ void w_0(const mfem::Vector &x, mfem::Vector &v);
 int main(int argc, char *argv[]) {
 
     // simulation parameters
-    double Re_inv = 0.01; // = 1/Re 
+    double Re_inv = 0; // = 1/Re 
     double dt = 0.05;
-    double tmax = 10.;
+    double tmax = 1.;
     std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
     <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
@@ -294,16 +294,16 @@ int main(int argc, char *argv[]) {
         // DUAL FIELD
         ////////////////////////////////////////////////////////////////////
 
-        // update R2_2
-        mfem::MixedBilinearForm blf_R2_2(&RT,&RT);
-        mfem::SparseMatrix R2_2;
+        // update R2
+        mfem::MixedBilinearForm blf_R2(&RT,&RT);
+        mfem::SparseMatrix R2;
         mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-        blf_R2_2.AddDomainIntegrator(
+        blf_R2.AddDomainIntegrator(
             new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-        blf_R2_2.Assemble();
-        blf_R2_2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2_2);
-        R2_2 *= 1./2.;
-        R2_2.Finalize();
+        blf_R2.Assemble();
+        blf_R2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2);
+        R2 *= 1./2.;
+        R2.Finalize();
 
         // update NR
         mfem::MixedBilinearForm blf_NR(&RT,&RT); 
@@ -327,7 +327,7 @@ int main(int argc, char *argv[]) {
         b2 = 0.0;
         b2sub = 0.0;
         N_dt.AddMult(v,b2sub);
-        R2_2.AddMult(v,b2sub,-1);
+        R2.AddMult(v,b2sub,-1);
         C_Re.AddMult(w,b2sub,-1);
         b2.AddSubVector(b2sub,0);
 
@@ -349,16 +349,16 @@ int main(int argc, char *argv[]) {
         // PRIMAL FIELD
         ////////////////////////////////////////////////////////////////////
 
-        // update R1_2
-        mfem::MixedBilinearForm blf_R1_2(&ND,&ND);
-        mfem::SparseMatrix R1_2;
+        // update R1
+        mfem::MixedBilinearForm blf_R1(&ND,&ND);
+        mfem::SparseMatrix R1;
         mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-        blf_R1_2.AddDomainIntegrator(
+        blf_R1.AddDomainIntegrator(
             new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-        blf_R1_2.Assemble();
-        blf_R1_2.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1_2);
-        R1_2 *= 1./2.;
-        R1_2.Finalize();
+        blf_R1.Assemble();
+        blf_R1.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1);
+        R1 *= 1./2.;
+        R1.Finalize();
 
         // update MR
         mfem::MixedBilinearForm blf_MR(&ND,&ND); 
@@ -382,7 +382,7 @@ int main(int argc, char *argv[]) {
         b1 = 0.0;
         b1sub = 0.0;
         M_dt.AddMult(u,b1sub);
-        R1_2.AddMult(u,b1sub,-1);
+        R1.AddMult(u,b1sub,-1);
         CT_Re.AddMult(z,b1sub,-1);
         b1.AddSubVector(b1sub,0);
 
@@ -427,26 +427,26 @@ int main(int argc, char *argv[]) {
         z_avg_old.Add(0.5,z_old);
         z_avg_old.Add(0.5,z_old_old);
 
-        // conservation test, Re=0
+        // conservation test, Re=infty
         // TODO check signs of K1K2H1H2
-        // mfem::Vector mass_vec1 (p.Size());
-        // mfem::Vector mass_vec2 (q.Size());
-        // GT->Mult(u,mass_vec1);
-        // D.Mult(v,mass_vec2);
-        // double K1_old = -1./2.*blf_M.InnerProduct(u_old,u_old);
-        // double K1 = -1./2.*blf_M.InnerProduct(u,u);
-        // double K2_old = -1./2.*blf_N.InnerProduct(v_old,v_old);
-        // double K2 = -1./2.*blf_N.InnerProduct(v,v);
-        // double H1_old = -1.*blf_M.InnerProduct(u_avg_old,w_old);
-        // double H1 = -1.*blf_M.InnerProduct(u_avg,w);
-        // double H2_old = -1.*blf_N.InnerProduct(v_old,z_avg_old); 
-        // double H2 = -1.*blf_N.InnerProduct(v,z_avg); //definition in paper!!
-        // std::cout << mass_vec1.Norml2() << ",";
-        // std::cout << mass_vec2.Norml2() << ",";
-        // std::cout << (K1-K1_old)/dt << ",";
-        // std::cout << (K2-K2_old)/dt << ",";
-        // std::cout << (H1-H1_old)/dt << ",";
-        // std::cout << (H2-H2_old)/dt << ",\n"; 
+        mfem::Vector mass_vec1 (p.Size());
+        mfem::Vector mass_vec2 (q.Size());
+        GT->Mult(u,mass_vec1);
+        D.Mult(v,mass_vec2);
+        double K1_old = -1./2.*blf_M.InnerProduct(u_old,u_old);
+        double K1 = -1./2.*blf_M.InnerProduct(u,u);
+        double K2_old = -1./2.*blf_N.InnerProduct(v_old,v_old);
+        double K2 = -1./2.*blf_N.InnerProduct(v,v);
+        double H1_old = -1.*blf_M.InnerProduct(u_avg_old,w_old);
+        double H1 = -1.*blf_M.InnerProduct(u_avg,w);
+        double H2_old = -1.*blf_N.InnerProduct(v_old,z_avg_old); 
+        double H2 = -1.*blf_N.InnerProduct(v,z_avg); //definition in paper!!
+        std::cout << mass_vec1.Norml2() << ",";
+        std::cout << mass_vec2.Norml2() << ",";
+        std::cout << (K1-K1_old)/dt << ",";
+        std::cout << (K2-K2_old)/dt << ",";
+        std::cout << (H1-H1_old)/dt << ",";
+        std::cout << (H2-H2_old)/dt << ",\n"; 
         
         // conservation test, Re=100
         // double E2 = 1/2.*blf_N.InnerProduct(z_avg,z_avg);
