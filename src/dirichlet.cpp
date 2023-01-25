@@ -64,19 +64,23 @@ int main(int argc, char *argv[]) {
         mfem::FiniteElementCollection *fec_ND = new mfem::ND_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_RT = new mfem::RT_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order,dim);
+        mfem::FiniteElementCollection *fec_RT0 = new mfem::RT_FECollection(order,dim); // necessary?
+        mfem::FiniteElementCollection *fec_ND0 = new mfem::ND_FECollection(order,dim); // necessary?
         mfem::FiniteElementSpace CG(&mesh, fec_CG);
         mfem::FiniteElementSpace ND(&mesh, fec_ND);
         mfem::FiniteElementSpace RT(&mesh, fec_RT);
         mfem::FiniteElementSpace DG(&mesh, fec_DG);
-        mfem::FiniteElementSpace RT0(&mesh, fec_RT); // for dual system
-        mfem::FiniteElementSpace ND0(&mesh, fec_ND); // for dual system
+        mfem::FiniteElementSpace RT0(&mesh, fec_RT0); // for dual system
+        mfem::FiniteElementSpace ND0(&mesh, fec_ND0); // for dual system
 
         // boundary conditions
         //TODO
-        Array<int> ess_tdof_list;
-        Array<int> ess_bdr(mesh.bdr_attributes.Max()); 
+        mfem::Array<int> RT0_ess_tdof;
+        mfem::Array<int> ND0_ess_tdof;
+        mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max()); 
         ess_bdr = 1;
-        fespace.GetEssentialTrueDofs(ess_bdr, ess_tdof_list); 
+        RT0.GetEssentialTrueDofs(ess_bdr, RT0_ess_tdof); 
+        ND0.GetEssentialTrueDofs(ess_bdr, ND0_ess_tdof); 
 
         // unkowns and gridfunctions
         mfem::GridFunction u(&ND); // u = 4.3;
@@ -103,10 +107,10 @@ int main(int argc, char *argv[]) {
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
         int size_2 = v.Size() + w.Size() + q.Size();
-        // std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
-        // std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
-        // std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n"
-        // <<"----------------------\n";
+        std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
+        std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
+        std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n"
+        <<"----------------------\n";
         
         // initialize solution vectors
         mfem::Vector x(size_1);
@@ -149,6 +153,15 @@ int main(int argc, char *argv[]) {
         M_dt.Finalize();
         M_n.Finalize();
 
+        // Matrix M0 // TODO: keep only M0_n
+        mfem::BilinearForm blf_M0(&ND0);
+        mfem::SparseMatrix M0_n;
+        blf_M0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
+        blf_M0.Assemble();
+        blf_M0.FormSystemMatrix(ND0_ess_tdof,M0_n);
+        M0_n *= -1.;
+        M0_n.Finalize();
+
         // Matrix N
         mfem::BilinearForm blf_N(&RT);
         mfem::SparseMatrix N_dt;
@@ -167,7 +180,7 @@ int main(int argc, char *argv[]) {
         mfem::SparseMatrix N0_dt;
         blf_N0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
         blf_N0.Assemble();
-        blf_N0.FormSystemMatrix(ess_tdof_list,N0_dt);
+        blf_N0.FormSystemMatrix(RT0_ess_tdof,N0_dt);
         N0_dt *= 1/dt;
         N0_dt.Finalize();
 
@@ -196,13 +209,13 @@ int main(int argc, char *argv[]) {
         mfem::SparseMatrix C0_Re;
         blf_C0.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator()); //=(curl u,v)
         blf_C0.Assemble();
-        blf_C0.FormRectangularSystemMatrix(ess_tdof_list,ess_tdof_list,C0_Re);
+        blf_C0.FormRectangularSystemMatrix(ND0_ess_tdof,RT0_ess_tdof,C0_Re);
         C0T = Transpose(C0_Re);
         C0_Re *= Re_inv/2.;
         C0T->Finalize();
         C0_Re.Finalize();
 
-        // Matrix D // TODO: remove?
+        // Matrix D
         mfem::MixedBilinearForm blf_D(&RT, &DG);
         mfem::SparseMatrix D;
         mfem::SparseMatrix *DT_n;
@@ -213,18 +226,6 @@ int main(int argc, char *argv[]) {
         *DT_n *= -1.;
         D.Finalize();
         DT_n->Finalize();
-
-        // Matrix D0
-        mfem::MixedBilinearForm blf_D0(&RT0, &DG);
-        mfem::SparseMatrix D0;
-        mfem::SparseMatrix *D0T_n;
-        blf_D0.AddDomainIntegrator(new mfem::MixedScalarDivergenceIntegrator()); //=(div u,v)
-        blf_D0.Assemble();
-        blf_D0.FormRectangularSystemMatrix(ess_tdof_list,ess_tdof_list,D0);
-        D0T_n = Transpose(D);
-        *D0T_n *= -1.;
-        D0.Finalize();
-        D0T_n->Finalize();
 
         // Matrix G
         mfem::MixedBilinearForm blf_G(&CG, &ND);
@@ -302,7 +303,7 @@ int main(int argc, char *argv[]) {
 
         // solve eulerstep
         double tol = 1e-12;
-        int iter = 1000000;
+        int iter = 10000000;
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
 
         // extract solution values u,z,p from eulerstep
@@ -319,54 +320,53 @@ int main(int argc, char *argv[]) {
             // DUAL FIELD
             ////////////////////////////////////////////////////////////////////
 
-            // update R2_2
-            mfem::MixedBilinearForm blf_R2_2(&RT,&RT);
-            mfem::SparseMatrix R2_2;
-            mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-            blf_R2_2.AddDomainIntegrator(
-                new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-            blf_R2_2.Assemble();
-            blf_R2_2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2_2);
-            R2_2 *= 1./2.;
-            R2_2.Finalize();
+            // update R2
+            // mfem::MixedBilinearForm blf_R2(&RT,&RT);
+            // mfem::SparseMatrix R2;
+            // mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
+            // blf_R2.AddDomainIntegrator(
+            //     new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
+            // blf_R2.Assemble();
+            // blf_R2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2);
+            // R2 *= 1./2.;
+            // R2.Finalize();
 
-            // update R20_2 
+            // update R20 
+            mfem::MixedBilinearForm blf_R20(&RT0,&RT0);
+            mfem::SparseMatrix R20;
+            mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
+            blf_R20.AddDomainIntegrator(
+                new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
+            blf_R20.Assemble();
+            blf_R20.FormRectangularSystemMatrix(RT0_ess_tdof,RT0_ess_tdof,R20);
+            R20 *= 1./2.;
+            R20.Finalize();
+
+            // update NR0
             //TODO: change this matrix 
-            // TODO: warum _2 im namen? check github version history wann ich das gemacht hab
-            mfem::MixedBilinearForm blf_R2_2(&RT,&RT);
-            mfem::SparseMatrix R2_2;
-            mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-            blf_R2_2.AddDomainIntegrator(
-                new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-            blf_R2_2.Assemble();
-            blf_R2_2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2_2);
-            R2_2 *= 1./2.;
-            R2_2.Finalize();
-
-            // update NR
-            mfem::MixedBilinearForm blf_NR(&RT,&RT); 
-            mfem::SparseMatrix NR;
-            blf_NR.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
-            blf_NR.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-            blf_NR.Assemble();
-            blf_NR.FormRectangularSystemMatrix(RT_etdof,RT_etdof,NR);
-            NR *= 1./2.;
-            NR.Finalize();
+            mfem::MixedBilinearForm blf_NR0(&RT0,&RT0); 
+            mfem::SparseMatrix NR0;
+            blf_NR0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
+            blf_NR0.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
+            blf_NR0.Assemble();
+            blf_NR0.FormRectangularSystemMatrix(RT0_ess_tdof,RT0_ess_tdof,NR0);
+            NR0 *= 1./2.;
+            NR0.Finalize();
 
             // update A2
-            A2.SetBlock(0,0, &NR);
-            A2.SetBlock(0,1, &C_Re);
+            A2.SetBlock(0,0, &NR0);
+            A2.SetBlock(0,1, &C0_Re);
             A2.SetBlock(0,2, DT_n);
-            A2.SetBlock(1,0, CT);
-            A2.SetBlock(1,1, &M_n);
+            A2.SetBlock(1,0, C0T);
+            A2.SetBlock(1,1, &M0_n);
             A2.SetBlock(2,0, &D);
 
             // update b2
             b2 = 0.0;
             b2sub = 0.0;
-            N_dt.AddMult(v,b2sub);
-            R2_2.AddMult(v,b2sub,-1);
-            C_Re.AddMult(w,b2sub,-1);
+            N0_dt.AddMult(v,b2sub);
+            R20.AddMult(v,b2sub,-1);
+            C0_Re.AddMult(w,b2sub,-1);
             b2.AddSubVector(f2,0);
             b2.AddSubVector(b2sub,0);
 
@@ -386,16 +386,16 @@ int main(int argc, char *argv[]) {
             // PRIMAL FIELD
             ////////////////////////////////////////////////////////////////////
 
-            // update R1_2
-            mfem::MixedBilinearForm blf_R1_2(&ND,&ND);
-            mfem::SparseMatrix R1_2;
+            // update R1
+            mfem::MixedBilinearForm blf_R1(&ND,&ND);
+            mfem::SparseMatrix R1;
             mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-            blf_R1_2.AddDomainIntegrator(
+            blf_R1.AddDomainIntegrator(
                 new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-            blf_R1_2.Assemble();
-            blf_R1_2.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1_2);
-            R1_2 *= 1./2.;
-            R1_2.Finalize();
+            blf_R1.Assemble();
+            blf_R1.FormRectangularSystemMatrix(ND_etdof,ND_etdof,R1);
+            R1 *= 1./2.;
+            R1.Finalize();
 
             // update MR
             mfem::MixedBilinearForm blf_MR(&ND,&ND); 
@@ -419,7 +419,7 @@ int main(int argc, char *argv[]) {
             b1 = 0.0;
             b1sub = 0.0;
             M_dt.AddMult(u,b1sub);
-            R1_2.AddMult(u,b1sub,-1);
+            R1.AddMult(u,b1sub,-1);
             CT_Re.AddMult(z,b1sub,-1);
             b1.AddSubVector(b1sub,0);
             b1.AddSubVector(f1,0);
@@ -442,17 +442,17 @@ int main(int argc, char *argv[]) {
         double err_L2_u = u.ComputeL2Error(u_exact_coeff);
         double err_L2_v = v.ComputeL2Error(u_exact_coeff);
         
-        mfem::GridFunction v_ND (&ND);
-        v_ND.ProjectGridFunction(v);
-        double err_L2_diff = 0;
-        for (int i=0; i<u.Size(); i++) {
-            err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
-        }
-        err_L2_diff = std::pow(err_L2_diff, 0.5);
+        // mfem::GridFunction v_ND (&ND);
+        // v_ND.ProjectGridFunction(v);
+        // double err_L2_diff = 0;
+        // for (int i=0; i<u.Size(); i++) {
+        //     err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
+        // }
+        // err_L2_diff = std::pow(err_L2_diff, 0.5);
 
         std::cout << "L2err of v = "<< err_L2_v<<"\n";
         std::cout << "L2err of u = "<< err_L2_u<<"\n";
-        std::cout << "L2err(u-v) = "<< err_L2_diff <<"\n";
+        // std::cout << "L2err(u-v) = "<< err_L2_diff <<"\n";
 
         // visuals
         // std::ofstream mesh_ofs("refined.mesh");
