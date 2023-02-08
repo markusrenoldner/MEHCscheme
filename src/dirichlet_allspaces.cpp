@@ -76,6 +76,13 @@ int main(int argc, char *argv[]) {
         CG0.GetEssentialTrueDofs(ess_bdr, CG0_ess_tdof); 
         ND0.GetEssentialTrueDofs(ess_bdr, ND0_ess_tdof); 
         RT0.GetEssentialTrueDofs(ess_bdr, RT0_ess_tdof); 
+        mfem::Array<int> ess_dof1, ess_dof2;
+        ess_dof1.Append(ND0_ess_tdof);
+        ess_dof1.Append(RT0_ess_tdof);
+        ess_dof1.Append(CG0_ess_tdof);
+        ess_dof2.Append(RT0_ess_tdof);
+        ess_dof2.Append(ND0_ess_tdof);
+        // DG space doesnt have ess BC!
 
         // unkowns and gridfunctions
         mfem::GridFunction u(&ND0); // u = 4.3;
@@ -294,8 +301,10 @@ int main(int argc, char *argv[]) {
         offsets_2[2] = w.Size();
         offsets_2[3] = q.Size();
         offsets_2.PartialSum();
-        mfem::BlockMatrix A1(offsets_1);
-        mfem::BlockMatrix A2(offsets_2);
+        // mfem::BlockMatrix A1(offsets_1);
+        // mfem::BlockMatrix A2(offsets_2);
+        mfem::BlockOperator A1(offsets_1);
+        mfem::BlockOperator A2(offsets_2);
 
         // initialize rhs
         mfem::Vector b1(size_1);
@@ -324,13 +333,14 @@ int main(int argc, char *argv[]) {
         C0T_0 *= 2;
         C0T_0.Finalize();
 
-        // update A1 for eulerstep
+        // assemble and solve system
         A1.SetBlock(0,0, &MR0_eul);
         A1.SetBlock(0,1, &C0T_0);
         A1.SetBlock(0,2, &G0);
         A1.SetBlock(1,0, &C0);
         A1.SetBlock(1,1, &N0_n);
         A1.SetBlock(2,0, G0T);
+
 
         // update b1, b2 for eulerstep
         b1 = 0.0;
@@ -339,21 +349,41 @@ int main(int argc, char *argv[]) {
         b1.AddSubVector(f1,0);
         b1.AddSubVector(b1sub,0); 
 
+        // form linear system with BC
+        mfem::Operator *A1_BC;
+        mfem::Vector X, B1;
+        X = 0.0;
+        A1.FormLinearSystem(ess_dof1, x, b1, A1_BC, X, B1);
+
+
         // create symmetric system AT*A*x=AT*b for eulerstep
-        mfem::TransposeOperator AT1 (&A1);
-        mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
-        mfem::Vector ATb1 (size_1);
-        A1.MultTranspose(b1,ATb1);
+        // mfem::TransposeOperator AT1 (&A1);
+        // mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
+        // mfem::Vector ATb1 (size_1);
+        // A1.MultTranspose(b1,ATb1);
 
         // solve eulerstep
         double tol = 1e-10;
         int iter = 100000;
-        mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
+        // mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
+
+        // mfem::MINRESSolver solver;
+        // solver.SetAbsTol(tol);
+        // solver.SetRelTol(tol);
+        // solver.SetMaxIter(iter);
+        // solver.SetOperator(*A1_BC);
+        // solver.SetPrintLevel(1);
+        // solver.Mult(B1, X);
+
+        mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
 
         // extract solution values u,z,p from eulerstep
-        x.GetSubVector(u_dofs, u);
-        x.GetSubVector(z_dofs, z);
-        x.GetSubVector(p_dofs, p);
+        // x.GetSubVector(u_dofs, u);
+        // x.GetSubVector(z_dofs, z);
+        // x.GetSubVector(p_dofs, p);
+
+        
+        std::cout << "check\n";
             
         // time loop
         for (double t = dt ; t < tmax+dt ; t+=dt) {
@@ -452,7 +482,6 @@ int main(int argc, char *argv[]) {
             mfem::SparseMatrix MR0(blf_MR0.SpMat());
             MR0 *= 1./2.;
             MR0.Finalize();
-            // std::cout << "check\n";
 
             // update A1
             A1.SetBlock(0,0, &MR0);
@@ -482,6 +511,8 @@ int main(int argc, char *argv[]) {
             x.GetSubVector(u_dofs, u);
             x.GetSubVector(z_dofs, z);
             x.GetSubVector(p_dofs, p);
+            
+        std::cout << "check\n";
             
         } // time loop
 
