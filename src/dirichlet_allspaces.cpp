@@ -188,12 +188,10 @@ int main(int argc, char *argv[]) {
         mfem::SparseMatrix N0_dt;
         // blf_N0.FormSystemMatrix(RT0_ess_tdof,N0_n);
         N0_dt = N0_n;
-        std::cout << "---check\n";
         N0_dt *= 1/dt;
         N0_n *= -1.;
         N0_dt.Finalize();
         N0_n.Finalize();
-        std::cout << "---check\n";
 
         // Matrix C
         // mfem::MixedBilinearForm blf_C(&ND, &RT);
@@ -216,13 +214,14 @@ int main(int argc, char *argv[]) {
 
         // Matrix C0
         mfem::MixedBilinearForm blf_C0(&ND0, &RT0);
-        mfem::SparseMatrix C0;
+        blf_C0.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator()); //=(curl u,v)
+        blf_C0.Assemble();
+        // blf_C0.FormRectangularSystemMatrix(ND0_ess_tdof,RT0_ess_tdof,C0);
+        blf_C0.Finalize();
+        mfem::SparseMatrix C0(blf_C0.SpMat());
         mfem::SparseMatrix *C0T;
         mfem::SparseMatrix C0_Re;
         mfem::SparseMatrix C0T_Re;
-        blf_C0.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator()); //=(curl u,v)
-        blf_C0.Assemble();
-        blf_C0.FormRectangularSystemMatrix(ND0_ess_tdof,RT0_ess_tdof,C0);
         C0T = Transpose(C0);
         C0_Re = C0;
         C0T_Re = *C0T; 
@@ -247,11 +246,12 @@ int main(int argc, char *argv[]) {
 
         // Matrix D0
         mfem::MixedBilinearForm blf_D0(&RT0, &DG);
-        mfem::SparseMatrix D0;
-        mfem::SparseMatrix *D0T_n;
         blf_D0.AddDomainIntegrator(new mfem::MixedScalarDivergenceIntegrator()); //=(div u,v)
         blf_D0.Assemble();
-        blf_D0.FormRectangularSystemMatrix(RT0_ess_tdof,DG_etdof,D0);
+        blf_D0.Finalize();
+        // blf_D0.FormRectangularSystemMatrix(RT0_ess_tdof,DG_etdof,D0);
+        mfem::SparseMatrix D0(blf_D0.SpMat());
+        mfem::SparseMatrix *D0T_n;
         D0T_n = Transpose(D0);
         *D0T_n *= -1.;
         D0.Finalize();
@@ -270,14 +270,16 @@ int main(int argc, char *argv[]) {
 
         // Matrix G0
         mfem::MixedBilinearForm blf_G0(&CG0, &ND0);
-        mfem::SparseMatrix G0;
-        mfem::SparseMatrix *G0T;
         blf_G0.AddDomainIntegrator(new mfem::MixedVectorGradientIntegrator()); //=(grad u,v)
         blf_G0.Assemble();
-        blf_G0.FormRectangularSystemMatrix(CG0_ess_tdof,ND0_ess_tdof,G0);
+        blf_G0.Finalize();
+        // blf_G0.FormRectangularSystemMatrix(CG0_ess_tdof,ND0_ess_tdof,G0);
+        mfem::SparseMatrix G0(blf_G0.SpMat());
+        mfem::SparseMatrix *G0T;
         G0T = Transpose(G0);
         G0.Finalize();
         G0T->Finalize();
+        //TODO change rest of the matrix definitions
 
         // initialize system matrices
         mfem::Array<int> offsets_1 (4);
@@ -307,13 +309,14 @@ int main(int argc, char *argv[]) {
 
         // Matrix MR_eul for eulerstep
         mfem::MixedBilinearForm blf_MR0_eul(&ND,&ND); 
-        mfem::SparseMatrix MR0_eul;
         mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
         mfem::ConstantCoefficient two_over_dt(2.0/dt);
         blf_MR0_eul.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
         blf_MR0_eul.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
         blf_MR0_eul.Assemble();
-        blf_MR0_eul.FormRectangularSystemMatrix(ND0_ess_tdof,ND0_ess_tdof,MR0_eul);
+        blf_MR0_eul.Finalize();
+        // blf_MR0_eul.FormRectangularSystemMatrix(ND0_ess_tdof,ND0_ess_tdof,MR0_eul);
+        mfem::SparseMatrix MR0_eul(blf_MR0_eul.SpMat());
         MR0_eul.Finalize();
         
         // CT for eulerstep
@@ -374,22 +377,24 @@ int main(int argc, char *argv[]) {
 
             // update R20 
             mfem::MixedBilinearForm blf_R20(&RT0,&RT0);
-            mfem::SparseMatrix R20;
             mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
             blf_R20.AddDomainIntegrator(
                 new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
             blf_R20.Assemble();
-            blf_R20.FormRectangularSystemMatrix(RT0_ess_tdof,RT0_ess_tdof,R20);
+            blf_R20.Finalize();
+            // blf_R20.FormRectangularSystemMatrix(RT0_ess_tdof,RT0_ess_tdof,R20);
+            mfem::SparseMatrix R20(blf_R20.SpMat());
             R20 *= 1./2.;
             R20.Finalize();
 
             // update NR0
             mfem::MixedBilinearForm blf_NR0(&RT0,&RT0); 
-            mfem::SparseMatrix NR0;
             blf_NR0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
             blf_NR0.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
             blf_NR0.Assemble();
-            blf_NR0.FormRectangularSystemMatrix(RT0_ess_tdof,RT0_ess_tdof,NR0);
+            blf_NR0.Finalize();
+            // blf_NR0.FormRectangularSystemMatrix(RT0_ess_tdof,RT0_ess_tdof,NR0);
+            mfem::SparseMatrix NR0(blf_NR0.SpMat());
             NR0 *= 1./2.;
             NR0.Finalize();
 
@@ -427,24 +432,27 @@ int main(int argc, char *argv[]) {
 
             // update R10
             mfem::MixedBilinearForm blf_R10(&ND0,&ND0);
-            mfem::SparseMatrix R10;
             mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
             blf_R10.AddDomainIntegrator(
                 new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
             blf_R10.Assemble();
-            blf_R10.FormRectangularSystemMatrix(ND0_ess_tdof,ND0_ess_tdof,R10);
+            blf_R10.Finalize();
+            // blf_R10.FormRectangularSystemMatrix(ND0_ess_tdof,ND0_ess_tdof,R10);
+            mfem::SparseMatrix R10(blf_R10.SpMat());
             R10 *= 1./2.;
             R10.Finalize();
 
             // update MR0
             mfem::MixedBilinearForm blf_MR0(&ND,&ND); 
-            mfem::SparseMatrix MR0;
             blf_MR0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
             blf_MR0.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
             blf_MR0.Assemble();
-            blf_MR0.FormRectangularSystemMatrix(ND0_ess_tdof,ND0_ess_tdof,MR0);
+            blf_MR0.Finalize();
+            // blf_MR0.FormRectangularSystemMatrix(ND0_ess_tdof,ND0_ess_tdof,MR0);
+            mfem::SparseMatrix MR0(blf_MR0.SpMat());
             MR0 *= 1./2.;
             MR0.Finalize();
+            // std::cout << "check\n";
 
             // update A1
             A1.SetBlock(0,0, &MR0);
