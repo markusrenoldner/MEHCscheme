@@ -46,7 +46,6 @@ _deps
 
 
 out/build/
-out/
 
 [Bb][Uu][Ii][Ll][Dd]/
 .vscode/settings.json
