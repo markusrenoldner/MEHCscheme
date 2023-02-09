@@ -59,6 +59,16 @@ int main(int argc, char *argv[])
     std::cout << "dim(R+W) = " << block_offsets.Last() << "\n";
     std::cout << "***********************************************************\n";
 
+
+
+    // NEU
+    Array<int> natural_bdr({1, 1, 0, 0});
+    Array<int> ess_bdr({0, 0, 1, 1});
+    Array<int> ess_dofs;
+    R_space->GetEssentialTrueDofs(ess_bdr, ess_dofs);
+
+
+
     // 7. Define the coefficients, analytical solution, and rhs of the PDE.
     ConstantCoefficient k(1.0);
 
@@ -80,7 +90,15 @@ int main(int argc, char *argv[])
     LinearForm *fform(new LinearForm);
     fform->Update(R_space, rhs.GetBlock(0), 0);
     fform->AddDomainIntegrator(new VectorFEDomainLFIntegrator(fcoeff));
-    fform->AddBoundaryIntegrator(new VectorFEBoundaryFluxLFIntegrator(fnatcoeff));
+
+
+    // NEU
+    // fform->AddBoundaryIntegrator(new VectorFEBoundaryFluxLFIntegrator(fnatcoeff));
+    fform->AddBoundaryIntegrator(new VectorFEBoundaryFluxLFIntegrator(fnatcoeff),
+                                natural_bdr);
+
+
+
     fform->Assemble();
     fform->SyncAliasMemory(rhs);
 
@@ -90,7 +108,7 @@ int main(int argc, char *argv[])
     gform->Assemble();
     gform->SyncAliasMemory(rhs);
 
-    // rhs = 1; // TODO ... was hab ich mir denn da gedacht?
+    // rhs = 1; // TODO
 
     // 9. Assemble the finite element matrices for the Darcy operator
     //
@@ -124,6 +142,15 @@ int main(int argc, char *argv[])
     darcyOp.SetBlock(0,1, Bt);
     darcyOp.SetBlock(1,0, &B);
 
+    
+    // NEU
+    Operator *darcyOpConstrained;
+    Vector X, Bvec;
+    x = 0.0;
+    darcyOp.FormLinearSystem(ess_dofs, x, rhs, darcyOpConstrained, X, Bvec);
+
+
+
     // 11. Solve the linear system with MINRES.
     //     Check the norm of the unpreconditioned residual.
     int maxIter(1000);
@@ -134,10 +161,26 @@ int main(int argc, char *argv[])
     solver.SetAbsTol(atol);
     solver.SetRelTol(rtol);
     solver.SetMaxIter(maxIter);
-    solver.SetOperator(darcyOp);
+
+    
+    // NEU
+    // solver.SetOperator(darcyOp);
+    solver.SetOperator(*darcyOpConstrained);
+    
+    
+    
     solver.SetPrintLevel(1);
+
+
+    // NEU
+    // x = 0.0;
+    // solver.Mult(rhs, x);
     x = 0.0;
-    solver.Mult(rhs, x);
+    solver.Mult(Bvec, X);
+    x.Vector::operator=(X);
+
+
+
     // for (int i=0; i<block_offsets[2]; i++){
     //    std::cout << x.Elem(i) << "\n";
     // }
