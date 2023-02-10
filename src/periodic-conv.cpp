@@ -232,13 +232,13 @@ int main(int argc, char *argv[]) {
         MR_eul.Finalize();
         
         // CT for eulerstep
-        mfem::SparseMatrix CT_0 = CT_Re;
-        CT_0 *= 2;
-        CT_0.Finalize();
+        mfem::SparseMatrix CT_eul = CT_Re;
+        CT_eul *= 2;
+        CT_eul.Finalize();
 
         // update A1 for eulerstep
         A1.SetBlock(0,0, &MR_eul);
-        A1.SetBlock(0,1, &CT_0);
+        A1.SetBlock(0,1, &CT_eul);
         A1.SetBlock(0,2, &G);
         A1.SetBlock(1,0, &C);
         A1.SetBlock(1,1, &N_n);
