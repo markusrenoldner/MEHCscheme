@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
     double Re_inv = 1/500.; // = 1/Re 
     double dt = 1/20.;
     double tmax = dt;
-    int ref_steps = 1;
+    int ref_steps = 0;
     std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
     <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
@@ -66,14 +66,24 @@ int main(int argc, char *argv[]) {
         mfem::FiniteElementSpace RT0(&mesh, fec_RT0); // for dual system
 
         // boundary conditions
-        // TODO
+        // TODO delete unncessary arrays and add some explanation comments
+        // TODO: falsche dofs im array!
         mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof; 
         mfem::Array<int> CG0_ess_tdof;
         mfem::Array<int> ND0_ess_tdof;
         mfem::Array<int> RT0_ess_tdof;
-        mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max()); 
+        mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max()); //6
         ess_bdr = 1;
+
+        // TODO: construct correct esstdof array
+        std::cout << CG0.GetNDofs()<<"\n";
         CG0.GetEssentialTrueDofs(ess_bdr, CG0_ess_tdof); 
+        for(int i=0; i<CG0_ess_tdof.Size(); i++) {
+            std::cout << CG0_ess_tdof[i] <<"\n";
+        }
+
+
+        
         ND0.GetEssentialTrueDofs(ess_bdr, ND0_ess_tdof); 
         RT0.GetEssentialTrueDofs(ess_bdr, RT0_ess_tdof); 
         mfem::Array<int> ess_dof1, ess_dof2;
@@ -85,31 +95,29 @@ int main(int argc, char *argv[]) {
         // DG space doesnt have ess BC!
 
         // unkowns and gridfunctions
-        mfem::GridFunction u(&ND0); // u = 4.3;
-        mfem::GridFunction z(&RT0); // z = 5.3;
-        mfem::GridFunction p(&CG0); // p = 6.3;
-        mfem::GridFunction v(&RT0); //v = 0.;
-        mfem::GridFunction w(&ND0); //w = 0.; // TODO is this enough to set 0 on the boundary?
-        mfem::GridFunction q(&DG); // q = 9.3;
+        mfem::GridFunction u(&ND0); u = 4.3;
+        mfem::GridFunction z(&RT0); z = 5.3;
+        mfem::GridFunction p(&CG0); //p = 6.3;
+        mfem::GridFunction v(&RT0); //v = 3.;
+        mfem::GridFunction w(&ND0); //w = 3.; 
+        mfem::GridFunction q(&DG);  //q = 9.3;
         mfem::GridFunction f1(&ND);
         mfem::GridFunction f2(&RT0);
-
-        
-        // PrintVector3(u,1,0,u.Size(),15); // TODO
 
         // initial condition
         mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0_TGV);
         mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0_TGV); 
         mfem::VectorFunctionCoefficient f_coeff(dim, f_TGV);
         mfem::VectorFunctionCoefficient u_exact_coeff(dim, u_exact_TGV); 
-        u.ProjectCoefficient(u_0_coeff);
-        v.ProjectCoefficient(u_0_coeff);
-        z.ProjectCoefficient(w_0_coeff);
-        w.ProjectCoefficient(w_0_coeff);
-        f1.ProjectCoefficient(f_coeff);
-        f2.ProjectCoefficient(f_coeff);
+        // u.ProjectCoefficient(u_0_coeff);
+        // v.ProjectCoefficient(u_0_coeff);
+        // z.ProjectCoefficient(w_0_coeff);
+        // w.ProjectCoefficient(w_0_coeff);
+        // f1.ProjectCoefficient(f_coeff);
+        // f2.ProjectCoefficient(f_coeff);
 
-        // PrintVector3(u,1,0,u.Size(),15); // TODO
+        // TODO: why is u=0 for some non-zero init cond?
+        // PrintVector3(u,1,0,u.Size(),15); 
 
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
@@ -143,22 +151,8 @@ int main(int argc, char *argv[]) {
         std::iota(&w_dofs[0], &w_dofs[w.Size()], v.Size());
         std::iota(&q_dofs[0], &q_dofs[q.Size()], v.Size()+w.Size());
 
-        //TODO: check all matrices and their prefactors
-
-        // Matrix M
-        // mfem::BilinearForm blf_M(&ND);
-        // mfem::SparseMatrix M_dt;
-        // mfem::SparseMatrix M_n;
-        // blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
-        // blf_M.Assemble();
-        // blf_M.FormSystemMatrix(ND_etdof,M_n);
-        // M_dt = M_n;
-        // M_dt *= 1/dt;
-        // M_n *= -1.;
-        // M_dt.Finalize();
-        // M_n.Finalize();
-
-
+        //TODO: check all matrices and their prefactors, delete "formsystemmatrix"
+        
         // Matrix M0
         mfem::BilinearForm blf_M0(&ND0);
         blf_M0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
@@ -172,19 +166,6 @@ int main(int argc, char *argv[]) {
         M0_n *= -1.;
         M0_dt.Finalize();
         M0_n.Finalize();
-
-        // Matrix N
-        // mfem::BilinearForm blf_N(&RT);
-        // mfem::SparseMatrix N_dt;
-        // mfem::SparseMatrix N_n;
-        // blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
-        // blf_N.Assemble();
-        // blf_N.FormSystemMatrix(RT_etdof,N_n);
-        // N_dt = N_n;
-        // N_dt *= 1/dt;
-        // N_n *= -1.;
-        // N_dt.Finalize();
-        // N_n.Finalize();
         
         // Matrix N0
         mfem::BilinearForm blf_N0(&RT0);
@@ -199,25 +180,6 @@ int main(int argc, char *argv[]) {
         N0_n *= -1.;
         N0_dt.Finalize();
         N0_n.Finalize();
-
-        // Matrix C
-        // mfem::MixedBilinearForm blf_C(&ND, &RT);
-        // mfem::SparseMatrix C;
-        // mfem::SparseMatrix *CT;
-        // mfem::SparseMatrix C_Re;
-        // mfem::SparseMatrix CT_Re;
-        // blf_C.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator()); //=(curl u,v)
-        // blf_C.Assemble();
-        // blf_C.FormRectangularSystemMatrix(ND_etdof,RT_etdof,C);
-        // CT = Transpose(C);
-        // C_Re = C;
-        // CT_Re = *CT; 
-        // C_Re *= Re_inv/2.;
-        // CT_Re *= Re_inv/2.;
-        // C.Finalize();
-        // CT->Finalize();
-        // C_Re.Finalize();
-        // CT_Re.Finalize();
 
         // Matrix C0
         mfem::MixedBilinearForm blf_C0(&ND0, &RT0);
@@ -239,18 +201,6 @@ int main(int argc, char *argv[]) {
         C0_Re.Finalize();
         C0T_Re.Finalize();
 
-        // Matrix D
-        // mfem::MixedBilinearForm blf_D(&RT, &DG);
-        // mfem::SparseMatrix D;
-        // mfem::SparseMatrix *DT_n;
-        // blf_D.AddDomainIntegrator(new mfem::MixedScalarDivergenceIntegrator()); //=(div u,v)
-        // blf_D.Assemble();
-        // blf_D.FormRectangularSystemMatrix(RT_etdof,DG_etdof,D);
-        // DT_n = Transpose(D);
-        // *DT_n *= -1.;
-        // D.Finalize();
-        // DT_n->Finalize();
-
         // Matrix D0
         mfem::MixedBilinearForm blf_D0(&RT0, &DG);
         blf_D0.AddDomainIntegrator(new mfem::MixedScalarDivergenceIntegrator()); //=(div u,v)
@@ -264,17 +214,6 @@ int main(int argc, char *argv[]) {
         D0.Finalize();
         D0T_n->Finalize();
 
-        // Matrix G
-        // mfem::MixedBilinearForm blf_G(&CG, &ND);
-        // mfem::SparseMatrix G;
-        // mfem::SparseMatrix *GT;
-        // blf_G.AddDomainIntegrator(new mfem::MixedVectorGradientIntegrator()); //=(grad u,v)
-        // blf_G.Assemble();
-        // blf_G.FormRectangularSystemMatrix(CG_etdof,ND_etdof,G);
-        // GT = Transpose(G);
-        // G.Finalize();
-        // GT->Finalize();
-
         // Matrix G0
         mfem::MixedBilinearForm blf_G0(&CG0, &ND0);
         blf_G0.AddDomainIntegrator(new mfem::MixedVectorGradientIntegrator()); //=(grad u,v)
@@ -286,7 +225,6 @@ int main(int argc, char *argv[]) {
         G0T = Transpose(G0);
         G0.Finalize();
         G0T->Finalize();
-        //TODO change rest of the matrix definitions
 
         // initialize system matrices
         mfem::Array<int> offsets_1 (4);
@@ -329,18 +267,17 @@ int main(int argc, char *argv[]) {
         MR0_eul.Finalize();
         
         // CT for eulerstep
-        mfem::SparseMatrix C0T_0 = C0T_Re;
-        C0T_0 *= 2;
-        C0T_0.Finalize();
+        mfem::SparseMatrix C0T_eul = C0T_Re;
+        C0T_eul *= 2;
+        C0T_eul.Finalize();
 
         // assemble and solve system
         A1.SetBlock(0,0, &MR0_eul);
-        A1.SetBlock(0,1, &C0T_0);
+        A1.SetBlock(0,1, &C0T_eul);
         A1.SetBlock(0,2, &G0);
         A1.SetBlock(1,0, &C0);
         A1.SetBlock(1,1, &N0_n);
         A1.SetBlock(2,0, G0T);
-
 
         // update b1, b2 for eulerstep
         b1 = 0.0;
@@ -351,39 +288,33 @@ int main(int argc, char *argv[]) {
 
         // form linear system with BC
         mfem::Operator *A1_BC;
-        mfem::Vector X, B1;
-        X = 0.0;
-        A1.FormLinearSystem(ess_dof1, x, b1, A1_BC, X, B1);
+        mfem::Vector X;
+        mfem::Vector B1;
+        x=0.;
+        mfem::Array <int> testarray ({0,1,2,3});
+        A1.FormLinearSystem(testarray, x, b1, A1_BC, X, B1);
 
-
-        // create symmetric system AT*A*x=AT*b for eulerstep
-        // mfem::TransposeOperator AT1 (&A1);
-        // mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
+        // TODO make transpose work
+        // mfem::TransposeOperator AT1 (&A1_BC);
+        // mfem::ProductOperator ATA1 (&AT1,&A1_BC,false,false);
+        // mfem::ProductOperator ATA1 (&AT1,A1_BC,false,false);
         // mfem::Vector ATb1 (size_1);
         // A1.MultTranspose(b1,ATb1);
-
-        // solve eulerstep
+        // A1.MultTranspose(B1,ATb1);
+        // AT1.Mult(B1,ATb1);
+        
+        // solve 
         double tol = 1e-10;
         int iter = 100000;
-        // mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
+        mfem::MINRES(A1, B1, X, 0, iter, tol*tol, tol*tol); 
 
-        // mfem::MINRESSolver solver;
-        // solver.SetAbsTol(tol);
-        // solver.SetRelTol(tol);
-        // solver.SetMaxIter(iter);
-        // solver.SetOperator(*A1_BC);
-        // solver.SetPrintLevel(1);
-        // solver.Mult(B1, X);
-
-        mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
-
+        // TODO
         // extract solution values u,z,p from eulerstep
         // x.GetSubVector(u_dofs, u);
         // x.GetSubVector(z_dofs, z);
         // x.GetSubVector(p_dofs, p);
 
         
-        std::cout << "check\n";
             
         // time loop
         for (double t = dt ; t < tmax+dt ; t+=dt) {
@@ -393,17 +324,6 @@ int main(int argc, char *argv[]) {
             ////////////////////////////////////////////////////////////////////
             // DUAL FIELD
             ////////////////////////////////////////////////////////////////////
-
-            // update R2
-            // mfem::MixedBilinearForm blf_R2(&RT,&RT);
-            // mfem::SparseMatrix R2;
-            // mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-            // blf_R2.AddDomainIntegrator(
-            //     new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-            // blf_R2.Assemble();
-            // blf_R2.FormRectangularSystemMatrix(RT_etdof,RT_etdof,R2);
-            // R2 *= 1./2.;
-            // R2.Finalize();
 
             // update R20 
             mfem::MixedBilinearForm blf_R20(&RT0,&RT0);
@@ -512,8 +432,6 @@ int main(int argc, char *argv[]) {
             x.GetSubVector(z_dofs, z);
             x.GetSubVector(p_dofs, p);
             
-        std::cout << "check\n";
-            
         } // time loop
 
         // convergence error
@@ -532,10 +450,8 @@ int main(int argc, char *argv[]) {
         std::cout << "L2err of u = "<< err_L2_u<<"\n";
 
         //TODO the error is "nan."
-
         // PrintVector3(u,1,0,40);
         // PrintVector3(z,1,0,40);
-
         // std::cout << "L2err(u-v) = "<< err_L2_diff <<"\n";
         // std::cout << "L2err(u-v) = "<< err_L2_diff <<"\n";
 
@@ -568,32 +484,38 @@ int main(int argc, char *argv[]) {
     delete fec_ND;
     delete fec_RT;
     delete fec_DG;
+    delete fec_CG0;
+    delete fec_ND0;
+    delete fec_RT0;
 
     } // refinement loop
 }
 
 void u_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
     
-    //TODO: rescaling!
+    //TODO: initcond u, init cond w, forcing, exact sol
    
     double pi = 3.14159265358979323846;
-    returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi);
-    // returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi);
-    // returnvalue(2) = x(0);//0
-    returnvalue(2) = x(1); //1
-    // returnvalue(2) = std::sin(x(1)); //0.84
-    // returnvalue(2) = std::sin(x(0)); // 0.84
-    // returnvalue(1) = 0;
 
-    // returnvalue(1) = x(1); //0
-    returnvalue(1) = x(0); // 1
-    // returnvalue(1) = std::sin(x(1)); //0.47
-    // returnvalue(1) = std::sin(x(0)); //0.84
+    double C = 10;
+    double DX = 0.5;
+    double DY = 0.5;
+    double DZ = 0.5;
+    double R = 0.5*std::sqrt(2*pi/C);
+    double cos = std::cos(C*(std::pow((x(0)-DX),2) 
+                            *std::pow((x(1)-DY),2) 
+                            *std::pow((x(2)-DZ),2)));
 
-    // manuf. sol from paper sec5.1.2
-    // returnvalue(0) = std::sin(x(0))*std::cos(x(1))*std::cos(x(2)); 
-    // returnvalue(1) = -1*std::cos(x(0))*std::sin(x(1))*std::cos(x(2)); 
-    // returnvalue(2) = 0.;
+    if (std::pow((x(0)-DX),2) + std::pow((x(1)-DY),2) < std::pow(R,2)) {
+        returnvalue(0) = (x(1)-DY) * cos;
+        returnvalue(1) = (x(0)-DX) * cos;
+        returnvalue(2) = 0;
+    }
+    else {
+        returnvalue(0) = 0;
+        returnvalue(1) = 0;
+        returnvalue(2) = 0;
+    }
 }
 
 void w_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
@@ -601,12 +523,8 @@ void w_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
     double pi = 3.14159265358979323846;
     returnvalue(0) = 0;
     returnvalue(1) = 0;
-    returnvalue(2) = -2*pi* std::cos(x(0)*pi) * std::cos(x(1)*pi);
-
-    // manuf. sol from paper sec5.1.2
-    // returnvalue(0) = -1*std::cos(x(0))*std::sin(x(1))*std::sin(x(2));
-    // returnvalue(1) = -1*std::cos(x(1))*std::sin(x(0))*std::sin(x(2));
-    // returnvalue(2) = 2*std::cos(x(2))*std::sin(x(0))*std::sin(x(1));
+    // returnvalue(2) = -2*pi* std::cos(x(0)*pi) * std::cos(x(1)*pi);
+    returnvalue(2) = 0;
 }
 
 void f_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
@@ -626,9 +544,4 @@ void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
     returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi) * F;
     returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi) * F;
     returnvalue(2) = 0;
-
-    // manuf. sol from paper sec5.1.2
-    // returnvalue(0) = std::cos(x(0)) * sin(x(1)) * std::exp(-2*nu*t);
-    // returnvalue(1) = -1* std::sin(x(0)) * cos(x(1)) * std::exp(-2*nu*t);
-    // returnvalue(2) = 0.; 
 }
