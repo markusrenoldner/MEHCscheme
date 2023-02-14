@@ -45,25 +45,29 @@ int main(int argc, char *argv[]) {
         for (int l = 0; l<ref_step; l++) {mesh.UniformRefinement();} 
         std::cout << "refinement: " << ref_step << "\n";
 
-
-        // mesh.
+        // mesh.UniformRefinement();//TODO
 
         // FE spaces (CG \in H1, DG \in L2)
         int order = 1;
-        mfem::FiniteElementCollection *fec_CG = new mfem::H1_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_ND = new mfem::ND_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_RT = new mfem::RT_FECollection(order,dim);
+        mfem::FiniteElementCollection *fec_CG = new mfem::H1_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order,dim);
-        mfem::FiniteElementCollection *fec_CG0 = new mfem::H1_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_ND0 = new mfem::ND_FECollection(order,dim); // necessary?
         mfem::FiniteElementCollection *fec_RT0 = new mfem::RT_FECollection(order,dim); // necessary?
-        mfem::FiniteElementSpace CG(&mesh, fec_CG);
+        mfem::FiniteElementCollection *fec_CG0 = new mfem::H1_FECollection(order,dim);
         mfem::FiniteElementSpace ND(&mesh, fec_ND);
         mfem::FiniteElementSpace RT(&mesh, fec_RT);
+        mfem::FiniteElementSpace CG(&mesh, fec_CG);
         mfem::FiniteElementSpace DG(&mesh, fec_DG);
-        mfem::FiniteElementSpace CG0(&mesh, fec_CG0);
         mfem::FiniteElementSpace ND0(&mesh, fec_ND0); // for dual system
         mfem::FiniteElementSpace RT0(&mesh, fec_RT0); // for dual system
+        mfem::FiniteElementSpace CG0(&mesh, fec_CG0);
+
+
+
+
+
 
         // boundary conditions
         // TODO delete unncessary arrays and add some explanation comments
@@ -72,27 +76,41 @@ int main(int argc, char *argv[]) {
         mfem::Array<int> CG0_ess_tdof;
         mfem::Array<int> ND0_ess_tdof;
         mfem::Array<int> RT0_ess_tdof;
-        mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max()); //6
-        ess_bdr = 1;
+
+        std::cout << "----\n";
+        std::cout << "ND dofs: " << ND0.GetNDofs() <<"\n";
+        std::cout << "RT dofs: " << RT0.GetNDofs() <<"\n";
+        std::cout << "CG dofs: " << CG0.GetNDofs() <<"\n";
+        std::cout << "----\n";
+        std::cout << "ND vertices: " << ND0.GetNVDofs() <<"\n";
+        std::cout << "RT vertices: " << RT0.GetNVDofs() <<"\n";
+        std::cout << "CG vertices: " << CG0.GetNVDofs() <<"\n";
+        std::cout << "----\n";
+        std::cout << "ND edges: " << ND0.GetNEDofs() <<"\n";
+        std::cout << "RT edges: " << RT0.GetNEDofs() <<"\n";
+        std::cout << "CG edges: " << CG0.GetNEDofs() <<"\n";
+        std::cout << "----\n";
+        std::cout << "ND faces: " << ND0.GetNFDofs() <<"\n";
+        std::cout << "RT faces: " << RT0.GetNFDofs() <<"\n";
+        std::cout << "CG faces: " << CG0.GetNFDofs() <<"\n";
+        std::cout << "---------\n";
+
+        // mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max()); // 6 weil cube
+        // ess_bdr = 1; // {1,1,1,1,1,1}
 
         // TODO: construct correct esstdof array
-        std::cout << CG0.GetNDofs()<<"\n";
-        CG0.GetEssentialTrueDofs(ess_bdr, CG0_ess_tdof); 
-        for(int i=0; i<CG0_ess_tdof.Size(); i++) {
-            std::cout << CG0_ess_tdof[i] <<"\n";
-        }
+        // CG0.GetEssentialTrueDofs(ess_bdr, CG0_ess_tdof); 
+        ND0.GetBoundaryTrueDofs(ND0_ess_tdof); 
+        RT0.GetBoundaryTrueDofs(RT0_ess_tdof); 
+        CG0.GetBoundaryTrueDofs(CG0_ess_tdof); 
 
-
+        std::cout <<"ND essdofs: " << ND0_ess_tdof.Size() <<"\n";
+        std::cout <<"RT essdofs: " << RT0_ess_tdof.Size() <<"\n";
+        std::cout <<"CG essdofs: " << CG0_ess_tdof.Size() <<"\n";
         
-        ND0.GetEssentialTrueDofs(ess_bdr, ND0_ess_tdof); 
-        RT0.GetEssentialTrueDofs(ess_bdr, RT0_ess_tdof); 
-        mfem::Array<int> ess_dof1, ess_dof2;
-        ess_dof1.Append(ND0_ess_tdof);
-        ess_dof1.Append(RT0_ess_tdof);
-        ess_dof1.Append(CG0_ess_tdof);
-        ess_dof2.Append(RT0_ess_tdof);
-        ess_dof2.Append(ND0_ess_tdof);
-        // DG space doesnt have ess BC!
+
+
+
 
         // unkowns and gridfunctions
         mfem::GridFunction u(&ND0); u = 4.3;
@@ -118,6 +136,25 @@ int main(int argc, char *argv[]) {
 
         // TODO: why is u=0 for some non-zero init cond?
         // PrintVector3(u,1,0,u.Size(),15); 
+
+
+        // concatenation of essdof arrays
+        mfem::Array<int> ess_dof1, ess_dof2;
+        ess_dof1.Append(ND0_ess_tdof);
+        ess_dof2.Append(RT0_ess_tdof);
+        for (int i=0; i<RT0_ess_tdof.Size(); i++) {
+            RT0_ess_tdof[i] += u.Size();
+        }
+        ess_dof1.Append(RT0_ess_tdof);
+        for (int i=0; i<CG0_ess_tdof.Size(); i++) {
+            CG0_ess_tdof[i] += (u.Size()+z.Size());
+        }
+        ess_dof1.Append(CG0_ess_tdof);
+        for (int i=0; i<ND0_ess_tdof.Size(); i++) {
+            ND0_ess_tdof[i] += v.Size();
+        }
+        ess_dof2.Append(ND0_ess_tdof);
+        // DG space doesnt have ess BC!
 
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
@@ -291,8 +328,7 @@ int main(int argc, char *argv[]) {
         mfem::Vector X;
         mfem::Vector B1;
         x=0.;
-        mfem::Array <int> testarray ({0,1,2,3});
-        A1.FormLinearSystem(testarray, x, b1, A1_BC, X, B1);
+        A1.FormLinearSystem(ess_dof1, x, b1, A1_BC, X, B1);
 
         // TODO make transpose work
         // mfem::TransposeOperator AT1 (&A1_BC);
@@ -308,14 +344,13 @@ int main(int argc, char *argv[]) {
         int iter = 100000;
         mfem::MINRES(A1, B1, X, 0, iter, tol*tol, tol*tol); 
 
-        // TODO
         // extract solution values u,z,p from eulerstep
-        // x.GetSubVector(u_dofs, u);
-        // x.GetSubVector(z_dofs, z);
-        // x.GetSubVector(p_dofs, p);
+        // TODO: x or X?
+        X.GetSubVector(u_dofs, u);
+        X.GetSubVector(z_dofs, z);
+        X.GetSubVector(p_dofs, p);
 
-        
-            
+    
         // time loop
         for (double t = dt ; t < tmax+dt ; t+=dt) {
             // std::cout << "--- t = "<<t<<"\n";
