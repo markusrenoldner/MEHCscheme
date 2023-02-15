@@ -7,18 +7,18 @@
 
 
 
-// all vector spaces adapted (H10, H0curl, H0div, L2/L20?)
 // MEHC scheme on dirichlet domain
+// all vector spaces adapted (H10, H0curl, H0div, L2/L20?)
 
 
 
 
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
-void u_0_TGV(const mfem::Vector &x, mfem::Vector &v);
-void w_0_TGV(const mfem::Vector &x, mfem::Vector &v);
-void   f_TGV(const mfem::Vector &x, mfem::Vector &v); 
-void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue);
+void     u_0(const mfem::Vector &x, mfem::Vector &v);
+void     w_0(const mfem::Vector &x, mfem::Vector &v);
+void       f(const mfem::Vector &x, mfem::Vector &v); 
+// void u_exact(const mfem::Vector &x, mfem::Vector &returnvalue);
 
 int main(int argc, char *argv[]) {
 
@@ -71,42 +71,41 @@ int main(int argc, char *argv[]) {
 
         // boundary conditions
         // TODO delete unncessary arrays and add some explanation comments
-        // TODO: falsche dofs im array!
-        mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof; 
+        // mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof; 
         mfem::Array<int> CG0_ess_tdof;
         mfem::Array<int> ND0_ess_tdof;
         mfem::Array<int> RT0_ess_tdof;
 
-        std::cout << "----\n";
-        std::cout << "ND dofs: " << ND0.GetNDofs() <<"\n";
-        std::cout << "RT dofs: " << RT0.GetNDofs() <<"\n";
-        std::cout << "CG dofs: " << CG0.GetNDofs() <<"\n";
-        std::cout << "----\n";
-        std::cout << "ND vertices: " << ND0.GetNVDofs() <<"\n";
-        std::cout << "RT vertices: " << RT0.GetNVDofs() <<"\n";
-        std::cout << "CG vertices: " << CG0.GetNVDofs() <<"\n";
-        std::cout << "----\n";
-        std::cout << "ND edges: " << ND0.GetNEDofs() <<"\n";
-        std::cout << "RT edges: " << RT0.GetNEDofs() <<"\n";
-        std::cout << "CG edges: " << CG0.GetNEDofs() <<"\n";
-        std::cout << "----\n";
-        std::cout << "ND faces: " << ND0.GetNFDofs() <<"\n";
-        std::cout << "RT faces: " << RT0.GetNFDofs() <<"\n";
-        std::cout << "CG faces: " << CG0.GetNFDofs() <<"\n";
-        std::cout << "---------\n";
-
-        // mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max()); // 6 weil cube
-        // ess_bdr = 1; // {1,1,1,1,1,1}
+        // std::cout << "----\n";
+        // std::cout << "ND dofs: " << ND0.GetNDofs() <<"\n";
+        // std::cout << "RT dofs: " << RT0.GetNDofs() <<"\n";
+        // std::cout << "CG dofs: " << CG0.GetNDofs() <<"\n";
+        // std::cout << "----\n";
+        // std::cout << "ND vertices: " << ND0.GetNVDofs() <<"\n";
+        // std::cout << "RT vertices: " << RT0.GetNVDofs() <<"\n";
+        // std::cout << "CG vertices: " << CG0.GetNVDofs() <<"\n";
+        // std::cout << "----\n";
+        // std::cout << "ND edges: " << ND0.GetNEDofs() <<"\n";
+        // std::cout << "RT edges: " << RT0.GetNEDofs() <<"\n";
+        // std::cout << "CG edges: " << CG0.GetNEDofs() <<"\n";
+        // std::cout << "----\n";
+        // std::cout << "ND faces: " << ND0.GetNFDofs() <<"\n";
+        // std::cout << "RT faces: " << RT0.GetNFDofs() <<"\n";
+        // std::cout << "CG faces: " << CG0.GetNFDofs() <<"\n";
+        // std::cout << "----\n";
 
         // TODO: construct correct esstdof array
+        // mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max()); // 6 weil cube
+        // ess_bdr = 1; // {1,1,1,1,1,1}
         // CG0.GetEssentialTrueDofs(ess_bdr, CG0_ess_tdof); 
         ND0.GetBoundaryTrueDofs(ND0_ess_tdof); 
         RT0.GetBoundaryTrueDofs(RT0_ess_tdof); 
         CG0.GetBoundaryTrueDofs(CG0_ess_tdof); 
 
-        std::cout <<"ND essdofs: " << ND0_ess_tdof.Size() <<"\n";
-        std::cout <<"RT essdofs: " << RT0_ess_tdof.Size() <<"\n";
-        std::cout <<"CG essdofs: " << CG0_ess_tdof.Size() <<"\n";
+        // std::cout <<"ND essdofs: " << ND0_ess_tdof.Size() <<"\n";
+        // std::cout <<"RT essdofs: " << RT0_ess_tdof.Size() <<"\n";
+        // std::cout <<"CG essdofs: " << CG0_ess_tdof.Size() <<"\n";
+        // std::cout << "-----------------------------\n";
         
 
 
@@ -123,20 +122,16 @@ int main(int argc, char *argv[]) {
         mfem::GridFunction f2(&RT0);
 
         // initial condition
-        mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0_TGV);
-        mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0_TGV); 
-        mfem::VectorFunctionCoefficient f_coeff(dim, f_TGV);
-        mfem::VectorFunctionCoefficient u_exact_coeff(dim, u_exact_TGV); 
-        // u.ProjectCoefficient(u_0_coeff);
-        // v.ProjectCoefficient(u_0_coeff);
-        // z.ProjectCoefficient(w_0_coeff);
-        // w.ProjectCoefficient(w_0_coeff);
+        mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
+        mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0); 
+        mfem::VectorFunctionCoefficient f_coeff(dim, f);
+        mfem::VectorFunctionCoefficient u_exact_coeff(dim, u_0); 
+        u.ProjectCoefficient(u_0_coeff);
+        v.ProjectCoefficient(u_0_coeff);
+        z.ProjectCoefficient(w_0_coeff);
+        w.ProjectCoefficient(w_0_coeff);
         // f1.ProjectCoefficient(f_coeff);
         // f2.ProjectCoefficient(f_coeff);
-
-        // TODO: why is u=0 for some non-zero init cond?
-        // PrintVector3(u,1,0,u.Size(),15); 
-
 
         // concatenation of essdof arrays
         mfem::Array<int> ess_dof1, ess_dof2;
@@ -154,7 +149,7 @@ int main(int argc, char *argv[]) {
             ND0_ess_tdof[i] += v.Size();
         }
         ess_dof2.Append(ND0_ess_tdof);
-        // DG space doesnt have ess BC!
+        // no ess BC for DG space
 
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
@@ -197,7 +192,6 @@ int main(int argc, char *argv[]) {
         blf_M0.Finalize();
         mfem::SparseMatrix M0_n(blf_M0.SpMat());
         mfem::SparseMatrix M0_dt;
-        // blf_M0.FormSystemMatrix(ND0_ess_tdof,M0_n);
         M0_dt = M0_n;
         M0_dt *= 1/dt;
         M0_n *= -1.;
@@ -211,7 +205,6 @@ int main(int argc, char *argv[]) {
         blf_N0.Finalize();
         mfem::SparseMatrix N0_n(blf_N0.SpMat());
         mfem::SparseMatrix N0_dt;
-        // blf_N0.FormSystemMatrix(RT0_ess_tdof,N0_n);
         N0_dt = N0_n;
         N0_dt *= 1/dt;
         N0_n *= -1.;
@@ -222,7 +215,6 @@ int main(int argc, char *argv[]) {
         mfem::MixedBilinearForm blf_C0(&ND0, &RT0);
         blf_C0.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator()); //=(curl u,v)
         blf_C0.Assemble();
-        // blf_C0.FormRectangularSystemMatrix(ND0_ess_tdof,RT0_ess_tdof,C0);
         blf_C0.Finalize();
         mfem::SparseMatrix C0(blf_C0.SpMat());
         mfem::SparseMatrix *C0T;
@@ -243,7 +235,6 @@ int main(int argc, char *argv[]) {
         blf_D0.AddDomainIntegrator(new mfem::MixedScalarDivergenceIntegrator()); //=(div u,v)
         blf_D0.Assemble();
         blf_D0.Finalize();
-        // blf_D0.FormRectangularSystemMatrix(RT0_ess_tdof,DG_etdof,D0);
         mfem::SparseMatrix D0(blf_D0.SpMat());
         mfem::SparseMatrix *D0T_n;
         D0T_n = Transpose(D0);
@@ -256,7 +247,6 @@ int main(int argc, char *argv[]) {
         blf_G0.AddDomainIntegrator(new mfem::MixedVectorGradientIntegrator()); //=(grad u,v)
         blf_G0.Assemble();
         blf_G0.Finalize();
-        // blf_G0.FormRectangularSystemMatrix(CG0_ess_tdof,ND0_ess_tdof,G0);
         mfem::SparseMatrix G0(blf_G0.SpMat());
         mfem::SparseMatrix *G0T;
         G0T = Transpose(G0);
@@ -276,8 +266,6 @@ int main(int argc, char *argv[]) {
         offsets_2[2] = w.Size();
         offsets_2[3] = q.Size();
         offsets_2.PartialSum();
-        // mfem::BlockMatrix A1(offsets_1);
-        // mfem::BlockMatrix A2(offsets_2);
         mfem::BlockOperator A1(offsets_1);
         mfem::BlockOperator A2(offsets_2);
 
@@ -299,7 +287,6 @@ int main(int argc, char *argv[]) {
         blf_MR0_eul.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
         blf_MR0_eul.Assemble();
         blf_MR0_eul.Finalize();
-        // blf_MR0_eul.FormRectangularSystemMatrix(ND0_ess_tdof,ND0_ess_tdof,MR0_eul);
         mfem::SparseMatrix MR0_eul(blf_MR0_eul.SpMat());
         MR0_eul.Finalize();
         
@@ -325,8 +312,11 @@ int main(int argc, char *argv[]) {
 
         // form linear system with BC
         mfem::Operator *A1_BC;
+        mfem::Operator *A2_BC;
         mfem::Vector X;
         mfem::Vector B1;
+        mfem::Vector Y;
+        mfem::Vector B2;
         x=0.;
         A1.FormLinearSystem(ess_dof1, x, b1, A1_BC, X, B1);
 
@@ -342,7 +332,7 @@ int main(int argc, char *argv[]) {
         // solve 
         double tol = 1e-10;
         int iter = 100000;
-        mfem::MINRES(A1, B1, X, 0, iter, tol*tol, tol*tol); 
+        mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol); 
 
         // extract solution values u,z,p from eulerstep
         // TODO: x or X?
@@ -367,7 +357,6 @@ int main(int argc, char *argv[]) {
                 new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
             blf_R20.Assemble();
             blf_R20.Finalize();
-            // blf_R20.FormRectangularSystemMatrix(RT0_ess_tdof,RT0_ess_tdof,R20);
             mfem::SparseMatrix R20(blf_R20.SpMat());
             R20 *= 1./2.;
             R20.Finalize();
@@ -378,7 +367,6 @@ int main(int argc, char *argv[]) {
             blf_NR0.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
             blf_NR0.Assemble();
             blf_NR0.Finalize();
-            // blf_NR0.FormRectangularSystemMatrix(RT0_ess_tdof,RT0_ess_tdof,NR0);
             mfem::SparseMatrix NR0(blf_NR0.SpMat());
             NR0 *= 1./2.;
             NR0.Finalize();
@@ -399,17 +387,22 @@ int main(int argc, char *argv[]) {
             C0_Re.AddMult(w,b2sub,-1);
             b2.AddSubVector(f2,0);
             b2.AddSubVector(b2sub,0);
-            // create symmetric system AT*A*x=AT*b
-            mfem::TransposeOperator AT2 (&A2);
-            mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
-            mfem::Vector ATb2 (size_2);
-            A2.MultTranspose(b2,ATb2);
 
-            // solve 
-            mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol); 
-            y.GetSubVector(v_dofs, v);
-            y.GetSubVector(w_dofs, w);
-            y.GetSubVector(q_dofs, q);
+            // form linear system with BC
+            y=0.;
+            A2.FormLinearSystem(ess_dof2, y, b2, A2_BC, Y, B2);
+
+            // create symmetric system AT*A*x=AT*b
+            // mfem::TransposeOperator AT2 (&A2);
+            // mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
+            // mfem::Vector ATb2 (size_2);
+            // A2.MultTranspose(b2,ATb2);
+
+            // solve  
+            mfem::MINRES(*A2_BC, B2, Y, 0, iter, tol*tol, tol*tol);
+            Y.GetSubVector(v_dofs, v);
+            Y.GetSubVector(w_dofs, w);
+            Y.GetSubVector(q_dofs, q);
 
             ////////////////////////////////////////////////////////////////////
             // PRIMAL FIELD
@@ -422,7 +415,6 @@ int main(int argc, char *argv[]) {
                 new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
             blf_R10.Assemble();
             blf_R10.Finalize();
-            // blf_R10.FormRectangularSystemMatrix(ND0_ess_tdof,ND0_ess_tdof,R10);
             mfem::SparseMatrix R10(blf_R10.SpMat());
             R10 *= 1./2.;
             R10.Finalize();
@@ -433,7 +425,6 @@ int main(int argc, char *argv[]) {
             blf_MR0.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
             blf_MR0.Assemble();
             blf_MR0.Finalize();
-            // blf_MR0.FormRectangularSystemMatrix(ND0_ess_tdof,ND0_ess_tdof,MR0);
             mfem::SparseMatrix MR0(blf_MR0.SpMat());
             MR0 *= 1./2.;
             MR0.Finalize();
@@ -455,17 +446,21 @@ int main(int argc, char *argv[]) {
             b1.AddSubVector(b1sub,0);
             b1.AddSubVector(f1,0);
 
+            // form linear system with BC
+            x=0.;
+            A1.FormLinearSystem(ess_dof1, x, b1, A1_BC, X, B1);
+
             // create symmetric system AT*A*x=AT*b
-            mfem::TransposeOperator AT1 (&A1);
-            mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
-            mfem::Vector ATb1 (size_1);
-            A1.MultTranspose(b1,ATb1);
+            // mfem::TransposeOperator AT1 (&A1);
+            // mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
+            // mfem::Vector ATb1 (size_1);
+            // A1.MultTranspose(b1,ATb1);
 
             // solve 
-            mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
-            x.GetSubVector(u_dofs, u);
-            x.GetSubVector(z_dofs, z);
-            x.GetSubVector(p_dofs, p);
+            mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol); 
+            X.GetSubVector(u_dofs, u);
+            X.GetSubVector(z_dofs, z);
+            X.GetSubVector(p_dofs, p);
             
         } // time loop
 
@@ -526,24 +521,30 @@ int main(int argc, char *argv[]) {
     } // refinement loop
 }
 
-void u_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+
+// cos squared init cond that satifies dirichlet BC
+void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
     
-    //TODO: initcond u, init cond w, forcing, exact sol
+    //TODO:  forcing
    
     double pi = 3.14159265358979323846;
-
     double C = 10;
     double DX = 0.5;
     double DY = 0.5;
     double DZ = 0.5;
-    double R = 0.5*std::sqrt(2*pi/C);
-    double cos = std::cos(C*(std::pow((x(0)-DX),2) 
-                            *std::pow((x(1)-DY),2) 
-                            *std::pow((x(2)-DZ),2)));
+    double R = std::sqrt(3*pi/(2*C)); // radius where 2
 
-    if (std::pow((x(0)-DX),2) + std::pow((x(1)-DY),2) < std::pow(R,2)) {
-        returnvalue(0) = (x(1)-DY) * cos;
-        returnvalue(1) = (x(0)-DX) * cos;
+    double cos = std::cos(C*(std::pow((x(0)-DX),2) 
+                            +std::pow((x(1)-DY),2) 
+                            +std::pow((x(2)-DZ),2)));
+    double cos2 = cos*cos;
+
+    if (  std::pow((x(0)-DX),2) 
+        + std::pow((x(1)-DY),2) 
+        + std::pow((x(2)-DZ),2) < std::pow(R,2)) {
+
+        returnvalue(0) = (x(1)-DY) * cos2;
+        returnvalue(1) = -1* (x(0)-DX) * cos2;
         returnvalue(2) = 0;
     }
     else {
@@ -553,30 +554,56 @@ void u_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
     }
 }
 
-void w_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
     double pi = 3.14159265358979323846;
-    returnvalue(0) = 0;
-    returnvalue(1) = 0;
-    // returnvalue(2) = -2*pi* std::cos(x(0)*pi) * std::cos(x(1)*pi);
-    returnvalue(2) = 0;
+    double C = 10;
+    double DX = 0.5;
+    double DY = 0.5;
+    double DZ = 0.5;
+    double R = std::sqrt(3*pi/(2*C));
+    
+    double cos = std::cos(C*(std::pow((x(0)-DX),2) 
+                            +std::pow((x(1)-DY),2) 
+                            +std::pow((x(2)-DZ),2)));
+    double cos2 = cos*cos;
+    double sin = std::sin(C*(std::pow((x(0)-DX),2) 
+                            +std::pow((x(1)-DY),2) 
+                            +std::pow((x(2)-DZ),2)));
+    double sin2 = sin*sin;
+
+    if (  std::pow((x(0)-DX),2) 
+        + std::pow((x(1)-DY),2) 
+        + std::pow((x(2)-DZ),2) < std::pow(R,2)) {
+
+        returnvalue(0) = -4*C*(x(0)-DX)*(x(2)-DZ)*sin*cos;
+        returnvalue(1) = -4*C*(x(1)-DY)*(x(2)-DZ)*sin*cos;
+        returnvalue(2) = - 2*cos2 
+                         + 4*C*std::pow((x(0)-DX),2) *sin*cos
+                         + 4*C*std::pow((x(1)-DY),2) *sin*cos;
+    }
+    else {
+        returnvalue(0) = 0;
+        returnvalue(1) = 0;
+        returnvalue(2) = 0;
+    }
 }
 
-void f_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
     returnvalue(0) = 0.;
     returnvalue(1) = 0.;
     returnvalue(2) = 0.;
 }
 
-void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
+// void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
-    double pi = 3.14159265358979323846;
-    double Re = 500.; // chose Re here!
-    double nu = 1*1/Re; // = u*L/Re
-    double t = 0.15;
-    double F = std::exp(-2*nu*t);
+//     double pi = 3.14159265358979323846;
+//     double Re = 500.; // chose Re here!
+//     double nu = 1*1/Re; // = u*L/Re
+//     double t = 0.15;
+//     double F = std::exp(-2*nu*t);
 
-    returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi) * F;
-    returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi) * F;
-    returnvalue(2) = 0;
-}
+//     returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi) * F;
+//     returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi) * F;
+//     returnvalue(2) = 0;
+// }
