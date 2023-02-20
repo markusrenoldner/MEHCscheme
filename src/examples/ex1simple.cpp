@@ -33,15 +33,15 @@ int main(int argc, char *argv[]) {
     // ess_tdof_list = {0,1,2,3} or {0,1,2,3,4,5,6,7}
 
     //prints
-    std::cout << "bdr_attributes.Max(): "<<mesh.bdr_attributes.Max()<<"\n";
-    std::cout << "ess_bdr: \n";
-    for (int i=0; i<ess_bdr.Size(); i++){
-        std::cout << ess_bdr[i]<<"\n";
-    }
-    std::cout << "ess_tdof_list: \n";
-    for (int i=0; i<ess_tdof_list.Size(); i++){
-        std::cout << ess_tdof_list[i]<<"\n";
-    }
+    // std::cout << "bdr_attributes.Max(): "<<mesh.bdr_attributes.Max()<<"\n";
+    // std::cout << "ess_bdr: \n";
+    // for (int i=0; i<ess_bdr.Size(); i++){
+    //     std::cout << ess_bdr[i]<<"\n";
+    // }
+    // std::cout << "ess_tdof_list: \n";
+    // for (int i=0; i<ess_tdof_list.Size(); i++){
+    //     std::cout << ess_tdof_list[i]<<"\n";
+    // }
     // comment: ess_bdr contains 
 
 
@@ -68,12 +68,26 @@ int main(int argc, char *argv[]) {
     PCG(*A, M, B, X, 0, 200, 1e-12, 0.0);
     
     
-    
     // instead of operatorptr using sparsemat:
     // mfem::SparseMatrix A;
     // a.FormSystemMatrix(ess_tdof_list,A);
     // GSSmoother M((SparseMatrix&)(A));
     // PCG(A, M, B, X, 0, 20000, 1e-12, 0.0);
+
+
+    // Recover the solution as a finite element grid function.
+    // linalg   system: a*x = b
+    // gridfunc system: A*X = B
+    a.RecoverFEMSolution(X, b, x);
+    
+    
+    
+    // what?! this changes also X !
+    x[1] = 11;
+    std::cout << x[1] << " " << X[1] << "\n";
+    
+    
+
 
 
 

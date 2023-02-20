@@ -67,6 +67,10 @@ int main(int argc, char *argv[])
     Array<int> ess_dofs;
     R_space->GetEssentialTrueDofs(ess_bdr, ess_dofs);
 
+    // for(int i=0; i<ess_dofs.Size(); i++){
+    //     std::cout << ess_dofs[i] <<"\n";
+    // }
+
 
 
     // 7. Define the coefficients, analytical solution, and rhs of the PDE.
@@ -169,7 +173,7 @@ int main(int argc, char *argv[])
     
     
     
-    solver.SetPrintLevel(1);
+    solver.SetPrintLevel(0);
 
 
     // NEU
@@ -178,6 +182,8 @@ int main(int argc, char *argv[])
     x = 0.0;
     solver.Mult(Bvec, X);
     x.Vector::operator=(X);
+
+    std::cout << x.Size()<< " "<<X.Size()<<"\n";
 
 
 
