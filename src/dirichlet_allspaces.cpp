@@ -23,12 +23,10 @@ void       f(const mfem::Vector &x, mfem::Vector &v);
 int main(int argc, char *argv[]) {
 
     // simulation parameters
-    // careful: Re also has to be defined in the manufactured
-    //  solution functions at the end of the code 
-    double Re_inv = 1/500.; // = 1/Re 
+    double Re_inv = 0.01; // = 1/Re 
     double dt = 1/20.;
-    double tmax = dt;
-    int ref_steps = 0;
+    double tmax = dt; tmax=0;
+    int ref_steps = 4;
     std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
     <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
@@ -44,81 +42,55 @@ int main(int argc, char *argv[]) {
         int dim = mesh.Dimension(); 
         for (int l = 0; l<ref_step; l++) {mesh.UniformRefinement();} 
         std::cout << "refinement: " << ref_step << "\n";
+        // mesh.UniformRefinement();
 
-        // mesh.UniformRefinement();//TODO
-
-        // FE spaces (CG \in H1, DG \in L2)
+        // FE spaces; DG \in L2, ND \in Hcurl, RT \in Hdiv, CG \in H1
         int order = 1;
-        mfem::FiniteElementCollection *fec_ND = new mfem::ND_FECollection(order,dim);
-        mfem::FiniteElementCollection *fec_RT = new mfem::RT_FECollection(order,dim);
-        mfem::FiniteElementCollection *fec_CG = new mfem::H1_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order,dim);
-        mfem::FiniteElementCollection *fec_ND0 = new mfem::ND_FECollection(order,dim); // necessary?
-        mfem::FiniteElementCollection *fec_RT0 = new mfem::RT_FECollection(order,dim); // necessary?
+        mfem::FiniteElementCollection *fec_ND0 = new mfem::ND_FECollection(order,dim);
+        mfem::FiniteElementCollection *fec_RT0 = new mfem::RT_FECollection(order-1,dim);
         mfem::FiniteElementCollection *fec_CG0 = new mfem::H1_FECollection(order,dim);
-        mfem::FiniteElementSpace ND(&mesh, fec_ND);
-        mfem::FiniteElementSpace RT(&mesh, fec_RT);
-        mfem::FiniteElementSpace CG(&mesh, fec_CG);
         mfem::FiniteElementSpace DG(&mesh, fec_DG);
-        mfem::FiniteElementSpace ND0(&mesh, fec_ND0); // for dual system
-        mfem::FiniteElementSpace RT0(&mesh, fec_RT0); // for dual system
+        mfem::FiniteElementSpace ND0(&mesh, fec_ND0);
+        mfem::FiniteElementSpace RT0(&mesh, fec_RT0);
         mfem::FiniteElementSpace CG0(&mesh, fec_CG0);
 
-
-
-
-
-
-        // boundary conditions
-        // TODO delete unncessary arrays and add some explanation comments
-        // mfem::Array<int> CG_etdof, ND_etdof, RT_etdof, DG_etdof; 
+        // boundary arrays: contain indices of essential/dirichlet boundary DOFs
         mfem::Array<int> CG0_ess_tdof;
         mfem::Array<int> ND0_ess_tdof;
         mfem::Array<int> RT0_ess_tdof;
 
-        // std::cout << "----\n";
-        // std::cout << "ND dofs: " << ND0.GetNDofs() <<"\n";
-        // std::cout << "RT dofs: " << RT0.GetNDofs() <<"\n";
-        // std::cout << "CG dofs: " << CG0.GetNDofs() <<"\n";
-        // std::cout << "----\n";
-        // std::cout << "ND vertices: " << ND0.GetNVDofs() <<"\n";
-        // std::cout << "RT vertices: " << RT0.GetNVDofs() <<"\n";
-        // std::cout << "CG vertices: " << CG0.GetNVDofs() <<"\n";
-        // std::cout << "----\n";
-        // std::cout << "ND edges: " << ND0.GetNEDofs() <<"\n";
-        // std::cout << "RT edges: " << RT0.GetNEDofs() <<"\n";
-        // std::cout << "CG edges: " << CG0.GetNEDofs() <<"\n";
-        // std::cout << "----\n";
-        // std::cout << "ND faces: " << ND0.GetNFDofs() <<"\n";
-        // std::cout << "RT faces: " << RT0.GetNFDofs() <<"\n";
-        // std::cout << "CG faces: " << CG0.GetNFDofs() <<"\n";
-        // std::cout << "----\n";
-
-        // TODO: construct correct esstdof array
-        // mfem::Array<int> ess_bdr(mesh.bdr_attributes.Max()); // 6 weil cube
-        // ess_bdr = 1; // {1,1,1,1,1,1}
-        // CG0.GetEssentialTrueDofs(ess_bdr, CG0_ess_tdof); 
+        // getboundarytruedofs = GetEssentialTrueDofs with all attribues marked
         ND0.GetBoundaryTrueDofs(ND0_ess_tdof); 
         RT0.GetBoundaryTrueDofs(RT0_ess_tdof); 
         CG0.GetBoundaryTrueDofs(CG0_ess_tdof); 
 
-        // std::cout <<"ND essdofs: " << ND0_ess_tdof.Size() <<"\n";
-        // std::cout <<"RT essdofs: " << RT0_ess_tdof.Size() <<"\n";
-        // std::cout <<"CG essdofs: " << CG0_ess_tdof.Size() <<"\n";
-        // std::cout << "-----------------------------\n";
-        
-
-
-
+        // concatenation of essdof arrays
+        mfem::Array<int> ess_dof1, ess_dof2;
+        ess_dof1.Append(ND0_ess_tdof);
+        ess_dof2.Append(RT0_ess_tdof);
+        for (int i=0; i<RT0_ess_tdof.Size(); i++) {
+            RT0_ess_tdof[i] += ND0.GetNDofs();
+        }
+        ess_dof1.Append(RT0_ess_tdof);
+        for (int i=0; i<CG0_ess_tdof.Size(); i++) {
+            CG0_ess_tdof[i] += (ND0.GetNDofs()+RT0.GetNDofs() );
+        }
+        ess_dof1.Append(CG0_ess_tdof);
+        for (int i=0; i<ND0_ess_tdof.Size(); i++) {
+            ND0_ess_tdof[i] += RT0.GetNDofs() ;
+        }
+        ess_dof2.Append(ND0_ess_tdof);
+        // no ess BC for DG space
 
         // unkowns and gridfunctions
-        mfem::GridFunction u(&ND0); u = 4.3;
-        mfem::GridFunction z(&RT0); z = 5.3;
-        mfem::GridFunction p(&CG0); //p = 6.3;
+        mfem::GridFunction u(&ND0); //u = 4.3;
+        mfem::GridFunction z(&RT0); //z = 5.3;
+        mfem::GridFunction p(&CG0); p=0.; //p = 6.3;
         mfem::GridFunction v(&RT0); //v = 3.;
         mfem::GridFunction w(&ND0); //w = 3.; 
-        mfem::GridFunction q(&DG);  //q = 9.3;
-        mfem::GridFunction f1(&ND);
+        mfem::GridFunction q(&DG); q=0.; //q = 9.3;
+        mfem::GridFunction f1(&ND0);
         mfem::GridFunction f2(&RT0);
 
         // initial condition
@@ -130,26 +102,8 @@ int main(int argc, char *argv[]) {
         v.ProjectCoefficient(u_0_coeff);
         z.ProjectCoefficient(w_0_coeff);
         w.ProjectCoefficient(w_0_coeff);
-        // f1.ProjectCoefficient(f_coeff);
-        // f2.ProjectCoefficient(f_coeff);
-
-        // concatenation of essdof arrays
-        mfem::Array<int> ess_dof1, ess_dof2;
-        ess_dof1.Append(ND0_ess_tdof);
-        ess_dof2.Append(RT0_ess_tdof);
-        for (int i=0; i<RT0_ess_tdof.Size(); i++) {
-            RT0_ess_tdof[i] += u.Size();
-        }
-        ess_dof1.Append(RT0_ess_tdof);
-        for (int i=0; i<CG0_ess_tdof.Size(); i++) {
-            CG0_ess_tdof[i] += (u.Size()+z.Size());
-        }
-        ess_dof1.Append(CG0_ess_tdof);
-        for (int i=0; i<ND0_ess_tdof.Size(); i++) {
-            ND0_ess_tdof[i] += v.Size();
-        }
-        ess_dof2.Append(ND0_ess_tdof);
-        // no ess BC for DG space
+        f1.ProjectCoefficient(f_coeff);
+        f2.ProjectCoefficient(f_coeff);
 
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
@@ -182,8 +136,6 @@ int main(int argc, char *argv[]) {
         std::iota(&v_dofs[0], &v_dofs[v.Size()], 0);
         std::iota(&w_dofs[0], &w_dofs[w.Size()], v.Size());
         std::iota(&q_dofs[0], &q_dofs[q.Size()], v.Size()+w.Size());
-
-        //TODO: check all matrices and their prefactors, delete "formsystemmatrix"
         
         // Matrix M0
         mfem::BilinearForm blf_M0(&ND0);
@@ -280,7 +232,7 @@ int main(int argc, char *argv[]) {
         ////////////////////////////////////////////////////////////////////
 
         // Matrix MR_eul for eulerstep
-        mfem::MixedBilinearForm blf_MR0_eul(&ND,&ND); 
+        mfem::MixedBilinearForm blf_MR0_eul(&ND0,&ND0); 
         mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
         mfem::ConstantCoefficient two_over_dt(2.0/dt);
         blf_MR0_eul.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
@@ -308,7 +260,13 @@ int main(int argc, char *argv[]) {
         b1sub = 0.0;
         M0_dt.AddMult(u,b1sub,2);
         b1.AddSubVector(f1,0);
-        b1.AddSubVector(b1sub,0); 
+        b1.AddSubVector(b1sub,0);
+
+        // transpose here:
+        mfem::TransposeOperator AT1 (&A1);
+        mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
+        mfem::Vector ATb1 (size_1);
+        A1.MultTranspose(b1,ATb1);
 
         // form linear system with BC
         mfem::Operator *A1_BC;
@@ -317,30 +275,20 @@ int main(int argc, char *argv[]) {
         mfem::Vector B1;
         mfem::Vector Y;
         mfem::Vector B2;
-        x=0.;
-        A1.FormLinearSystem(ess_dof1, x, b1, A1_BC, X, B1);
+        ATA1.FormLinearSystem(ess_dof1, x, ATb1, A1_BC, X, B1);
 
-        // TODO make transpose work
-        // mfem::TransposeOperator AT1 (&A1_BC);
-        // mfem::ProductOperator ATA1 (&AT1,&A1_BC,false,false);
-        // mfem::ProductOperator ATA1 (&AT1,A1_BC,false,false);
-        // mfem::Vector ATb1 (size_1);
-        // A1.MultTranspose(b1,ATb1);
-        // A1.MultTranspose(B1,ATb1);
-        // AT1.Mult(B1,ATb1);
-        
         // solve 
         double tol = 1e-10;
-        int iter = 100000;
-        mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol); 
+        int iter = 100000;  
+        std::cout << "--minres-eul--\n"; 
+        mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
 
         // extract solution values u,z,p from eulerstep
-        // TODO: x or X?
-        X.GetSubVector(u_dofs, u);
-        X.GetSubVector(z_dofs, z);
-        X.GetSubVector(p_dofs, p);
+        A1.RecoverFEMSolution(X, b1, x);
+        x.GetSubVector(u_dofs, u);
+        x.GetSubVector(z_dofs, z);
+        x.GetSubVector(p_dofs, p);
 
-    
         // time loop
         for (double t = dt ; t < tmax+dt ; t+=dt) {
             // std::cout << "--- t = "<<t<<"\n";
@@ -388,21 +336,22 @@ int main(int argc, char *argv[]) {
             b2.AddSubVector(f2,0);
             b2.AddSubVector(b2sub,0);
 
-            // form linear system with BC
-            y=0.;
-            A2.FormLinearSystem(ess_dof2, y, b2, A2_BC, Y, B2);
+            // transpose here:
+            mfem::TransposeOperator AT2 (&A2);
+            mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
+            mfem::Vector ATb2 (size_2);
+            A2.MultTranspose(b2,ATb2);
 
-            // create symmetric system AT*A*x=AT*b
-            // mfem::TransposeOperator AT2 (&A2);
-            // mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
-            // mfem::Vector ATb2 (size_2);
-            // A2.MultTranspose(b2,ATb2);
+            // form linear system with BC
+            ATA2.FormLinearSystem(ess_dof2, y, ATb2, A2_BC, Y, B2);
 
             // solve  
+            std::cout << "--minres-dual--\n";
             mfem::MINRES(*A2_BC, B2, Y, 0, iter, tol*tol, tol*tol);
-            Y.GetSubVector(v_dofs, v);
-            Y.GetSubVector(w_dofs, w);
-            Y.GetSubVector(q_dofs, q);
+            A2.RecoverFEMSolution(Y, b2, y);
+            y.GetSubVector(v_dofs, v);
+            y.GetSubVector(w_dofs, w);
+            y.GetSubVector(q_dofs, q);
 
             ////////////////////////////////////////////////////////////////////
             // PRIMAL FIELD
@@ -420,7 +369,7 @@ int main(int argc, char *argv[]) {
             R10.Finalize();
 
             // update MR0
-            mfem::MixedBilinearForm blf_MR0(&ND,&ND); 
+            mfem::MixedBilinearForm blf_MR0(&ND0,&ND0); 
             blf_MR0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
             blf_MR0.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
             blf_MR0.Assemble();
@@ -446,73 +395,61 @@ int main(int argc, char *argv[]) {
             b1.AddSubVector(b1sub,0);
             b1.AddSubVector(f1,0);
 
-            // form linear system with BC
-            x=0.;
-            A1.FormLinearSystem(ess_dof1, x, b1, A1_BC, X, B1);
+            //Transposition
+            mfem::TransposeOperator AT1 (&A1);
+            mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
+            mfem::Vector ATb1 (size_1);
+            A1.MultTranspose(b1,ATb1);
 
-            // create symmetric system AT*A*x=AT*b
-            // mfem::TransposeOperator AT1 (&A1);
-            // mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
-            // mfem::Vector ATb1 (size_1);
-            // A1.MultTranspose(b1,ATb1);
+            // form linear system with BC
+            ATA1.FormLinearSystem(ess_dof1, x, ATb1, A1_BC, X, B1);
 
             // solve 
+            std::cout << "--minres-primal--\n";
             mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol); 
-            X.GetSubVector(u_dofs, u);
-            X.GetSubVector(z_dofs, z);
-            X.GetSubVector(p_dofs, p);
+            A1.RecoverFEMSolution(X, b1, x);
+            x.GetSubVector(u_dofs, u);
+            x.GetSubVector(z_dofs, z);
+            x.GetSubVector(p_dofs, p);
             
         } // time loop
 
         // convergence error
         double err_L2_u = u.ComputeL2Error(u_exact_coeff);
         double err_L2_v = v.ComputeL2Error(u_exact_coeff);
-        
-        // mfem::GridFunction v_ND (&ND);
-        // v_ND.ProjectGridFunction(v);
-        // double err_L2_diff = 0;
-        // for (int i=0; i<u.Size(); i++) {
-        //     err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
-        // }
-        // err_L2_diff = std::pow(err_L2_diff, 0.5);
-
+        mfem::GridFunction v_ND (&ND0);
+        v_ND.ProjectGridFunction(v);
+        double err_L2_diff = 0;
+        for (int i=0; i<u.Size(); i++) {
+            err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
+        }
         std::cout << "L2err of v = "<< err_L2_v<<"\n";
         std::cout << "L2err of u = "<< err_L2_u<<"\n";
-
-        //TODO the error is "nan."
-        // PrintVector3(u,1,0,40);
-        // PrintVector3(z,1,0,40);
-        // std::cout << "L2err(u-v) = "<< err_L2_diff <<"\n";
-        // std::cout << "L2err(u-v) = "<< err_L2_diff <<"\n";
-
-
-
-
-
+        std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
 
         // visuals
-        // std::ofstream mesh_ofs("refined.mesh");
-        // mesh_ofs.precision(8);
-        // mesh.Print(mesh_ofs);
-        // std::ofstream sol_ofs("sol.gf");
-        // sol_ofs.precision(8);
-        // u.Save(sol_ofs);
-        // char vishost[] = "localhost";
-        // int  visport   = 19916;
-        // mfem::socketstream sol_sock(vishost, visport);
-        // sol_sock.precision(8);
-        // sol_sock << "solution\n" << mesh << u << std::flush;
+        std::ofstream mesh_ofs("refined.mesh");
+        mesh_ofs.precision(8);
+        mesh.Print(mesh_ofs);
+        std::ofstream sol_ofs("sol.gf");
+        sol_ofs.precision(8);
+        u.Save(sol_ofs);
+        char vishost[] = "localhost";
+        int  visport   = 19916;
+        mfem::socketstream sol_sock(vishost, visport);
+        sol_sock.precision(8);
+        sol_sock << "solution\n" << mesh << u << std::flush;
 
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> duration = 1000*(end - start);
-        std::cout << duration.count() << "ms" << std::endl;
+        std::cout << "runtime = " << duration.count() << "ms" << std::endl;
         std::cout << "---------------finish MEHC---------------\n";
     
     // free memory
-    delete fec_CG;
-    delete fec_ND;
-    delete fec_RT;
+    // delete fec_CG;
+    // delete fec_ND;
+    // delete fec_RT;
     delete fec_DG;
     delete fec_CG0;
     delete fec_ND0;
@@ -522,7 +459,8 @@ int main(int argc, char *argv[]) {
 }
 
 
-// cos squared init cond that satifies dirichlet BC
+// cos squared init cond that satifies
+// dirichlet BC, divu=0 and is C1-continuous (=> w is C0 continuous)
 void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
     
     //TODO:  forcing
