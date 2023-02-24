@@ -26,14 +26,13 @@ int main(int argc, char *argv[]) {
     double Re_inv = 0.01; // = 1/Re 
     double dt = 1/20.;
     double tmax = dt; tmax=0;
-    int ref_steps = 4;
+    int ref_steps = 5;
     std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
     <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
     // loop over refinement steps to check convergence
     for (int ref_step=0; ref_step<=ref_steps; ref_step++) {
         
-        std::cout << "---------------launch MEHC---------------\n";
         auto start = std::chrono::high_resolution_clock::now();
 
         // mesh
@@ -41,7 +40,7 @@ int main(int argc, char *argv[]) {
         mfem::Mesh mesh(mesh_file, 1, 1); 
         int dim = mesh.Dimension(); 
         for (int l = 0; l<ref_step; l++) {mesh.UniformRefinement();} 
-        std::cout << "refinement: " << ref_step << "\n";
+        std::cout << "----------ref: " << ref_step << "----------\n";
         // mesh.UniformRefinement();
 
         // FE spaces; DG \in L2, ND \in Hcurl, RT \in Hdiv, CG \in H1
@@ -50,7 +49,7 @@ int main(int argc, char *argv[]) {
         mfem::FiniteElementCollection *fec_ND0 = new mfem::ND_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_RT0 = new mfem::RT_FECollection(order-1,dim);
         mfem::FiniteElementCollection *fec_CG0 = new mfem::H1_FECollection(order,dim);
-        mfem::FiniteElementSpace DG(&mesh, fec_DG);
+        mfem::FiniteElementSpace DG(&mesh, fec_DG); // TODO rename DG to DG0
         mfem::FiniteElementSpace ND0(&mesh, fec_ND0);
         mfem::FiniteElementSpace RT0(&mesh, fec_RT0);
         mfem::FiniteElementSpace CG0(&mesh, fec_CG0);
@@ -107,11 +106,10 @@ int main(int argc, char *argv[]) {
 
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
-        int size_2 = v.Size() + w.Size() + q.Size();
-        std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
-        std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
-        std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n"
-        <<"----------------------\n";
+        int size_2 = v.Size() + w.Size() + q.Size() + 1;
+        std::cout<< "size1/u/z/p: "<<size_1<<"/"<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
+        std::cout<< "size2/v/w/q/lam: "<<size_2<<"/"<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"/"<<1<<"\n"
+        <<"---\n";
         
         // initialize solution vectors
         mfem::Vector x(size_1);
@@ -122,6 +120,10 @@ int main(int argc, char *argv[]) {
         y.SetVector(v,0);
         y.SetVector(w,v.Size());
         y.SetVector(q,v.Size()+w.Size());
+        mfem::Vector lagrvec (1);
+        lagrvec[0] = 0.;
+        y.SetVector(lagrvec,v.Size()+w.Size()+1); // lagrange multiplier 
+        // NEU
 
         // helper dofs
         mfem::Array<int> u_dofs (u.Size());
@@ -136,7 +138,43 @@ int main(int argc, char *argv[]) {
         std::iota(&v_dofs[0], &v_dofs[v.Size()], 0);
         std::iota(&w_dofs[0], &w_dofs[w.Size()], v.Size());
         std::iota(&q_dofs[0], &q_dofs[q.Size()], v.Size()+w.Size());
+
+
+
+        // NEU wouter technik
+        //TODO
+        mfem::BilinearForm blf_q(&DG);
+        blf_q.AddDomainIntegrator(new mfem::MassIntegrator());
+        blf_q.Assemble();
+        blf_q.Finalize();
+        mfem::SparseMatrix LAMBDA (blf_q.SpMat());
+        LAMBDA.Finalize();
+
+        mfem::Vector LAMBDA2 (q.Size());
+        mfem::GridFunction eins(&DG); eins=1.;
+        LAMBDA.Mult(eins,LAMBDA2);
+        // for (int i=0; i<LAMBDA2.Size(); i++) {
+        //     std::cout<<LAMBDA2[i]<<"\n";
+
+        // }
+
         
+
+
+        // dual pressure constraint //NEU
+        //TODO
+        mfem::DenseMatrix q_mat(1, q.Size());
+        mfem::DenseMatrix q_mat_T(q.Size(), 1);
+        for (int i=0; i<q.Size(); i++) {
+            q_mat.Elem(0,i) = LAMBDA2[i];
+        }
+        for (int i=0; i<q.Size(); i++) {
+            q_mat_T.Elem(i,0) = LAMBDA2[i];
+        }
+
+
+
+
         // Matrix M0
         mfem::BilinearForm blf_M0(&ND0);
         blf_M0.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
@@ -212,11 +250,12 @@ int main(int argc, char *argv[]) {
         offsets_1[2] = z.Size();
         offsets_1[3] = p.Size();
         offsets_1.PartialSum(); // exclusive scan
-        mfem::Array<int> offsets_2 (4);
+        mfem::Array<int> offsets_2 (5);
         offsets_2[0] = 0;
         offsets_2[1] = v.Size();
         offsets_2[2] = w.Size();
         offsets_2[3] = q.Size();
+        offsets_2[4] = 1;
         offsets_2.PartialSum();
         mfem::BlockOperator A1(offsets_1);
         mfem::BlockOperator A2(offsets_2);
@@ -280,7 +319,7 @@ int main(int argc, char *argv[]) {
         // solve 
         double tol = 1e-10;
         int iter = 100000;  
-        std::cout << "--minres-eul--\n"; 
+        // std::cout << "--minres-eul--\n"; 
         mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
 
         // extract solution values u,z,p from eulerstep
@@ -326,6 +365,15 @@ int main(int argc, char *argv[]) {
             A2.SetBlock(1,0, C0T);
             A2.SetBlock(1,1, &M0_n);
             A2.SetBlock(2,0, &D0);
+            
+            
+            //TODO add pressure constraint 
+            //NEU
+            // mfem::Vector asdf(q.Size()+1);
+            // A2.SetBlock(3,2, asdf);
+            // A2.SetBlock(2,3, );
+            A2.SetBlock(2,3, &q_mat);
+            A2.SetBlock(3,2, &q_mat_T);
 
             // update b2
             b2 = 0.0;
@@ -351,7 +399,10 @@ int main(int argc, char *argv[]) {
             A2.RecoverFEMSolution(Y, b2, y);
             y.GetSubVector(v_dofs, v);
             y.GetSubVector(w_dofs, w);
-            y.GetSubVector(q_dofs, q);
+            y.GetSubVector(q_dofs, q);            
+            mfem::Array<int> lagr_index (1); //NEU
+            offsets_1[0] = size_2+1;
+            y.GetSubVector(lagr_index, lagrvec);
 
             ////////////////////////////////////////////////////////////////////
             // PRIMAL FIELD
@@ -423,9 +474,14 @@ int main(int argc, char *argv[]) {
         for (int i=0; i<u.Size(); i++) {
             err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
         }
-        std::cout << "L2err of v = "<< err_L2_v<<"\n";
-        std::cout << "L2err of u = "<< err_L2_u<<"\n";
+        // std::cout << "L2err of v = "<< err_L2_v<<"\n";
+        // std::cout << "L2err of u = "<< err_L2_u<<"\n";
         std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
+
+        // runtime
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float> duration = 1000*(end - start);
+        // std::cout << "runtime = " << duration.count() << "ms" << std::endl;
 
         // visuals
         std::ofstream mesh_ofs("refined.mesh");
@@ -439,12 +495,6 @@ int main(int argc, char *argv[]) {
         mfem::socketstream sol_sock(vishost, visport);
         sol_sock.precision(8);
         sol_sock << "solution\n" << mesh << u << std::flush;
-
-        // runtime
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<float> duration = 1000*(end - start);
-        std::cout << "runtime = " << duration.count() << "ms" << std::endl;
-        std::cout << "---------------finish MEHC---------------\n";
     
     // free memory
     // delete fec_CG;
