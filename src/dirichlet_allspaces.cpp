@@ -91,8 +91,8 @@ int main(int argc, char *argv[]) {
         mfem::GridFunction q(&DG); q=0.; //q = 9.3;
         mfem::GridFunction f1(&ND0);
         mfem::GridFunction f2(&RT0);
-        mfem::Vector lambda (1); // lagrange multiplier
-        lambda[0] = 0.;
+        mfem::Vector lam (1); // lagrange multiplier
+        lam[0] = 0.;
 
         // initial condition
         mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
         y.SetVector(v,0);
         y.SetVector(w,v.Size());
         y.SetVector(q,v.Size()+w.Size());
-        y.SetVector(lambda,v.Size()+w.Size()+1);
+        y.SetVector(lam,v.Size()+w.Size()+1);
 
         // helper dofs
         mfem::Array<int> u_dofs (u.Size());
@@ -136,6 +136,8 @@ int main(int argc, char *argv[]) {
         std::iota(&v_dofs[0], &v_dofs[v.Size()], 0);
         std::iota(&w_dofs[0], &w_dofs[w.Size()], v.Size());
         std::iota(&q_dofs[0], &q_dofs[q.Size()], v.Size()+w.Size());
+        mfem::Array<int> lam_dofs (1);
+        lam_dofs[0] = size_2+1;
 
         // Matrix M0
         mfem::BilinearForm blf_M0(&ND0);
@@ -217,7 +219,7 @@ int main(int argc, char *argv[]) {
         vec_one=1.;
         mat_Lam.Mult(vec_one,vec_Lam);
 
-        // fill Lambda matrix for dual pressure constraint
+        // Lambda matrix for dual pressure constraint
         mfem::DenseMatrix LambdaT(1, q.Size());
         mfem::DenseMatrix Lambda(q.Size(), 1);
         for (int i=0; i<q.Size(); i++) {
@@ -373,12 +375,8 @@ int main(int argc, char *argv[]) {
             y.GetSubVector(v_dofs, v);
             y.GetSubVector(w_dofs, w);
             y.GetSubVector(q_dofs, q);     
-
-            mfem::Array<int> lambda_index (1);
-            lambda_index[0] = size_2+1;
-            y.GetSubVector(lambda_index, lambda);
-            std ::cout << y[size_2]<<"\n";
-            std::cout <<"lambda="<< lambda[0] << "\n";
+            y.GetSubVector(lam_dofs, lam);
+            std::cout <<"lam = "<< lam[0] << "\n";
 
             ////////////////////////////////////////////////////////////////////
             // PRIMAL FIELD
