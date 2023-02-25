@@ -8,7 +8,7 @@
 
 
 // MEHC scheme on dirichlet domain
-// all vector spaces adapted (H10, H0curl, H0div, L2/L20?)
+// all vector spaces adapted (H10, H0curl, H0div, L2 with lagr mult)
 
 
 
@@ -25,8 +25,8 @@ int main(int argc, char *argv[]) {
     // simulation parameters
     double Re_inv = 0.01; // = 1/Re 
     double dt = 1/20.;
-    double tmax = dt; tmax=0;
-    int ref_steps = 5;
+    double tmax = 3*dt; 
+    int ref_steps = 0;
     std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
     <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
@@ -49,17 +49,17 @@ int main(int argc, char *argv[]) {
         mfem::FiniteElementCollection *fec_ND0 = new mfem::ND_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_RT0 = new mfem::RT_FECollection(order-1,dim);
         mfem::FiniteElementCollection *fec_CG0 = new mfem::H1_FECollection(order,dim);
-        mfem::FiniteElementSpace DG(&mesh, fec_DG); // TODO rename DG to DG0
+        mfem::FiniteElementSpace DG(&mesh, fec_DG);
         mfem::FiniteElementSpace ND0(&mesh, fec_ND0);
         mfem::FiniteElementSpace RT0(&mesh, fec_RT0);
         mfem::FiniteElementSpace CG0(&mesh, fec_CG0);
 
-        // boundary arrays: contain indices of essential/dirichlet boundary DOFs
-        mfem::Array<int> CG0_ess_tdof;
+        // boundary arrays: contain indices of essential boundary DOFs
         mfem::Array<int> ND0_ess_tdof;
         mfem::Array<int> RT0_ess_tdof;
+        mfem::Array<int> CG0_ess_tdof;
 
-        // getboundarytruedofs = GetEssentialTrueDofs with all attribues marked
+        // GetBoundaryTrueDofs (GetEssentialTrueDofs also possible)
         ND0.GetBoundaryTrueDofs(ND0_ess_tdof); 
         RT0.GetBoundaryTrueDofs(RT0_ess_tdof); 
         CG0.GetBoundaryTrueDofs(CG0_ess_tdof); 
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
             ND0_ess_tdof[i] += RT0.GetNDofs() ;
         }
         ess_dof2.Append(ND0_ess_tdof);
-        // no ess BC for DG space
+        // no ess BC for DG space!
 
         // unkowns and gridfunctions
         mfem::GridFunction u(&ND0); //u = 4.3;
@@ -91,6 +91,8 @@ int main(int argc, char *argv[]) {
         mfem::GridFunction q(&DG); q=0.; //q = 9.3;
         mfem::GridFunction f1(&ND0);
         mfem::GridFunction f2(&RT0);
+        mfem::Vector lambda (1); // lagrange multiplier
+        lambda[0] = 0.;
 
         // initial condition
         mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
@@ -108,8 +110,7 @@ int main(int argc, char *argv[]) {
         int size_1 = u.Size() + z.Size() + p.Size();
         int size_2 = v.Size() + w.Size() + q.Size() + 1;
         std::cout<< "size1/u/z/p: "<<size_1<<"/"<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
-        std::cout<< "size2/v/w/q/lam: "<<size_2<<"/"<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"/"<<1<<"\n"
-        <<"---\n";
+        std::cout<< "size2/v/w/q/lam: "<<size_2<<"/"<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"/"<<1<<"\n"<<"---\n";
         
         // initialize solution vectors
         mfem::Vector x(size_1);
@@ -120,10 +121,7 @@ int main(int argc, char *argv[]) {
         y.SetVector(v,0);
         y.SetVector(w,v.Size());
         y.SetVector(q,v.Size()+w.Size());
-        mfem::Vector lagrvec (1);
-        lagrvec[0] = 0.;
-        y.SetVector(lagrvec,v.Size()+w.Size()+1); // lagrange multiplier 
-        // NEU
+        y.SetVector(lambda,v.Size()+w.Size()+1);
 
         // helper dofs
         mfem::Array<int> u_dofs (u.Size());
@@ -138,42 +136,6 @@ int main(int argc, char *argv[]) {
         std::iota(&v_dofs[0], &v_dofs[v.Size()], 0);
         std::iota(&w_dofs[0], &w_dofs[w.Size()], v.Size());
         std::iota(&q_dofs[0], &q_dofs[q.Size()], v.Size()+w.Size());
-
-
-
-        // NEU wouter technik
-        //TODO
-        mfem::BilinearForm blf_q(&DG);
-        blf_q.AddDomainIntegrator(new mfem::MassIntegrator());
-        blf_q.Assemble();
-        blf_q.Finalize();
-        mfem::SparseMatrix LAMBDA (blf_q.SpMat());
-        LAMBDA.Finalize();
-
-        mfem::Vector LAMBDA2 (q.Size());
-        mfem::GridFunction eins(&DG); eins=1.;
-        LAMBDA.Mult(eins,LAMBDA2);
-        // for (int i=0; i<LAMBDA2.Size(); i++) {
-        //     std::cout<<LAMBDA2[i]<<"\n";
-
-        // }
-
-        
-
-
-        // dual pressure constraint //NEU
-        //TODO
-        mfem::DenseMatrix q_mat(1, q.Size());
-        mfem::DenseMatrix q_mat_T(q.Size(), 1);
-        for (int i=0; i<q.Size(); i++) {
-            q_mat.Elem(0,i) = LAMBDA2[i];
-        }
-        for (int i=0; i<q.Size(); i++) {
-            q_mat_T.Elem(i,0) = LAMBDA2[i];
-        }
-
-
-
 
         // Matrix M0
         mfem::BilinearForm blf_M0(&ND0);
@@ -242,6 +204,26 @@ int main(int argc, char *argv[]) {
         G0T = Transpose(G0);
         G0.Finalize();
         G0T->Finalize();
+
+        // prepare some matrices for dual pressure constraint
+        mfem::BilinearForm blf_Lam(&DG);
+        blf_Lam.AddDomainIntegrator(new mfem::MassIntegrator());
+        blf_Lam.Assemble();
+        blf_Lam.Finalize();
+        mfem::SparseMatrix mat_Lam (blf_Lam.SpMat());
+        mat_Lam.Finalize();
+        mfem::Vector vec_Lam (q.Size());
+        mfem::GridFunction vec_one(&DG);
+        vec_one=1.;
+        mat_Lam.Mult(vec_one,vec_Lam);
+
+        // fill Lambda matrix for dual pressure constraint
+        mfem::DenseMatrix LambdaT(1, q.Size());
+        mfem::DenseMatrix Lambda(q.Size(), 1);
+        for (int i=0; i<q.Size(); i++) {
+            Lambda.Elem(0,i) = vec_Lam[i];
+            LambdaT.Elem(i,0) = vec_Lam[i];
+        }
 
         // initialize system matrices
         mfem::Array<int> offsets_1 (4);
@@ -319,7 +301,6 @@ int main(int argc, char *argv[]) {
         // solve 
         double tol = 1e-10;
         int iter = 100000;  
-        // std::cout << "--minres-eul--\n"; 
         mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
 
         // extract solution values u,z,p from eulerstep
@@ -365,16 +346,9 @@ int main(int argc, char *argv[]) {
             A2.SetBlock(1,0, C0T);
             A2.SetBlock(1,1, &M0_n);
             A2.SetBlock(2,0, &D0);
+            A2.SetBlock(2,3, &Lambda);
+            A2.SetBlock(3,2, &LambdaT);
             
-            
-            //TODO add pressure constraint 
-            //NEU
-            // mfem::Vector asdf(q.Size()+1);
-            // A2.SetBlock(3,2, asdf);
-            // A2.SetBlock(2,3, );
-            A2.SetBlock(2,3, &q_mat);
-            A2.SetBlock(3,2, &q_mat_T);
-
             // update b2
             b2 = 0.0;
             b2sub = 0.0;
@@ -394,15 +368,17 @@ int main(int argc, char *argv[]) {
             ATA2.FormLinearSystem(ess_dof2, y, ATb2, A2_BC, Y, B2);
 
             // solve  
-            std::cout << "--minres-dual--\n";
             mfem::MINRES(*A2_BC, B2, Y, 0, iter, tol*tol, tol*tol);
             A2.RecoverFEMSolution(Y, b2, y);
             y.GetSubVector(v_dofs, v);
             y.GetSubVector(w_dofs, w);
-            y.GetSubVector(q_dofs, q);            
-            mfem::Array<int> lagr_index (1); //NEU
-            offsets_1[0] = size_2+1;
-            y.GetSubVector(lagr_index, lagrvec);
+            y.GetSubVector(q_dofs, q);     
+
+            mfem::Array<int> lambda_index (1);
+            lambda_index[0] = size_2+1;
+            y.GetSubVector(lambda_index, lambda);
+            std ::cout << y[size_2]<<"\n";
+            std::cout <<"lambda="<< lambda[0] << "\n";
 
             ////////////////////////////////////////////////////////////////////
             // PRIMAL FIELD
@@ -456,7 +432,6 @@ int main(int argc, char *argv[]) {
             ATA1.FormLinearSystem(ess_dof1, x, ATb1, A1_BC, X, B1);
 
             // solve 
-            std::cout << "--minres-primal--\n";
             mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol); 
             A1.RecoverFEMSolution(X, b1, x);
             x.GetSubVector(u_dofs, u);
