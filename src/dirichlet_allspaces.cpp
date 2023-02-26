@@ -25,10 +25,9 @@ int main(int argc, char *argv[]) {
     // simulation parameters
     double Re_inv = 0.01; // = 1/Re 
     double dt = 1/20.;
-    double tmax = 3*dt; 
+    double tmax = 3*dt; //tmax=0.;
     int ref_steps = 0;
-    std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
-    <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
+    std::cout <<"----------\n"<<"Re:   "<<1/Re_inv <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
     // loop over refinement steps to check convergence
     for (int ref_step=0; ref_step<=ref_steps; ref_step++) {
@@ -41,7 +40,10 @@ int main(int argc, char *argv[]) {
         int dim = mesh.Dimension(); 
         for (int l = 0; l<ref_step; l++) {mesh.UniformRefinement();} 
         std::cout << "----------ref: " << ref_step << "----------\n";
-        // mesh.UniformRefinement();
+        mesh.UniformRefinement();
+        mesh.UniformRefinement();
+        mesh.UniformRefinement();
+        mesh.UniformRefinement();
 
         // FE spaces; DG \in L2, ND \in Hcurl, RT \in Hdiv, CG \in H1
         int order = 1;
@@ -58,8 +60,6 @@ int main(int argc, char *argv[]) {
         mfem::Array<int> ND0_ess_tdof;
         mfem::Array<int> RT0_ess_tdof;
         mfem::Array<int> CG0_ess_tdof;
-
-        // GetBoundaryTrueDofs (GetEssentialTrueDofs also possible)
         ND0.GetBoundaryTrueDofs(ND0_ess_tdof); 
         RT0.GetBoundaryTrueDofs(RT0_ess_tdof); 
         CG0.GetBoundaryTrueDofs(CG0_ess_tdof); 
@@ -220,12 +220,12 @@ int main(int argc, char *argv[]) {
         mat_Lam.Mult(vec_one,vec_Lam);
 
         // Lambda matrix for dual pressure constraint
-        mfem::DenseMatrix LambdaT(1, q.Size());
         mfem::DenseMatrix Lambda(q.Size(), 1);
+        mfem::DenseMatrix LambdaT(1, q.Size());
         for (int i=0; i<q.Size(); i++) {
-            Lambda.Elem(0,i) = vec_Lam[i];
-            LambdaT.Elem(i,0) = vec_Lam[i];
-        }
+            Lambda.Elem(i,0) = vec_Lam[i];
+            LambdaT.Elem(0,i) = vec_Lam[i];
+        }        
 
         // initialize system matrices
         mfem::Array<int> offsets_1 (4);
@@ -376,7 +376,17 @@ int main(int argc, char *argv[]) {
             y.GetSubVector(w_dofs, w);
             y.GetSubVector(q_dofs, q);     
             y.GetSubVector(lam_dofs, lam);
-            std::cout <<"lam = "<< lam[0] << "\n";
+            // std::cout <<"lam = "<< lam[0] << "\n";
+
+            // integral of q should be 0
+            double integral_q = 0.;
+            for (int i=0; i<q.Size(); i++) {
+                integral_q += (q[i] * 1/q.Size());
+            }  
+            std::cout << "int(q) = " << integral_q<<"\n";
+
+            
+
 
             ////////////////////////////////////////////////////////////////////
             // PRIMAL FIELD
@@ -454,25 +464,25 @@ int main(int argc, char *argv[]) {
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> duration = 1000*(end - start);
-        // std::cout << "runtime = " << duration.count() << "ms" << std::endl;
+        std::cout << "runtime = " << duration.count() << "ms" << std::endl;
 
         // visuals
-        std::ofstream mesh_ofs("refined.mesh");
-        mesh_ofs.precision(8);
-        mesh.Print(mesh_ofs);
-        std::ofstream sol_ofs("sol.gf");
-        sol_ofs.precision(8);
-        u.Save(sol_ofs);
+        // std::ofstream mesh_ofs("refined.mesh");
+        // mesh_ofs.precision(8);
+        // mesh.Print(mesh_ofs);
+        // std::ofstream sol_ofs("sol.gf");
+        // sol_ofs.precision(8);
+        // u.Save(sol_ofs);
         char vishost[] = "localhost";
         int  visport   = 19916;
-        mfem::socketstream sol_sock(vishost, visport);
-        sol_sock.precision(8);
-        sol_sock << "solution\n" << mesh << u << std::flush;
+        mfem::socketstream u_sock(vishost, visport);
+        u_sock.precision(8);
+        u_sock << "solution\n" << mesh << u << "window_title 'u in hcurl'" << std::endl;
+        mfem::socketstream v_sock(vishost, visport);
+        v_sock.precision(8);
+        v_sock << "solution\n" << mesh << v << "window_title 'v in hdiv'" << std::endl;
     
     // free memory
-    // delete fec_CG;
-    // delete fec_ND;
-    // delete fec_RT;
     delete fec_DG;
     delete fec_CG0;
     delete fec_ND0;
@@ -485,24 +495,22 @@ int main(int argc, char *argv[]) {
 // cos squared init cond that satifies
 // dirichlet BC, divu=0 and is C1-continuous (=> w is C0 continuous)
 void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-    
-    //TODO:  forcing
    
     double pi = 3.14159265358979323846;
     double C = 10;
     double DX = 0.5;
     double DY = 0.5;
     double DZ = 0.5;
-    double R = std::sqrt(3*pi/(2*C)); // radius where 2
+    double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
 
     double cos = std::cos(C*(std::pow((x(0)-DX),2) 
                             +std::pow((x(1)-DY),2) 
                             +std::pow((x(2)-DZ),2)));
     double cos2 = cos*cos;
 
-    if (  std::pow((x(0)-DX),2) 
-        + std::pow((x(1)-DY),2) 
-        + std::pow((x(2)-DZ),2) < std::pow(R,2)) {
+    if (std::pow((x(0)-DX),2) +
+        std::pow((x(1)-DY),2) +
+        std::pow((x(2)-DZ),2) < std::pow(R,2)) {
 
         returnvalue(0) = (x(1)-DY) * cos2;
         returnvalue(1) = -1* (x(0)-DX) * cos2;
@@ -522,26 +530,26 @@ void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
     double DX = 0.5;
     double DY = 0.5;
     double DZ = 0.5;
-    double R = std::sqrt(3*pi/(2*C));
+    double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
     
-    double cos = std::cos(C*(std::pow((x(0)-DX),2) 
-                            +std::pow((x(1)-DY),2) 
-                            +std::pow((x(2)-DZ),2)));
+    double cos = std::cos(C*(std::pow((x(0)-DX),2) +
+                             std::pow((x(1)-DY),2) +
+                             std::pow((x(2)-DZ),2)) );
+    double sin = std::sin(C*(std::pow((x(0)-DX),2) +
+                             std::pow((x(1)-DY),2) +
+                             std::pow((x(2)-DZ),2)) );
     double cos2 = cos*cos;
-    double sin = std::sin(C*(std::pow((x(0)-DX),2) 
-                            +std::pow((x(1)-DY),2) 
-                            +std::pow((x(2)-DZ),2)));
     double sin2 = sin*sin;
 
-    if (  std::pow((x(0)-DX),2) 
-        + std::pow((x(1)-DY),2) 
-        + std::pow((x(2)-DZ),2) < std::pow(R,2)) {
+    if (std::pow((x(0)-DX),2) +
+        std::pow((x(1)-DY),2) +
+        std::pow((x(2)-DZ),2) < std::pow(R,2)) {
 
-        returnvalue(0) = -4*C*(x(0)-DX)*(x(2)-DZ)*sin*cos;
-        returnvalue(1) = -4*C*(x(1)-DY)*(x(2)-DZ)*sin*cos;
+        returnvalue(0) = - 4*C*(x(0)-DX)*(x(2)-DZ)*sin*cos;
+        returnvalue(1) = - 4*C*(x(1)-DY)*(x(2)-DZ)*sin*cos;
         returnvalue(2) = - 2*cos2 
-                         + 4*C*std::pow((x(0)-DX),2) *sin*cos
-                         + 4*C*std::pow((x(1)-DY),2) *sin*cos;
+                         + 4*C*std::pow((x(0)-DX),2)*sin*cos
+                         + 4*C*std::pow((x(1)-DY),2)*sin*cos;
     }
     else {
         returnvalue(0) = 0;
@@ -551,6 +559,8 @@ void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
 }
 
 void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+    
+    //TODO:  forcing
     returnvalue(0) = 0.;
     returnvalue(1) = 0.;
     returnvalue(2) = 0.;
