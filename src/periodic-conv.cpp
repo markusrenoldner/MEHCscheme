@@ -417,11 +417,11 @@ int main(int argc, char *argv[]) {
         std::cout << duration.count() << "ms" << std::endl;
         std::cout << "---------------finish MEHC---------------\n";
     
-    // free memory
-    delete fec_CG;
-    delete fec_ND;
-    delete fec_RT;
-    delete fec_DG;
+        // free memory
+        delete fec_CG;
+        delete fec_ND;
+        delete fec_RT;
+        delete fec_DG;
 
     } // refinement loop
 }
