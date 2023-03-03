@@ -23,10 +23,10 @@ void       f(const mfem::Vector &x, mfem::Vector &v);
 int main(int argc, char *argv[]) {
 
     // simulation parameters
-    double Re_inv = 0.01; // = 1/Re 
+    double Re_inv = 0.0; // = 1/Re 
     double dt = 1/20.;
-    double tmax = 3*dt; //tmax=0.;
-    int ref_steps = 0;
+    double tmax = 0*dt;
+    int ref_steps = 4;
     std::cout <<"----------\n"<<"Re:   "<<1/Re_inv <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
     // loop over refinement steps to check convergence
@@ -41,13 +41,13 @@ int main(int argc, char *argv[]) {
         for (int l = 0; l<ref_step; l++) {mesh.UniformRefinement();} 
         std::cout << "----------ref: " << ref_step << "----------\n";
         mesh.UniformRefinement();
-        mesh.UniformRefinement();
-        mesh.UniformRefinement();
-        mesh.UniformRefinement();
+        // mesh.UniformRefinement();
+        // mesh.UniformRefinement();
+        // mesh.UniformRefinement();
 
         // FE spaces; DG \in L2, ND \in Hcurl, RT \in Hdiv, CG \in H1
         int order = 1;
-        mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order,dim);
+        mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order-1,dim);
         mfem::FiniteElementCollection *fec_ND0 = new mfem::ND_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_RT0 = new mfem::RT_FECollection(order-1,dim);
         mfem::FiniteElementCollection *fec_CG0 = new mfem::H1_FECollection(order,dim);
@@ -93,6 +93,7 @@ int main(int argc, char *argv[]) {
         mfem::GridFunction f2(&RT0);
         mfem::Vector lam (1); // lagrange multiplier
         lam[0] = 0.;
+        mfem::GridFunction u_exact(&ND0);
 
         // initial condition
         mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
@@ -105,12 +106,13 @@ int main(int argc, char *argv[]) {
         w.ProjectCoefficient(w_0_coeff);
         f1.ProjectCoefficient(f_coeff);
         f2.ProjectCoefficient(f_coeff);
+        u_exact.ProjectCoefficient(u_exact_coeff);
 
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
         int size_2 = v.Size() + w.Size() + q.Size() + 1;
         std::cout<< "size1/u/z/p: "<<size_1<<"/"<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
-        std::cout<< "size2/v/w/q/lam: "<<size_2<<"/"<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"/"<<1<<"\n"<<"---\n";
+        std::cout<< "size2/v/w/q/lam: "<<size_2<<"/"<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"/"<<1<<"\n";
         
         // initialize solution vectors
         mfem::Vector x(size_1);
@@ -206,6 +208,7 @@ int main(int argc, char *argv[]) {
         G0T = Transpose(G0);
         G0.Finalize();
         G0T->Finalize();
+        
 
         // prepare some matrices for dual pressure constraint
         mfem::BilinearForm blf_Lam(&DG);
@@ -215,9 +218,21 @@ int main(int argc, char *argv[]) {
         mfem::SparseMatrix mat_Lam (blf_Lam.SpMat());
         mat_Lam.Finalize();
         mfem::Vector vec_Lam (q.Size());
+
+
+
+        // TODO
+        // replace vec_one with gfunc with 1 coeff
+        mfem::ConstantCoefficient one_coeff(1.);
+        // mfem::VectorFunctionCoefficient u_exact_coeff(dim, u_0); 
+        // vec_one=1.;
         mfem::GridFunction vec_one(&DG);
-        vec_one=1.;
+
+        vec_one.ProjectCoefficient(one_coeff);
+
         mat_Lam.Mult(vec_one,vec_Lam);
+
+
 
         // Lambda matrix for dual pressure constraint
         mfem::DenseMatrix Lambda(q.Size(), 1);
@@ -301,7 +316,7 @@ int main(int argc, char *argv[]) {
         ATA1.FormLinearSystem(ess_dof1, x, ATb1, A1_BC, X, B1);
 
         // solve 
-        double tol = 1e-10;
+        double tol = 1e-16;
         int iter = 100000;  
         mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
 
@@ -310,6 +325,18 @@ int main(int argc, char *argv[]) {
         x.GetSubVector(u_dofs, u);
         x.GetSubVector(z_dofs, z);
         x.GetSubVector(p_dofs, p);
+
+
+        // mass conservation
+        mfem::Vector mass_vec1 (p.Size());
+        mfem::Vector mass_vec2 (q.Size());
+        G0T->Mult(u,mass_vec1);
+        D0.Mult(v,mass_vec2);
+        std::cout << "mass "<<mass_vec1.Norml2() << "\n";
+        std::cout << "mass "<<mass_vec2.Norml2() << "\n";
+
+
+
 
         // time loop
         for (double t = dt ; t < tmax+dt ; t+=dt) {
@@ -383,7 +410,7 @@ int main(int argc, char *argv[]) {
             for (int i=0; i<q.Size(); i++) {
                 integral_q += (q[i] * 1/q.Size());
             }  
-            std::cout << "int(q) = " << integral_q<<"\n";
+            // std::cout << "int(q) = " << integral_q<<"\n";
 
             
 
@@ -445,7 +472,17 @@ int main(int argc, char *argv[]) {
             x.GetSubVector(u_dofs, u);
             x.GetSubVector(z_dofs, z);
             x.GetSubVector(p_dofs, p);
+
             
+
+            // // conservation
+            // mfem::Vector mass_vec1 (p.Size());
+            // mfem::Vector mass_vec2 (q.Size());
+            // G0T->Mult(u,mass_vec1);
+            // D0.Mult(v,mass_vec2);
+            // std::cout << mass_vec1.Norml2() << "\n";
+            // std::cout << mass_vec2.Norml2() << "\n";
+
         } // time loop
 
         // convergence error
@@ -457,8 +494,8 @@ int main(int argc, char *argv[]) {
         for (int i=0; i<u.Size(); i++) {
             err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
         }
-        // std::cout << "L2err of v = "<< err_L2_v<<"\n";
-        // std::cout << "L2err of u = "<< err_L2_u<<"\n";
+        std::cout << "L2err of v = "<< err_L2_v<<"\n";
+        std::cout << "L2err of u = "<< err_L2_u<<"\n";
         std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
 
         // runtime
@@ -473,20 +510,36 @@ int main(int argc, char *argv[]) {
         // std::ofstream sol_ofs("sol.gf");
         // sol_ofs.precision(8);
         // u.Save(sol_ofs);
+    
         char vishost[] = "localhost";
         int  visport   = 19916;
-        mfem::socketstream u_sock(vishost, visport);
-        u_sock.precision(8);
-        u_sock << "solution\n" << mesh << u << "window_title 'u in hcurl'" << std::endl;
         mfem::socketstream v_sock(vishost, visport);
         v_sock.precision(8);
-        v_sock << "solution\n" << mesh << v << "window_title 'v in hdiv'" << std::endl;
-    
-    // free memory
-    delete fec_DG;
-    delete fec_CG0;
-    delete fec_ND0;
-    delete fec_RT0;
+        v_sock << "solution\n" << mesh << u << "window_title 'u in hcurl'" << std::endl;
+        
+        mfem::socketstream u_sock(vishost, visport);
+        u_sock.precision(8);
+        u_sock << "solution\n" << mesh << u_exact << "window_title 'u_0'" << std::endl;
+        
+        mfem::socketstream p_sock(vishost, visport);
+        p_sock.precision(8);
+        p_sock << "solution\n" << mesh << p << "window_title 'p in H1'" << std::endl;
+        
+        mfem::socketstream q_sock(vishost, visport);
+        q_sock.precision(8);
+        q_sock << "solution\n" << mesh << q << "window_title 'q in L2'" << std::endl;
+        
+        // if (ref_step==0) {v_sock << "solution\n" << mesh << u << "window_title 'u in hdiv,1'" << std::endl;}
+        // if (ref_step==1) {v_sock << "solution\n" << mesh << u << "window_title 'u in hdiv,2'" << std::endl;}
+        // if (ref_step==2) {v_sock << "solution\n" << mesh << u << "window_title 'u in hdiv,3'" << std::endl;}
+        // if (ref_step==3) {v_sock << "solution\n" << mesh << u << "window_title 'u in hdiv,4'" << std::endl;}
+        // if (ref_step==4) {v_sock << "solution\n" << mesh << u << "window_title 'u in hdiv,5'" << std::endl;}
+
+        // free memory
+        delete fec_DG;
+        delete fec_CG0;
+        delete fec_ND0;
+        delete fec_RT0;
 
     } // refinement loop
 }
@@ -557,24 +610,33 @@ void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
         returnvalue(2) = 0;
     }
 }
-
 void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+
+    double Re_inv = 0.0;
+    double pi = 3.14159265358979323846;
+    double C = 10;
+    double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
+    double X = x(0)-0.5;
+    double Y = x(1)-0.5;
+    double Z = x(2)-0.5;
+
+    double cos = std::cos(C*(X*X+Y*Y+Z*Z) );
+    double sin = std::sin(C*(X*X+Y*Y+Z*Z) );
+    double cos2 = cos*cos;
+    double sin2 = sin*sin;
+    double cos4 = cos2*cos2;
+    double eC2 = 8*C*C;
     
-    //TODO:  forcing
-    returnvalue(0) = 0.;
-    returnvalue(1) = 0.;
-    returnvalue(2) = 0.;
+    if (X*X + Y*Y + Z*Z < R*R) {
+        returnvalue(0) = -X*cos4 + 1*Re_inv*( 
+                          2*C*(4*C*(X*X+Y*Y+Z*Z)*cos+5*sin) );
+        returnvalue(1) = -Y*cos4 - 1*Re_inv*(
+                          2*C*(4*C*(X*X+Y*Y+Z*Z)*cos+5*sin));
+        returnvalue(2) = 0.;
+    }
+    else {
+        returnvalue(0) = 0.; 
+        returnvalue(1) = 0.; 
+        returnvalue(2) = 0.;
+    }   
 }
-
-// void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
-   
-//     double pi = 3.14159265358979323846;
-//     double Re = 500.; // chose Re here!
-//     double nu = 1*1/Re; // = u*L/Re
-//     double t = 0.15;
-//     double F = std::exp(-2*nu*t);
-
-//     returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi) * F;
-//     returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi) * F;
-//     returnvalue(2) = 0;
-// }
