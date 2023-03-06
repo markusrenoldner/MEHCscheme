@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         
         mfem::Vector mass_vec1 (p.Size());
         G0T->Mult(u,mass_vec1);
-        std::cout << mass_vec1.Norml2() << "\n";
+        std::cout <<"mass="<< mass_vec1.Norml2() << "\n";
     
 
         // free memory
@@ -133,7 +133,10 @@ void u_0b(const mfem::Vector &x, mfem::Vector &returnvalue) {
     // returnvalue(1) = std::sin(pi*x.Elem(2));
     // returnvalue(2) = std::sin(pi*x.Elem(0));
     
-    returnvalue(0) = x(1);
-    returnvalue(1) = -x(0);
+    // returnvalue(0) = x(1);
+    // returnvalue(1) = -x(0);
+    // returnvalue(2) = 0;
+    returnvalue(0) = 1;
+    returnvalue(1) = 0;
     returnvalue(2) = 0;
 }

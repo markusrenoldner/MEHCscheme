@@ -343,8 +343,8 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
     double Z = x(2)-0.5;
 
     
-    double cos = std::cos(C*(X*X+Y*Y+Z*Z) );
-    double sin = std::sin(C*(X*X+Y*Y+Z*Z) );
+    double cos = std::cos(C*(X*X+Y*Y+Z*Z);
+    double sin = std::sin(C*(X*X+Y*Y+Z*Z);
     double cos2 = cos*cos;
     double sin2 = sin*sin;
     double cos4 = cos2*cos2;
