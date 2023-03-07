@@ -54,4 +54,3 @@ out/build/
 # mfem
 *.gf
 *.mesh
-config.xlaunch
