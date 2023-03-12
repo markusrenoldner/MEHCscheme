@@ -8,8 +8,7 @@
 
 
 // MEHC scheme for dirichlet problem
-// 3 function spaces with ess BC (H10, H0curl, H0div)
-// but not L2 !
+// essential BC at Hcurl and Hdiv of primal system only
 
 
 
@@ -25,7 +24,7 @@ int main(int argc, char *argv[]) {
 
     // simulation parameters
     // careful: Re also has to be defined in the manufactured sol
-    double Re_inv = 0.0; // = 1/Re 
+    double Re_inv = 0.01; // = 1/Re 
     double dt = 1/20.;
     double tmax = 5*dt;
     int ref_steps = 4;
@@ -47,6 +46,8 @@ int main(int argc, char *argv[]) {
         // mesh.UniformRefinement();
         // mesh.UniformRefinement();
 
+        // TODO rename FEM spaces (remove the zero)
+
         // FE spaces: DG subset L2, ND subset Hcurl, RT subset Hdiv, CG subset H1
         int order = 1;
         mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order-1,dim);
@@ -61,28 +62,16 @@ int main(int argc, char *argv[]) {
         // boundary arrays: contain indices of essential boundary DOFs
         mfem::Array<int> ND0_ess_tdof;
         mfem::Array<int> RT0_ess_tdof;
-        mfem::Array<int> CG0_ess_tdof;
         ND0.GetBoundaryTrueDofs(ND0_ess_tdof); 
         RT0.GetBoundaryTrueDofs(RT0_ess_tdof); 
-        CG0.GetBoundaryTrueDofs(CG0_ess_tdof); 
 
         // concatenation of essdof arrays
         mfem::Array<int> ess_dof1, ess_dof2;
         ess_dof1.Append(ND0_ess_tdof);
-        ess_dof2.Append(RT0_ess_tdof);
         for (int i=0; i<RT0_ess_tdof.Size(); i++) {
             RT0_ess_tdof[i] += ND0.GetNDofs();
         }
         ess_dof1.Append(RT0_ess_tdof);
-        for (int i=0; i<CG0_ess_tdof.Size(); i++) {
-            CG0_ess_tdof[i] += (ND0.GetNDofs()+RT0.GetNDofs() );
-        }
-        ess_dof1.Append(CG0_ess_tdof);
-        for (int i=0; i<ND0_ess_tdof.Size(); i++) {
-            ND0_ess_tdof[i] += RT0.GetNDofs() ;
-        }
-        ess_dof2.Append(ND0_ess_tdof);
-        // no ess BC for DG space!
 
         // unkowns and gridfunctions
         mfem::GridFunction u(&ND0); //u = 4.3;
@@ -606,7 +595,7 @@ void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
 
 void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
-    double Re_inv = 0.0;
+    double Re_inv = 0.01;
     double pi = 3.14159265358979323846;
     double C = 10;
     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish

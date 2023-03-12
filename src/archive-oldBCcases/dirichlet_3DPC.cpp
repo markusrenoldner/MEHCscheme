@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 
     // simulation parameters
     // careful: Re also has to be defined in the manufactured sol
-    double Re_inv = 0.0; // = 1/Re 
+    double Re_inv = 0.01; // = 1/Re 
     double dt = 1/20.;
     double tmax = 5*dt;
     int ref_steps = 4;
@@ -339,8 +339,8 @@ int main(int argc, char *argv[]) {
         mfem::Vector mass_vec2 (q.Size());
         G0T->Mult(u,mass_vec1);
         D0.Mult(v,mass_vec2);
-        std::cout << "mass "<<mass_vec1.Norml2() << "\n";
-        std::cout << "mass "<<mass_vec2.Norml2() << "\n";
+        // std::cout << "mass "<<mass_vec1.Norml2() << "\n";
+        // std::cout << "mass "<<mass_vec2.Norml2() << "\n";
 
 
         // time loop
@@ -653,7 +653,7 @@ void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
 
 void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
-    double Re_inv = 0.0;
+    double Re_inv = 0.01;
     double pi = 3.14159265358979323846;
     double C = 10;
     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
