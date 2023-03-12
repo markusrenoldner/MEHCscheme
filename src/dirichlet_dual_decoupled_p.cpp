@@ -7,8 +7,10 @@
 
 
 
-// MEHC scheme for dirichlet problem
-// essential BC at Hdiv and Hcurl of dual system only
+// decouple the systems by replacing the coupling vorticities by its exact
+// valus (static manufactured solution)
+
+// this file contains the primal system
 
 
 

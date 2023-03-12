@@ -236,29 +236,40 @@ int main(int argc, char *argv[]) {
         mfem::Vector b2(size_2); 
         mfem::Vector b2sub(v.Size());
 
-        
+
+
+
+
+
+
+
+
+
+
+        ////////////////////////////////////////////////////////////////////////////
+        // forcing function
         // NEU
         
         // R2 
-            mfem::MixedBilinearForm blf_R2(&RT,&RT);
-            mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-            blf_R2.AddDomainIntegrator(
-                new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-            blf_R2.Assemble();
-            blf_R2.Finalize();
-            mfem::SparseMatrix R2(blf_R2.SpMat());
-            R2 *= 1./2.;
-            R2.Finalize();
+        mfem::MixedBilinearForm blf_R2(&RT,&RT);
+        mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
+        blf_R2.AddDomainIntegrator(
+            new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
+        blf_R2.Assemble();
+        blf_R2.Finalize();
+        mfem::SparseMatrix R2(blf_R2.SpMat());
+        R2 *= 1./2.;
+        R2.Finalize();
         // R1
-            mfem::MixedBilinearForm blf_R1(&ND,&ND);
-            mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-            blf_R1.AddDomainIntegrator(
-                new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-            blf_R1.Assemble();
-            blf_R1.Finalize();
-            mfem::SparseMatrix R1(blf_R1.SpMat());
-            R1 *= 1./2.;
-            R1.Finalize();
+        mfem::MixedBilinearForm blf_R1(&ND,&ND);
+        mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
+        blf_R1.AddDomainIntegrator(
+            new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
+        blf_R1.Assemble();
+        blf_R1.Finalize();
+        mfem::SparseMatrix R1(blf_R1.SpMat());
+        R1 *= 1./2.;
+        R1.Finalize();
 
         mfem::Vector bf1 (u.Size()); 
         bf1=0.;
@@ -277,6 +288,10 @@ int main(int argc, char *argv[]) {
         int iter = 1000000;  
         mfem::MINRES(M_n, bf1, bf1_gf, 0, iter, tol*tol, tol*tol);
         mfem::MINRES(N_n, bf2, bf2_gf, 0, iter, tol*tol, tol*tol);
+
+
+
+
 
 
 
