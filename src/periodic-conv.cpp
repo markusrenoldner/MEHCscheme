@@ -62,8 +62,8 @@ int main(int argc, char *argv[]) {
         int order = 1;
         mfem::FiniteElementCollection *fec_CG = new mfem::H1_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_ND = new mfem::ND_FECollection(order,dim);
-        mfem::FiniteElementCollection *fec_RT = new mfem::RT_FECollection(order,dim);
-        mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order,dim);
+        mfem::FiniteElementCollection *fec_RT = new mfem::RT_FECollection(order-1,dim);
+        mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order-1,dim);
         mfem::FiniteElementSpace CG(&mesh, fec_CG);
         mfem::FiniteElementSpace ND(&mesh, fec_ND);
         mfem::FiniteElementSpace RT(&mesh, fec_RT);
@@ -94,10 +94,10 @@ int main(int argc, char *argv[]) {
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
         int size_2 = v.Size() + w.Size() + q.Size();
-        // std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
-        // std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
-        // std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n"
-        // <<"----------------------\n";
+        std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
+        std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
+        std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n"
+        <<"----------------------\n";
         
         // initialize solution vectors
         mfem::Vector x(size_1);
@@ -258,7 +258,7 @@ int main(int argc, char *argv[]) {
         A1.MultTranspose(b1,ATb1);
 
         // solve eulerstep
-        double tol = 1e-12;
+        double tol = 1e-15;
         int iter = 1000000;
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
 
@@ -461,8 +461,8 @@ void f_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
 void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
     double pi = 3.14159265358979323846;
-    double Re = 500.; // chose Re here!
-    double nu = 1*1/Re; // = u*L/Re
+    double Re_inv = 1/500.; // chose Re here!
+    double nu = 1*1*Re_inv; // = u*L/Re
     double t = 0.15;
     double F = std::exp(-2*nu*t);
 
