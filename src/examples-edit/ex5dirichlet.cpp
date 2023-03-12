@@ -62,8 +62,8 @@ int main(int argc, char *argv[])
 
 
     // NEU
-    Array<int> natural_bdr({1, 1, 0, 0});
-    Array<int> ess_bdr({0, 0, 1, 1});
+    Array<int> natural_bdr({1, 1, 1, 0});
+    Array<int> ess_bdr({0, 0, 0, 1});
     Array<int> ess_dofs;
     R_space->GetEssentialTrueDofs(ess_bdr, ess_dofs);
 

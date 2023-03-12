@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
     const char *mesh_file = "extern/mfem-4.5/data/ref-square.mesh";
     Mesh mesh(mesh_file, 1, 1);
     int dim = mesh.Dimension();
-    for (int l = 0; l < 1; l++) {mesh.UniformRefinement();}
+    for (int l = 0; l < 5; l++) {mesh.UniformRefinement();}
     
     // FE space
     int order = 1;
@@ -29,6 +29,8 @@ int main(int argc, char *argv[]) {
     ess_bdr = 1;
     // ess_bdr = {1,1,1,1}
     fespace.GetEssentialTrueDofs(ess_bdr, ess_tdof_list);
+
+    // fespace.GetBoundaryTrueDofs(ess_tdof_list);
     // trueDOFs exclude e.g double-counted DOFs that are part of 2 elem
     // ess_tdof_list = {0,1,2,3} or {0,1,2,3,4,5,6,7}
 
@@ -53,7 +55,7 @@ int main(int argc, char *argv[]) {
 
     // gridfunction
     GridFunction x(&fespace);
-    x = 0.;
+    x = 1.;
 
     // blf
     BilinearForm a(&fespace);
