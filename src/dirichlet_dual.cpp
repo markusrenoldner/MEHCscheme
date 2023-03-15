@@ -752,7 +752,7 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
     double Re_inv = param.Re_inv; // = 1/Re 
 
     double pi = 3.14159265358979323846;
-    double C = 0.1;
+    double C = 10.;
     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
@@ -768,6 +768,7 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
     if (X*X + Y*Y + Z*Z < R*R) {
         returnvalue(0) = 2*X*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) + Re_inv * 2*C*Y* (4*C * (X*X+Y*Y+Z*Z) * cosof2 + 5*sinof2);
         returnvalue(1) = 2*Y*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) - Re_inv * 2*C*X* (4*C * (X*X+Y*Y+Z*Z) * cosof2 + 5*sinof2);
+        returnvalue(2) = 0.;
     }
     else {
         returnvalue(0) = 0.; 
@@ -775,3 +776,4 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
         returnvalue(2) = 0.;
     }   
 }
+
