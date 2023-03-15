@@ -10,7 +10,14 @@
 // visualizing some gridfunctions
 
 
-
+struct Parameters {
+    double Re_inv = 0.1; // = 1/Re 
+    double dt     = 0.2;
+    double tmax   = 3*dt;
+    int ref_steps = 0;
+    int init_ref  = 0;
+    const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
+};
 
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
@@ -19,38 +26,29 @@ void     w_0(const mfem::Vector &x, mfem::Vector &v);
 void       f(const mfem::Vector &x, mfem::Vector &v); 
 void       f_term1(const mfem::Vector &x, mfem::Vector &v); 
 void       f_term2(const mfem::Vector &x, mfem::Vector &v); 
-// void u_exact(const mfem::Vector &x, mfem::Vector &returnvalue);
+
 
 int main(int argc, char *argv[]) {
 
     // simulation parameters
-    // careful: Re also has to be defined in the manufactured sol
-    double Re_inv = 1; // = 1/Re 
-    double dt = 0.2;
-    // dt = std::sqrt(3)*1;
-    double tmax = 3*dt;
-    int ref_steps = 0;
-    // std::cout <<"----------\n"<<"Re:   "<<1/Re_inv <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
+    Parameters param;
+    double Re_inv = param.Re_inv; 
+    double dt     = param.dt;
+    double tmax   = param.tmax;
+    int ref_steps = param.ref_steps;
+    int init_ref  = param.init_ref;
 
     // loop over refinement steps to check convergence
     for (int ref_step=0; ref_step<=ref_steps; ref_step++) {
 
-        // dt = std::sqrt(3)/std::pow(2,ref_step+1);
-        
         auto start = std::chrono::high_resolution_clock::now();
 
         // mesh
-        const char *mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
+        const char *mesh_file = param.mesh_file;
         mfem::Mesh mesh(mesh_file, 1, 1); 
         int dim = mesh.Dimension(); 
-        for (int l = 0; l<ref_step; l++) {mesh.UniformRefinement();} 
+        for (int l = init_ref; l<init_ref+ref_step; l++) {mesh.UniformRefinement();} 
         std::cout << "----------ref: " << ref_step << "----------\n";
-        mesh.UniformRefinement();
-        mesh.UniformRefinement();
-        mesh.UniformRefinement();
-        // mesh.UniformRefinement();
-
-        // TODO rename FEM spaces (remove the zero)
 
         // FE spaces: DG subset L2, ND subset Hcurl, RT subset Hdiv, CG subset H1
         int order = 1;
@@ -81,8 +79,6 @@ int main(int argc, char *argv[]) {
         mfem::GridFunction u(&ND); //u = 4.3;
         mfem::GridFunction z(&RT); //z = 5.3;
         mfem::GridFunction p(&CG); p=0.; //p = 6.3;
-        
-        
         mfem::GridFunction v(&RT); //v = 3.;
         mfem::GridFunction w(&ND); //w = 3.; 
         mfem::GridFunction q(&DG); q=0.; //q = 9.3;
@@ -108,8 +104,87 @@ int main(int argc, char *argv[]) {
         v_exact.ProjectCoefficient(u_0_coeff);
         z_exact.ProjectCoefficient(w_0_coeff);
 
-        // mfem::GridFunction fpseudo(&RT);
-        // fpseudo = f_t1 + f_t2;
+        // Matrix C
+        mfem::MixedBilinearForm blf_C(&ND, &RT);
+        blf_C.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator()); //=(curl u,v)
+        blf_C.Assemble();
+        blf_C.Finalize();
+        mfem::SparseMatrix C(blf_C.SpMat());
+        mfem::SparseMatrix *CT;
+        mfem::SparseMatrix C_Re;
+        mfem::SparseMatrix CT_Re;
+        CT = Transpose(C);
+        C_Re = C;
+        CT_Re = *CT; 
+        C_Re *= Re_inv/2.;
+        CT_Re *= Re_inv/2.;
+        C.Finalize();
+        CT->Finalize();
+        C_Re.Finalize();
+        CT_Re.Finalize();
+
+        // R2 
+        mfem::MixedBilinearForm blf_R2(&RT,&RT);
+        mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
+        blf_R2.AddDomainIntegrator(
+            new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
+        blf_R2.Assemble();
+        blf_R2.Finalize();
+        mfem::SparseMatrix R2(blf_R2.SpMat());
+        R2 *= 1./2.;
+        R2.Finalize();
+
+        // Matrix N
+        mfem::BilinearForm blf_N(&RT);
+        blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
+        blf_N.Assemble();
+        blf_N.Finalize();
+        mfem::SparseMatrix N_n(blf_N.SpMat());
+        mfem::SparseMatrix N_dt;
+        N_dt = N_n;
+        N_dt *= 1/dt;
+        N_n *= -1.;
+        N_dt.Finalize();
+        N_n.Finalize();
+
+        // vector f
+        mfem::Vector bf2 (v.Size()); 
+        bf2=0.;
+        R2.AddMult(v,bf2,2);
+        C_Re.AddMult(w,bf2,2);
+        
+        // gridfunction f
+        mfem::GridFunction bf2_gf(&RT);
+        bf2_gf=0.;
+        double tol = 1e-10;
+        int iter = 1000000;  
+        mfem::MINRES(N_n, bf2, bf2_gf, 0, iter, tol*tol, tol*tol);
+
+        // vector term1 
+        mfem::Vector bf2_t1 (v.Size()); 
+        bf2_t1=0.;
+        R2.AddMult(v,bf2_t1,2);
+
+        // vector term2
+        mfem::Vector bf2_t2 (v.Size()); 
+        bf2_t2=0.;
+        C_Re.AddMult(w,bf2_t2,2);
+
+        // gridfunction term1 and term 2
+        mfem::GridFunction bf2_gf_t1(&RT);
+        bf2_gf_t1=0.;
+        mfem::MINRES(N_n, bf2_t1, bf2_gf_t1, 0, iter, tol*tol, tol*tol);
+        mfem::GridFunction bf2_gf_t2(&RT);
+        bf2_gf_t2=0.;
+        mfem::MINRES(N_n, bf2_t2, bf2_gf_t2, 0, iter, tol*tol, tol*tol);
+
+
+
+
+
+
+
+
 
         // visual tests:
         char vishost[] = "localhost";
@@ -134,79 +209,17 @@ int main(int argc, char *argv[]) {
         // ft2_sock.precision(8);
         // ft2_sock << "solution\n" << mesh << f_t2 << "window_title 'fterm2'" << std::endl;
 
-        //// new f
-        // Matrix C
-        mfem::MixedBilinearForm blf_C(&ND, &RT);
-        blf_C.AddDomainIntegrator(new mfem::MixedVectorCurlIntegrator()); //=(curl u,v)
-        blf_C.Assemble();
-        blf_C.Finalize();
-        mfem::SparseMatrix C(blf_C.SpMat());
-        mfem::SparseMatrix *CT;
-        mfem::SparseMatrix C_Re;
-        mfem::SparseMatrix CT_Re;
-        CT = Transpose(C);
-        C_Re = C;
-        CT_Re = *CT; 
-        C_Re *= Re_inv/2.;
-        CT_Re *= Re_inv/2.;
-        C.Finalize();
-        CT->Finalize();
-        C_Re.Finalize();
-        CT_Re.Finalize();
-        // R2 
-        mfem::MixedBilinearForm blf_R2(&RT,&RT);
-        mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-        blf_R2.AddDomainIntegrator(
-            new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-        blf_R2.Assemble();
-        blf_R2.Finalize();
-        mfem::SparseMatrix R2(blf_R2.SpMat());
-        R2 *= 1./2.;
-        R2.Finalize();
-        // Matrix N
-        mfem::BilinearForm blf_N(&RT);
-        blf_N.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
-        blf_N.Assemble();
-        blf_N.Finalize();
-        mfem::SparseMatrix N_n(blf_N.SpMat());
-        mfem::SparseMatrix N_dt;
-        N_dt = N_n;
-        N_dt *= 1/dt;
-        N_n *= -1.;
-        N_dt.Finalize();
-        N_n.Finalize();
-
-
-        mfem::Vector bf2 (v.Size()); 
-        bf2=0.;
-        R2.AddMult(v,bf2,2);
-        C_Re.AddMult(w,bf2,2);
-        
-        
-        mfem::GridFunction bf2_gf(&RT);
-        bf2_gf=0.;
-        double tol = 1e-10;
-        int iter = 1000000;  
-        mfem::MINRES(N_n, bf2, bf2_gf, 0, iter, tol*tol, tol*tol);
-
-
-
-
-
-
-
-
-
-
-
-
-
-        ///////
-
         mfem::socketstream fnew_sock(vishost, visport);
         fnew_sock.precision(8);
         fnew_sock << "solution\n" << mesh << bf2_gf << "window_title 'fnew'" << std::endl;
         
+        // mfem::socketstream fnew_sock_t1(vishost, visport);
+        // fnew_sock_t1.precision(8);
+        // fnew_sock_t1 << "solution\n" << mesh << bf2_gf_t1 << "window_title 'fnew_t1'" << std::endl;
+
+        // mfem::socketstream fnew_sock_t2(vishost, visport);
+        // fnew_sock_t2.precision(8);
+        // fnew_sock_t2 << "solution\n" << mesh << bf2_gf_t2 << "window_title 'fnew_t2'" << std::endl;
         
 
 
@@ -214,18 +227,6 @@ int main(int argc, char *argv[]) {
 
 
 
-        // visuals
-        // char vishost[] = "localhost";
-        // int  visport   = 19916;
-        // mfem::socketstream v_sock(vishost, visport);
-        // v_sock.precision(8);
-        // v_sock << "solution\n" << mesh << v << "window_title 'v in hdiv'" << std::endl;
-
-        // mfem::socketstream ve_sock(vishost, visport);
-        // ve_sock.precision(8);
-        // ve_sock << "solution\n" << mesh << v_exact << "window_title 'v_0'" << std::endl;
-
-        
         // free memory
         delete fec_DG;
         delete fec_CG;
@@ -234,6 +235,7 @@ int main(int argc, char *argv[]) {
 
     } // refinement loop
 }
+
 
 
 // cos squared init cond that satifies
@@ -289,7 +291,10 @@ void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
 
 void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
-    double Re_inv = 1.;
+    // double Re_inv = 0.1;
+    Parameters param;
+    double Re_inv = param.Re_inv; // = 1/Re 
+
     double pi = 3.14159265358979323846;
     double C = 10;
     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
@@ -305,9 +310,8 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
     double cos4 = cos*cos*cos*cos;
     
     if (X*X + Y*Y + Z*Z < R*R) {
-        returnvalue(0) = 2*X*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) + Re_inv * (2*C*Y* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
-        returnvalue(1) = 2*Y*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) - Re_inv * (2*C*X* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
-        returnvalue(2) = 4*C*(X*X+Y*Y)*Z * cos3 *sin;
+        returnvalue(0) = 2*X*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) + Re_inv * 2*C*Y* (4*C * (X*X+Y*Y+Z*Z) * cosof2 + 5*sinof2);
+        returnvalue(1) = 2*Y*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) - Re_inv * 2*C*X* (4*C * (X*X+Y*Y+Z*Z) * cosof2 + 5*sinof2);
     }
     else {
         returnvalue(0) = 0.; 
@@ -318,7 +322,8 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
 
 void f_term1(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
-    double Re_inv = 1.;
+    Parameters param;
+    double Re_inv = param.Re_inv; // = 1/Re 
     double pi = 3.14159265358979323846;
     double C = 10;
     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
@@ -334,8 +339,8 @@ void f_term1(const mfem::Vector &x, mfem::Vector &returnvalue) {
     double cos4 = cos*cos*cos*cos;
     
     if (X*X + Y*Y + Z*Z < R*R) {
-        returnvalue(0) = 2*X*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) + Re_inv * (2*C*Y* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
-        returnvalue(1) = 2*Y*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) - Re_inv * (2*C*X* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
+        returnvalue(0) = 2*X*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin);
+        returnvalue(1) = 2*Y*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin);
         returnvalue(2) = 4*C*(X*X+Y*Y)*Z * cos3 *sin;
     }
     else {
@@ -347,7 +352,8 @@ void f_term1(const mfem::Vector &x, mfem::Vector &returnvalue) {
 
 void f_term2(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
-    double Re_inv = 1.;
+    Parameters param;
+    double Re_inv = param.Re_inv; // = 1/Re 
     double pi = 3.14159265358979323846;
     double C = 10;
     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
@@ -363,9 +369,9 @@ void f_term2(const mfem::Vector &x, mfem::Vector &returnvalue) {
     double cos4 = cos*cos*cos*cos;
     
     if (X*X + Y*Y + Z*Z < R*R) {
-        returnvalue(0) = 2*X*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) + Re_inv * (2*C*Y* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
-        returnvalue(1) = 2*Y*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) - Re_inv * (2*C*X* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
-        returnvalue(2) = 4*C*(X*X+Y*Y)*Z * cos3 *sin;
+        returnvalue(0) = + Re_inv * 2*C*Y* (4*C * (X*X+Y*Y+Z*Z) * cosof2 + 5*sinof2);
+        returnvalue(1) = - Re_inv * 2*C*X* (4*C * (X*X+Y*Y+Z*Z) * cosof2 + 5*sinof2);
+        returnvalue(2) = 0;
     }
     else {
         returnvalue(0) = 0.; 
