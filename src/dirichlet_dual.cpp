@@ -18,6 +18,7 @@ struct Parameters {
     double tmax   = 3*dt;
     int ref_steps = 3;
     int init_ref  = 0;
+    int order  = 0;
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -39,6 +40,7 @@ int main(int argc, char *argv[]) {
     double tmax   = param.tmax;
     int ref_steps = param.ref_steps;
     int init_ref  = param.init_ref;
+    int order = para.order;
 
     // output file 
     std::string outputfile = "out/outputtest/out.txt";
@@ -64,7 +66,6 @@ int main(int argc, char *argv[]) {
         std::cout << "----------ref: " << ref_step << "----------\n";
 
         // FE spaces: DG subset L2, ND subset Hcurl, RT subset Hdiv, CG subset H1
-        int order = 1;
         mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order-1,dim);
         mfem::FiniteElementCollection *fec_ND = new mfem::ND_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_RT = new mfem::RT_FECollection(order-1,dim);
@@ -95,11 +96,11 @@ int main(int argc, char *argv[]) {
         mfem::GridFunction v(&RT); //v = 3.;
         mfem::GridFunction w(&ND); //w = 3.; 
         mfem::GridFunction q(&DG); q=0.; //q = 9.3;
-        mfem::GridFunction u_exact(&ND);
 
         // initial condition
         mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
         mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0); 
+        mfem::VectorFunctionCoefficient u_exact_coeff(dim, u_1);
         u.ProjectCoefficient(u_0_coeff);
         v.ProjectCoefficient(u_0_coeff);
         z.ProjectCoefficient(w_0_coeff);
@@ -477,9 +478,7 @@ int main(int argc, char *argv[]) {
 
         } // time loop
 
-        // convergence error
-        mfem::VectorFunctionCoefficient u_exact_coeff(dim, u_1); 
-        u_exact.ProjectCoefficient(u_exact_coeff);
+        // convergence error 
         double err_L2_u = u.ComputeL2Error(u_exact_coeff);
         double err_L2_v = v.ComputeL2Error(u_exact_coeff);
         mfem::GridFunction v_ND (&ND);
@@ -510,6 +509,8 @@ int main(int argc, char *argv[]) {
         // v_sock.precision(8);
         // v_sock << "solution\n" << mesh << v << "window_title 'v in hdiv'" << std::endl;
         
+        // mfem::GridFunction u_exact(&ND);
+        // u_exact.ProjectCoefficient(u_exact_coeff);
         // mfem::socketstream ue_sock(vishost, visport);
         // ue_sock.precision(8);
         // ue_sock << "solution\n" << mesh << u_exact << "window_title 'u_exact'" << std::endl;
