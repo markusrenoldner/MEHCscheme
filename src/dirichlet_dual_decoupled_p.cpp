@@ -1,9 +1,9 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 #include "mfem.hpp"
 
-#include <chrono>
 
 
 
@@ -14,47 +14,51 @@
 
 
 
+struct Parameters {
+    double Re_inv = 1; // = 1/Re 
+    double dt     = 0.01;
+    double tmax   = 3*dt;
+    int ref_steps = 4;
+    int init_ref  = 0;
+    int order  = 0;
+    const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
+    double t;
+};
 
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
 void     u_0(const mfem::Vector &x, mfem::Vector &v);
 void     w_0(const mfem::Vector &x, mfem::Vector &v);
 void       f(const mfem::Vector &x, mfem::Vector &v); 
-// void   f_alt(const mfem::Vector &x, mfem::Vector &v); 
-// void u_exact(const mfem::Vector &x, mfem::Vector &returnvalue);
 
 int main(int argc, char *argv[]) {
 
     // simulation parameters
-    // careful: Re also has to be defined in the manufactured sol
-    double Re_inv = 1; // = 1/Re 
-    double dt = 0.2;
-    double tmax = 3*dt;
-    int ref_steps = 3;
-    // std::cout <<"----------\n"<<"Re:   "<<1/Re_inv <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
-
+    Parameters param;
+    double Re_inv = param.Re_inv; 
+    double dt     = param.dt;
+    double tmax   = param.tmax;
+    int ref_steps = param.ref_steps;
+    int init_ref  = param.init_ref;
+    int order = para.order;
+    
     // loop over refinement steps to check convergence
     for (int ref_step=0; ref_step<=ref_steps; ref_step++) {
-
-        // dt = std::sqrt(3)/std::pow(2,ref_step+1);
         
         auto start = std::chrono::high_resolution_clock::now();
 
         // mesh
-        const char *mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
+        const char *mesh_file = param.mesh_file;
         mfem::Mesh mesh(mesh_file, 1, 1); 
         int dim = mesh.Dimension(); 
-        for (int l = 0; l<ref_step; l++) {mesh.UniformRefinement();} 
+        int l;
+        dt *= 0.5; // TODO
+        for (l = 0; l<init_ref+ref_step; l++) {
+            mesh.UniformRefinement();
+        } 
         std::cout << "----------ref: " << ref_step << "----------\n";
-        // mesh.UniformRefinement();
-        // mesh.UniformRefinement();
-        // mesh.UniformRefinement();
-        // mesh.UniformRefinement();
-
-        // TODO rename FEM spaces (remove the zero)
 
         // FE spaces: DG subset L2, ND subset Hcurl, RT subset Hdiv, CG subset H1
-        int order = 1;
         mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order-1,dim);
         mfem::FiniteElementCollection *fec_ND = new mfem::ND_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_RT = new mfem::RT_FECollection(order-1,dim);
@@ -82,8 +86,6 @@ int main(int argc, char *argv[]) {
         mfem::GridFunction u(&ND); //u = 4.3;
         mfem::GridFunction z(&RT); //z = 5.3;
         mfem::GridFunction p(&CG); p=0.; //p = 6.3;
-        mfem::GridFunction f1(&ND);
-        mfem::GridFunction f2(&RT);
         mfem::GridFunction u_exact(&ND);
         mfem::GridFunction z_exact(&RT);
         mfem::GridFunction w_exact(&ND);
@@ -91,19 +93,17 @@ int main(int argc, char *argv[]) {
         // initial condition
         mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
         mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0); 
-        mfem::VectorFunctionCoefficient f_coeff(dim, f);
-        // mfem::VectorFunctionCoefficient f_coeff_alt(dim, f_alt);
         mfem::VectorFunctionCoefficient u_exact_coeff(dim, u_0); 
         u.ProjectCoefficient(u_0_coeff);
         z.ProjectCoefficient(w_0_coeff);
-        f1.ProjectCoefficient(f_coeff);
         u_exact.ProjectCoefficient(u_exact_coeff);
         w_exact.ProjectCoefficient(w_0_coeff);
-    
-        // helper vectors for old values
-        mfem::Vector u_old(u.Size()); u_old = 0.;
-        mfem::Vector z_old(z.Size()); z_old = 0.;
 
+        // linearform for forcing term
+        mfem::VectorFunctionCoefficient f_coeff(dim, f);
+        mfem::LinearForm f1(&ND);
+        f1.AddDomainIntegrator(new mfem::VectorFEDomainLFIntegrator(f_coeff)); //=(f,v)
+        f1.Assemble();
 
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
@@ -204,36 +204,32 @@ int main(int argc, char *argv[]) {
         mfem::Vector b1(size_1);
         mfem::Vector b1sub(u.Size());
 
-
-        //NEU
+        ////////////////////////////////////////////////////////////////////////////
+        // forcing function constructed by initial value of gridfunctions
+        ////////////////////////////////////////////////////////////////////////////
         
         // R1
-            mfem::MixedBilinearForm blf_R1(&ND,&ND);
-        mfem::VectorGridFunctionCoefficient w_gfcoeff(&w_exact); // decoupling
-            // mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-            blf_R1.AddDomainIntegrator(
-                new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-            blf_R1.Assemble();
-            blf_R1.Finalize();
-            mfem::SparseMatrix R1(blf_R1.SpMat());
-            R1 *= 1./2.;
-            R1.Finalize();
+        // mfem::MixedBilinearForm blf_R1(&ND,&ND);
+        // mfem::VectorGridFunctionCoefficient w_gfcoeff(&w_exact); // decoupling
+        // // mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
+        // blf_R1.AddDomainIntegrator(
+        //     new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
+        // blf_R1.Assemble();
+        // blf_R1.Finalize();
+        // mfem::SparseMatrix R1(blf_R1.SpMat());
+        // R1 *= 1./2.;
+        // R1.Finalize();
 
-        mfem::Vector bf1 (u.Size()); 
-        bf1=0.;
-        R1.AddMult(u,bf1,2);
-        CT_Re.AddMult(z,bf1,2);
+        // mfem::Vector bf1 (u.Size()); 
+        // bf1=0.;
+        // R1.AddMult(u,bf1,2);
+        // CT_Re.AddMult(z,bf1,2);
         
-        mfem::GridFunction bf1_gf(&ND);
-        bf1_gf=0.;
-        double tol = 1e-10;
-        int iter = 1000000;  
-        mfem::MINRES(M_n, bf1, bf1_gf, 0, iter, tol*tol, tol*tol);
-
-
-
-
-
+        // mfem::GridFunction bf1_gf(&ND);
+        // bf1_gf=0.;
+        // double tol = 1e-10;
+        // int iter = 1000000;  
+        // mfem::MINRES(M_n, bf1, bf1_gf, 0, iter, tol*tol, tol*tol);
 
         ////////////////////////////////////////////////////////////////////
         // EULERSTEP: code up to the loop computes euler step for primal sys
@@ -242,7 +238,7 @@ int main(int argc, char *argv[]) {
         // Matrix MR_eul for eulerstep
         mfem::MixedBilinearForm blf_MR_eul(&ND,&ND); 
         // mfem::VectorGridFunctionCoefficient w_gfcoeff(&w); 
-
+        mfem::VectorGridFunctionCoefficient w_gfcoeff(&w_exact); // decoupling
         mfem::ConstantCoefficient two_over_dt(2.0/dt);
         blf_MR_eul.AddDomainIntegrator(new mfem::VectorFEMassIntegrator(two_over_dt)); //=(u,v)
         blf_MR_eul.AddDomainIntegrator(new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
@@ -250,17 +246,6 @@ int main(int argc, char *argv[]) {
         blf_MR_eul.Finalize();
         mfem::SparseMatrix MR_eul(blf_MR_eul.SpMat());
         MR_eul.Finalize();
-
-        // update R1
-        // mfem::MixedBilinearForm blf_R1(&ND,&ND);
-        // mfem::VectorGridFunctionCoefficient w_gfcoeff(&w_exact); // decoupling
-        // blf_R1.AddDomainIntegrator(
-        //     new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-        // blf_R1.Assemble();
-        // blf_R1.Finalize();
-        // mfem::SparseMatrix R1(blf_R1.SpMat());
-        // R1 *= 1./2.;
-        // R1.Finalize();
         
         // CT for eulerstep
         mfem::SparseMatrix CT_eul = CT_Re;
@@ -279,8 +264,8 @@ int main(int argc, char *argv[]) {
         b1 = 0.0;
         b1sub = 0.0;
         M_dt.AddMult(u,b1sub,2);
-        // b1.AddSubVector(f1,0);
-        b1.AddSubVector(bf1,0);
+        b1.AddSubVector(f1,0);
+        // b1.AddSubVector(bf1,0);
         b1.AddSubVector(b1sub,0);
 
         // transpose here:
@@ -298,30 +283,23 @@ int main(int argc, char *argv[]) {
         mfem::Vector B2;
         ATA1.FormLinearSystem(ess_dof1, x, ATb1, A1_BC, X, B1);
 
-
         // solve 
-        // double tol = 1e-10;
-        // int iter = 1000000;  
+        double tol = 1e-10;
+        int iter = 1000000;  
         mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
 
         // extract solution values u,z,p from eulerstep
-        A1.RecoverFEMSolution(X, b1, x);
+        ATA1.RecoverFEMSolution(X, b1, x);
         x.GetSubVector(u_dofs, u);
         x.GetSubVector(z_dofs, z);
         x.GetSubVector(p_dofs, p);
 
-
-
         // time loop
         for (double t = dt ; t < tmax+dt ; t+=dt) {
+            
             // std::cout << "--- t = "<<t<<"\n";
             // std::cout << t << ",";
-            
-            
-            // update old values before computing new ones
-            u_old = u;
-
-           
+                       
             ////////////////////////////////////////////////////////////////////
             // PRIMAL FIELD
             ////////////////////////////////////////////////////////////////////
@@ -330,7 +308,6 @@ int main(int argc, char *argv[]) {
             mfem::MixedBilinearForm blf_R1(&ND,&ND);
             // mfem::VectorGridFunctionCoefficient w_gfcoeff(&w); 
             mfem::VectorGridFunctionCoefficient w_gfcoeff(&w_exact); // decoupling
-
             blf_R1.AddDomainIntegrator(
                 new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
             blf_R1.Assemble();
@@ -364,8 +341,8 @@ int main(int argc, char *argv[]) {
             R1.AddMult(u,b1sub,-1);
             CT_Re.AddMult(z,b1sub,-1);
             b1.AddSubVector(b1sub,0);
-            // b1.AddSubVector(f1,0);
-            b1.AddSubVector(bf1,0);
+            b1.AddSubVector(f1,0);
+            // b1.AddSubVector(bf1,0);
 
             //Transposition
             mfem::TransposeOperator AT1 (&A1);
@@ -378,7 +355,7 @@ int main(int argc, char *argv[]) {
 
             // solve 
             mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol); 
-            A1.RecoverFEMSolution(X, b1, x);
+            ATA1.RecoverFEMSolution(X, b1, x);
             x.GetSubVector(u_dofs, u);
             x.GetSubVector(z_dofs, z);
             x.GetSubVector(p_dofs, p);
@@ -388,31 +365,28 @@ int main(int argc, char *argv[]) {
             // EQUATION
             ////////////////////////////////////////////////////////////////////
 
-            // mfem::Vector vec_47a (u.Size());vec_47a=0.;
-            // MR.AddMult(u,vec_47a);
-            // CT_Re.AddMult(z,vec_47a);
-            // G.AddMult(p,vec_47a);
-            // std::cout << "A--\n"<<vec_47a.Norml2() << "\n" << b1.Norml2() << "\n";
+            mfem::Vector vec_47a (u.Size());vec_47a=0.;
+            MR.AddMult(u,vec_47a);
+            CT_Re.AddMult(z,vec_47a);
+            G.AddMult(p,vec_47a);
+            std::cout << "A--\n"<<vec_47a.Norml2() << "\n" << b1.Norml2() << "\n";
 
-            // mfem::Vector vec_47b (u.Size());vec_47b=0.;
-            // C.AddMult(u,vec_47b);
-            // N_n.AddMult(z,vec_47b);
-            // std::cout << "B--\n"<<vec_47b.Norml2()  << "\n";
+            mfem::Vector vec_47b (u.Size());vec_47b=0.;
+            C.AddMult(u,vec_47b);
+            N_n.AddMult(z,vec_47b);
+            std::cout << "B--\n"<<vec_47b.Norml2()  << "\n";
 
-            // mfem::Vector vec_47c (u.Size());vec_47c=0.;
-            // GT->AddMult(u,vec_47c);
-            // std::cout << "C--\n"<<vec_47c.Norml2()  << "\n";
+            mfem::Vector vec_47c (u.Size());vec_47c=0.;
+            GT->AddMult(u,vec_47c);
+            std::cout << "C--\n"<<vec_47c.Norml2()  << "\n";
 
             
             ////////////////////////////////////////////////////////////////////
             // CONSERVATION
             ////////////////////////////////////////////////////////////////////
 
-            double K1_old = 1./2.*blf_M.InnerProduct(u_old,u_old);
             double K1 = 1./2.*blf_M.InnerProduct(u,u);
             // std::cout <<std::abs(K1) << ",\n";
-
-
 
         } // time loop
 
@@ -423,11 +397,11 @@ int main(int argc, char *argv[]) {
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> duration = 1000*(end - start);
-        // std::cout << "runtime = " << duration.count() << "ms" << std::endl;
+        std::cout << "runtime = " << duration.count() << "ms" << std::endl;
 
         // visuals
-        char vishost[] = "localhost";
-        int  visport   = 19916;
+        // char vishost[] = "localhost";
+        // int  visport   = 19916;
         // mfem::socketstream u_sock(vishost, visport);
         // u_sock.precision(8);
         // u_sock << "solution\n" << mesh << u << "window_title 'u in hcurl'" << std::endl;
@@ -497,31 +471,29 @@ void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
     }
 }
 
+
 void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
-    double Re_inv = 1.;
+    Parameters param;
+    double Re_inv = param.Re_inv; // = 1/Re 
+
     double pi = 3.14159265358979323846;
-    double C = 10;
+    double C = 10.;
     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
 
     double cos = std::cos(C*(X*X+Y*Y+Z*Z) );
+    double cos3 = cos*cos*cos;
     double cosof2 = std::cos(2*C*(X*X+Y*Y+Z*Z) );
     double sin = std::sin(C*(X*X+Y*Y+Z*Z) );
     double sinof2 = std::sin(2*C*(X*X+Y*Y+Z*Z) );
-    double cos4 = cos*cos*cos*cos;
-    // double eC2 = 8*C*C;
     
     if (X*X + Y*Y + Z*Z < R*R) {
-        returnvalue(0) = -X*cos4 + 1*Re_inv*( 
-                          2*Y*C*(4*C*(X*X+Y*Y+Z*Z)*cosof2 + 5*sinof2) );
-
-        returnvalue(1) = -Y*cos4 - 1*Re_inv*(
-                          2*X*C*(4*C*(X*X+Y*Y+Z*Z)*cosof2 + 5*sinof2) );
-
-        returnvalue(2) = 0.;
+        returnvalue(0) = 2*X*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) + Re_inv * 2*C*Y* (4*C * (X*X+Y*Y+Z*Z) * cosof2 + 5*sinof2);
+        returnvalue(1) = 2*Y*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) - Re_inv * 2*C*X* (4*C * (X*X+Y*Y+Z*Z) * cosof2 + 5*sinof2);
+        returnvalue(2) = 4*C*(X*X+Y*Y) * Z*cos3*sin;
     }
     else {
         returnvalue(0) = 0.; 
@@ -530,11 +502,59 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
     }   
 }
 
+
+
+
+
+/////////////////////////////////////
+// i think this is the simpler f resulting from including ther bernouulli term
+
+// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+
+//     double Re_inv = 1.;
+//     double pi = 3.14159265358979323846;
+//     double C = 10;
+//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     double cos = std::cos(C*(X*X+Y*Y+Z*Z) );
+//     double cosof2 = std::cos(2*C*(X*X+Y*Y+Z*Z) );
+//     double sin = std::sin(C*(X*X+Y*Y+Z*Z) );
+//     double sinof2 = std::sin(2*C*(X*X+Y*Y+Z*Z) );
+//     double cos4 = cos*cos*cos*cos;
+//     // double eC2 = 8*C*C;
+    
+//     if (X*X + Y*Y + Z*Z < R*R) {
+//         returnvalue(0) = -X*cos4 + 1*Re_inv*( 
+//                           2*Y*C*(4*C*(X*X+Y*Y+Z*Z)*cosof2 + 5*sinof2) );
+
+//         returnvalue(1) = -Y*cos4 - 1*Re_inv*(
+//                           2*X*C*(4*C*(X*X+Y*Y+Z*Z)*cosof2 + 5*sinof2) );
+
+//         returnvalue(2) = 0.;
+//     }
+//     else {
+//         returnvalue(0) = 0.; 
+//         returnvalue(1) = 0.; 
+//         returnvalue(2) = 0.;
+//     }   
+// }
+
         // returnvalue(0) = -X*cos4 + 1*Re_inv*( 
         //                   2*C*(4*C*(X*X+Y*Y+Z*Z)*cos+5*sin) );
         // returnvalue(1) = -Y*cos4 - 1*Re_inv*(
         //                   2*C*(4*C*(X*X+Y*Y+Z*Z)*cos+5*sin));
 
+
+
+
+
+
+
+///////////////////////////////////
+// ?
         
 // void f_alt(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
