@@ -16,15 +16,16 @@ struct Parameters {
     double Re_inv = 1; // = 1/Re 
     double dt     = 0.01;
     double tmax   = 3*dt;
-    double t      = 0.;
     int ref_steps = 3;
     int init_ref  = 0;
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
+    double t;
 };
 
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
 void     u_0(const mfem::Vector &x, mfem::Vector &v);
+void     u_1(const mfem::Vector &x, mfem::Vector &v);
 void     w_0(const mfem::Vector &x, mfem::Vector &v);
 void       f(const mfem::Vector &x, mfem::Vector &v); 
 
@@ -56,7 +57,7 @@ int main(int argc, char *argv[]) {
         mfem::Mesh mesh(mesh_file, 1, 1); 
         int dim = mesh.Dimension(); 
         int l;
-        dt *= 0.5;
+        // dt *= 0.5; // TODO
         for (l = 0; l<init_ref+ref_step; l++) {
             mesh.UniformRefinement();
         } 
@@ -477,10 +478,8 @@ int main(int argc, char *argv[]) {
         } // time loop
 
         // convergence error
-        param.t = t;
-        mfem::VectorFunctionCoefficient u_exact_coeff(dim, u_0); 
+        mfem::VectorFunctionCoefficient u_exact_coeff(dim, u_1); 
         u_exact.ProjectCoefficient(u_exact_coeff);
-
         double err_L2_u = u.ComputeL2Error(u_exact_coeff);
         double err_L2_v = v.ComputeL2Error(u_exact_coeff);
         mfem::GridFunction v_ND (&ND);
@@ -513,8 +512,8 @@ int main(int argc, char *argv[]) {
         
         // mfem::socketstream ue_sock(vishost, visport);
         // ue_sock.precision(8);
-        // ue_sock << "solution\n" << mesh << u_exact << "window_title 'u_0'" << std::endl;
-        
+        // ue_sock << "solution\n" << mesh << u_exact << "window_title 'u_exact'" << std::endl;
+
         // mfem::socketstream p_sock(vishost, visport);
         // p_sock.precision(8);
         // p_sock << "solution\n" << mesh << p << "window_title 'p in H1'" << std::endl;    
@@ -668,7 +667,22 @@ void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
 
     Parameters param;
     double Re_inv = param.Re_inv; // = 1/Re 
-    double t      = param.t;
+    double t      = 0.0;
+
+    double pi = 3.14159265358979323846;
+    double nu = 1*1*Re_inv; // = u*L/Re
+    double F = std::exp(-2*nu*t);
+
+    returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi) * F;
+    returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi) * F;
+    returnvalue(2) = 0;
+}
+
+void u_1(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+
+    Parameters param;
+    double Re_inv = param.Re_inv; // = 1/Re 
+    double t      = 0.03;
 
     double pi = 3.14159265358979323846;
     double nu = 1*1*Re_inv; // = u*L/Re
