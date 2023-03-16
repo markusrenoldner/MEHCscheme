@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
         blf_M.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
         blf_M.AddDomainIntegrator(new mfem::MixedCurlCurlIntegrator()); //=(curl u,curl v)
         blf_M.Assemble();
-        // blf_M.Finalize();
+        // blf_M.Finalize(); //?
 
         // form linear system
         mfem::OperatorPtr A;
