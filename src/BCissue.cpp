@@ -4,6 +4,12 @@
 
 // understanding how formlinearsystem works
 
+// forum question: https://github.com/mfem/mfem/discussions/3544
+
+// current understanding:
+// formlinsys has to be called on a symmetric operator, otherwise it fails
+
+// this is and example of a non-symmetric operator:
 
 
 int main(int argc, char *argv[]) {
@@ -35,6 +41,8 @@ int main(int argc, char *argv[]) {
     // mfem::BlockMatrix a(offsets);
 
     // set blocks
+    // [mat1   0  ]
+    // [mat3  mat2]
     a.SetBlock(0,0,&mat1);
     a.SetBlock(1,1,&mat2);
     a.SetBlock(1,0,&mat3);
