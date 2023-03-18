@@ -20,7 +20,7 @@ struct Parameters {
     double tmax   = 3*dt;
     int ref_steps = 4;
     int init_ref  = 0;
-    int order  = 0;
+    int order     = 1;
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     double tmax   = param.tmax;
     int ref_steps = param.ref_steps;
     int init_ref  = param.init_ref;
-    int order = para.order;
+    int order     = param.order;
     
     // loop over refinement steps to check convergence
     for (int ref_step=0; ref_step<=ref_steps; ref_step++) {

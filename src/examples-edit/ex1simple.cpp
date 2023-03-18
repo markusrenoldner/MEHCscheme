@@ -14,7 +14,8 @@ int main(int argc, char *argv[]) {
     const char *mesh_file = "extern/mfem-4.5/data/ref-square.mesh";
     Mesh mesh(mesh_file, 1, 1);
     int dim = mesh.Dimension();
-    for (int l = 0; l < 5; l++) {mesh.UniformRefinement();}
+    mesh.UniformRefinement();
+    // for (int l = 0; l < 5; l++) {mesh.UniformRefinement();}
     
     // FE space
     int order = 1;
@@ -55,7 +56,8 @@ int main(int argc, char *argv[]) {
 
     // gridfunction
     GridFunction x(&fespace);
-    x = 1.;
+    x = 0.;
+    std::cout << "size: "<<x.Size()<<"\n";
 
     // blf
     BilinearForm a(&fespace);

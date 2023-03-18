@@ -20,7 +20,7 @@ struct Parameters {
     double tmax   = 1*dt;
     int ref_steps = 4;
     int init_ref  = 0;
-    int order  = 0;
+    int order     = 1;
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     double tmax   = param.tmax;
     int ref_steps = param.ref_steps;
     int init_ref  = param.init_ref;
-    int order = para.order;
+    int order     = param.order;
 
     // loop over refinement steps to check convergence
     for (int ref_step=0; ref_step<=ref_steps; ref_step++) {
@@ -83,8 +83,8 @@ int main(int argc, char *argv[]) {
         ess_dof2.Append(ND_ess_tdof);
 
         // TODO
-        mfem::Array<int> ND_ess_tdof2;
-        ND.GetBoundaryTrueDofs(ND_ess_tdof2); 
+        // mfem::Array<int> ND_ess_tdof2;
+        // ND.GetBoundaryTrueDofs(ND_ess_tdof2); 
 
         // unkowns and gridfunctions
         mfem::GridFunction v(&RT); //v = 3.;
@@ -133,11 +133,15 @@ int main(int argc, char *argv[]) {
         blf_M.Assemble();
         blf_M.Finalize();
         mfem::SparseMatrix M_n(blf_M.SpMat());
+        mfem::SparseMatrix M_nRe; // TODO
         mfem::SparseMatrix M_dt;
         M_dt = M_n;
         M_dt *= 1/dt;
         M_n *= -1.;
+        M_nRe = M_n;
+        M_nRe *= Re_inv/2.;
         M_dt.Finalize();
+        M_nRe.Finalize();
         M_n.Finalize();
         
         // Matrix N
@@ -174,13 +178,13 @@ int main(int argc, char *argv[]) {
 
         // C_Wouter 
         // TODO
-        mfem::MixedBilinearForm blf_C_Wouter(&RT,&ND);
-        blf_C_Wouter.AddDomainIntegrator(new mfem::MixedVectorWeakCurlIntegrator());
-        blf_C_Wouter.Assemble();
-        blf_C_Wouter.Finalize();
-        mfem::Vector blf_C_Wouter_v_0(ND.GetNDofs());
-        blf_C_Wouter.Mult(v_exact,blf_C_Wouter_v_0);
-        std::cout << blf_C_Wouter_v_0.Normlinf() << std::endl;
+        // mfem::MixedBilinearForm blf_C_Wouter(&RT,&ND);
+        // blf_C_Wouter.AddDomainIntegrator(new mfem::MixedVectorWeakCurlIntegrator());
+        // blf_C_Wouter.Assemble();
+        // blf_C_Wouter.Finalize();
+        // mfem::Vector blf_C_Wouter_v_0(ND.GetNDofs());
+        // blf_C_Wouter.Mult(v_exact,blf_C_Wouter_v_0);
+        // std::cout << blf_C_Wouter_v_0.Normlinf() << std::endl;
 
         // Matrix D
         mfem::MixedBilinearForm blf_D(&RT, &DG);
@@ -189,9 +193,13 @@ int main(int argc, char *argv[]) {
         blf_D.Finalize();
         mfem::SparseMatrix D(blf_D.SpMat());
         mfem::SparseMatrix *DT_n;
+        mfem::SparseMatrix D_n;
         DT_n = Transpose(D);
+        D_n = D;
+        D_n *= -1;
         *DT_n *= -1.;
         D.Finalize();
+        D_n.Finalize(); // TODO
         DT_n->Finalize();
 
         // Matrix G
@@ -211,7 +219,6 @@ int main(int argc, char *argv[]) {
         offsets_2[1] = v.Size();
         offsets_2[2] = w.Size();
         offsets_2[3] = q.Size();
-        // offsets_2[4] = 1;
         offsets_2.PartialSum();
         mfem::BlockOperator A2(offsets_2);
 
@@ -232,8 +239,8 @@ int main(int argc, char *argv[]) {
         mfem::Vector B2;
 
         // solve 
-        double tol = 1e-15;
-        int iter = 1000000;  
+        double tol = 1e-7;
+        int iter = 10000000;  
 
         // time loop
         for (double t = dt ; t < tmax+dt ; t+=dt) {
@@ -272,9 +279,11 @@ int main(int argc, char *argv[]) {
             A2.SetBlock(0,0, &NR);
             A2.SetBlock(0,1, &C_Re);
             A2.SetBlock(0,2, DT_n);
-            // A2.SetBlock(1,0, CT); //TODO
-            // A2.SetBlock(1,1, &M_n);
-            A2.SetBlock(2,0, &D);
+            A2.SetBlock(1,0, CT); //TODO
+            // A2.SetBlock(1,0, &CT_Re);
+            A2.SetBlock(1,1, &M_n);
+            // A2.SetBlock(2,0, &D);
+            A2.SetBlock(2,0, &D_n);
             
             // update b2
             b2 = 0.0;
@@ -285,19 +294,25 @@ int main(int argc, char *argv[]) {
             b2.AddSubVector(f2,0);
             b2.AddSubVector(b2sub,0);
 
-
-            // transpose here:
-            mfem::TransposeOperator AT2 (&A2);
-            mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
-            mfem::Vector ATb2 (size_2);
-            A2.MultTranspose(b2,ATb2);
+            // transpose here: // TODO
+            // mfem::TransposeOperator AT2 (&A2);
+            // mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
+            // mfem::Vector ATb2 (size_2);
+            // A2.MultTranspose(b2,ATb2);
 
             // form linear system with BC
-            ATA2.FormLinearSystem(ess_dof2, y, ATb2, A2_BC, Y, B2);
+            // ATA2.FormLinearSystem(ess_dof2, y, ATb2, A2_BC, Y, B2);
+            A2.FormLinearSystem(ess_dof2, y, b2, A2_BC, Y, B2);
 
             // solve  
-            mfem::MINRES(*A2_BC, B2, Y, 0, iter, tol*tol, tol*tol);
-            ATA2.RecoverFEMSolution(Y, b2, y);
+            // mfem::MINRES(*A2_BC, B2, Y, 0, iter, tol*tol, tol*tol);
+
+        // 11. Solve the linear system A X = B.
+        mfem::OperatorJacobiSmoother M(A2, ess_dof2);
+        PCG(A2, M, B2, Y, 0, 1000000, 1e-10, 0.0);
+
+            // ATA2.RecoverFEMSolution(Y, b2, y);
+            A2.RecoverFEMSolution(Y, b2, y);
             y.GetSubVector(v_dofs, v);
             y.GetSubVector(w_dofs, w);
             y.GetSubVector(q_dofs, q);    
@@ -314,102 +329,101 @@ int main(int argc, char *argv[]) {
 
 
 
-
             ///////////////////////////////////////////////////////////////////
             //TODO
-            mfem::Vector testminres(size_2);
-            A2.Mult(y,testminres);
-            std::cout <<"minres-residual:"<< testminres.Normlinf() << "\n";
+            // mfem::Vector testminres(size_2);
+            // A2.Mult(y,testminres);
+            // std::cout <<"minres-residual:"<< testminres.Normlinf() << "\n";
 
-            // check first term of 13e
-            mfem::Vector test13e1(w.Size());
-            CT->Mult(v,test13e1);
-            std::cout <<"eq13e1: "<< test13e1.Norml2() << "\n";
+            // // check first term of 13e
+            // mfem::Vector test13e1(w.Size());
+            // CT->Mult(v,test13e1);
+            // std::cout <<"eq13e1: "<< test13e1.Norml2() << "\n";
 
-            // check first term of 13e
-            mfem::Vector test13e1b(w.Size());
-            CT->Mult(v_exact,test13e1b);
-            std::cout <<"eq13e1b: "<< test13e1b.Norml2() << "\n";
+            // // check first term of 13e
+            // mfem::Vector test13e1b(w.Size());
+            // CT->Mult(v_exact,test13e1b);
+            // std::cout <<"eq13e1b: "<< test13e1b.Norml2() << "\n";
 
-            // M_n
-            mfem::Vector righthandside(w.Size());
-            CT->Mult(v,righthandside);
-            mfem::Vector W_vec;
-            mfem::Vector RHS;
-            mfem::Operator* Oper;
-            std::cout<< "righthandsideA:" << righthandside.Norml2() << "\n";
+            // // M_n
+            // mfem::Vector righthandside(w.Size());
+            // CT->Mult(v,righthandside);
+            // mfem::Vector W_vec;
+            // mfem::Vector RHS;
+            // mfem::Operator* Oper;
+            // std::cout<< "righthandsideA:" << righthandside.Norml2() << "\n";
 
-            // blf_M.FormSystemMatrix(ND_ess_tdof2, Oper);
-            mfem::SparseMatrix mat_Wouter (3,3);
-            mat_Wouter.Set(0,0,1.);
-            mat_Wouter.Set(0,2,1.);
-            mat_Wouter.Set(1,0,1.);
-            mat_Wouter.Set(1,1,1.);
-            mat_Wouter.Set(2,2,1.);
-            mfem::Vector rhs_Wouter (5); rhs_Wouter = 0.;
-            mfem::Vector x_Wouter (5);
-            mfem::Array <int> esstdof_Wouter;
-            //.Append(0);
-            esstdof_Wouter.Append(3);
-            mfem::Vector X_wouter;
-            mfem::Vector RHS_wouter;
-            x_Wouter.Elem(0)=2.;
-            x_Wouter.Elem(1)=3.;
-            x_Wouter.Elem(2)=4.;
-            x_Wouter.Elem(3)=5.;
-            x_Wouter.Elem(4)=6.;
+            // // blf_M.FormSystemMatrix(ND_ess_tdof2, Oper);
+            // mfem::SparseMatrix mat_Wouter (3,3);
+            // mat_Wouter.Set(0,0,1.);
+            // mat_Wouter.Set(0,2,1.);
+            // mat_Wouter.Set(1,0,1.);
+            // mat_Wouter.Set(1,1,1.);
+            // mat_Wouter.Set(2,2,1.);
+            // mfem::Vector rhs_Wouter (5); rhs_Wouter = 0.;
+            // mfem::Vector x_Wouter (5);
+            // mfem::Array <int> esstdof_Wouter;
+            // //.Append(0);
+            // esstdof_Wouter.Append(3);
+            // mfem::Vector X_wouter;
+            // mfem::Vector RHS_wouter;
+            // x_Wouter.Elem(0)=2.;
+            // x_Wouter.Elem(1)=3.;
+            // x_Wouter.Elem(2)=4.;
+            // x_Wouter.Elem(3)=5.;
+            // x_Wouter.Elem(4)=6.;
             
-            mfem::SparseMatrix mat_Wouter2 (2,2);
-            mat_Wouter2.Set(1,0,1.);
-            mat_Wouter2.Set(0,1,1.);
+            // mfem::SparseMatrix mat_Wouter2 (2,2);
+            // mat_Wouter2.Set(1,0,1.);
+            // mat_Wouter2.Set(0,1,1.);
 
-            mfem::SparseMatrix mat_Wouter3 (2,3);
-            mat_Wouter3.Set(1,0,1.);
+            // mfem::SparseMatrix mat_Wouter3 (2,3);
+            // mat_Wouter3.Set(1,0,1.);
 
-            mfem::Array<int> offsets_wouter (3);
-            offsets_wouter[0] = 0;
-            offsets_wouter[1] = 3;
-            offsets_wouter[2] = 2;
-            offsets_wouter.PartialSum();
-            mfem::BlockMatrix blm_Wouter(offsets_wouter);
+            // mfem::Array<int> offsets_wouter (3);
+            // offsets_wouter[0] = 0;
+            // offsets_wouter[1] = 3;
+            // offsets_wouter[2] = 2;
+            // offsets_wouter.PartialSum();
+            // mfem::BlockMatrix blm_Wouter(offsets_wouter);
 
-            blm_Wouter.SetBlock(0,0,&mat_Wouter);
-            blm_Wouter.SetBlock(1,1,&mat_Wouter2);
-            blm_Wouter.SetBlock(1,0,&mat_Wouter3);
+            // blm_Wouter.SetBlock(0,0,&mat_Wouter);
+            // blm_Wouter.SetBlock(1,1,&mat_Wouter2);
+            // blm_Wouter.SetBlock(1,0,&mat_Wouter3);
 
-            mfem::DenseMatrix densmatwouter(5,5);
-            blm_Wouter.FormLinearSystem(esstdof_Wouter, x_Wouter, rhs_Wouter, Oper, X_wouter, RHS_wouter);
-            for(int i=0; i<5;i++){
-                mfem::Vector temp_Wouter_in(5), temp_Wouter_out(5);
-                temp_Wouter_in =0.;
-                temp_Wouter_out = 0.;
-                temp_Wouter_in.Elem(i) = 1.;
-                Oper->Mult(temp_Wouter_in,temp_Wouter_out);
-                // temp_Wouter_out.Print(std::cout);
-                densmatwouter.SetCol(i,temp_Wouter_out);
-                // std::cout << std::endl;
+            // mfem::DenseMatrix densmatwouter(5,5);
+            // blm_Wouter.FormLinearSystem(esstdof_Wouter, x_Wouter, rhs_Wouter, Oper, X_wouter, RHS_wouter);
+            // for(int i=0; i<5;i++){
+            //     mfem::Vector temp_Wouter_in(5), temp_Wouter_out(5);
+            //     temp_Wouter_in =0.;
+            //     temp_Wouter_out = 0.;
+            //     temp_Wouter_in.Elem(i) = 1.;
+            //     Oper->Mult(temp_Wouter_in,temp_Wouter_out);
+            //     // temp_Wouter_out.Print(std::cout);
+            //     densmatwouter.SetCol(i,temp_Wouter_out);
+            //     // std::cout << std::endl;
 
-            }
-            densmatwouter.PrintMatlab(std::cout);
-            std::cout << "RHS_Wouter: \n";
-            RHS_wouter.Print(std::cout);
-            rhs_Wouter.Print(std::cout);
+            // }
+            // densmatwouter.PrintMatlab(std::cout);
+            // std::cout << "RHS_Wouter: \n";
+            // RHS_wouter.Print(std::cout);
+            // rhs_Wouter.Print(std::cout);
 
             // blf_M.FormLinearSystem(ND_ess_tdof2, w, righthandside, Oper, W_vec, RHS);
 
-            mfem::MINRES(*Oper,RHS,W_vec, 2, iter, tol*tol, tol*tol);
+            // mfem::MINRES(*Oper,RHS,W_vec, 2, iter, tol*tol, tol*tol);
 
             // M_n.RecoverFEMSolution(W_vec, righthandside, w);
 
 
 
-            mfem::Vector testminres2(w.Size());
-            M_n.Mult(w,testminres2);
-            std::cout <<"minres-residual_w:"<< testminres2.Normlinf() << "\n";
-            std::cout<< "righthandsideB:" << righthandside.Norml2() << "\n";
-            // div-free cond
-            mfem::Vector test(v.Size());
-            D.Mult(v,test);
+            // mfem::Vector testminres2(w.Size());
+            // M_n.Mult(w,testminres2);
+            // std::cout <<"minres-residual_w:"<< testminres2.Normlinf() << "\n";
+            // std::cout<< "righthandsideB:" << righthandside.Norml2() << "\n";
+            // // div-free cond
+            // mfem::Vector test(v.Size());
+            // D.Mult(v,test);
             // std::cout <<"div(v):"<< test.Norml2() << "\n";
             ///////////////////////////////////////////////////////////////////
 
@@ -456,7 +470,6 @@ int main(int argc, char *argv[]) {
         // ve_sock.precision(8);
         // ve_sock << "solution\n" << mesh << v_exact << "window_title 'v_0'" << std::endl;
 
-
         // mfem::socketstream p_sock(vishost, visport);
         // p_sock.precision(8);
         // p_sock << "solution\n" << mesh << q << "window_title 'pressure'" << std::endl;
@@ -474,28 +487,28 @@ int main(int argc, char *argv[]) {
 
 
 // another manuf solution, with non-zero boundary values of u
-void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
-    double X = x(0)-0.5;
-    double Y = x(1)-0.5;
-    double Z = x(2)-0.5;
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
 
-    returnvalue(0) = 1.;
-    returnvalue(1) = 0.;
-    returnvalue(2) = 0.;
-}
-void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-    returnvalue(0) =0.;
-    returnvalue(1) = 0.;
-    returnvalue(2) = 0.;
-}
-void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+//     returnvalue(0) = 1.;
+//     returnvalue(1) = 0.;
+//     returnvalue(2) = 0.;
+// }
+// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+//     returnvalue(0) =0.;
+//     returnvalue(1) = 0.;
+//     returnvalue(2) = 0.;
+// }
+// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
-    returnvalue(0) =0.;
-    returnvalue(1) = 0.;
-    returnvalue(2) = 0.;
+//     returnvalue(0) =0.;
+//     returnvalue(1) = 0.;
+//     returnvalue(2) = 0.;
 
-}
+// }
 
 
 
@@ -503,83 +516,90 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
 
 // cos squared init cond that satifies
 // dirichlet BC, divu=0 and is C1-continuous (=> w is C continuous)
-// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
-//     double pi = 3.14159265358979323846;
-//     double C = 10;
-//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
-//     double X = x(0)-0.5;
-//     double Y = x(1)-0.5;
-//     double Z = x(2)-0.5;
+    double pi = 3.14159265358979323846;
+    double C = 10;
+    double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
+    double X = x(0)-0.5;
+    double Y = x(1)-0.5;
+    double Z = x(2)-0.5;
    
-//     double cos = std::cos(C*(X*X+Y*Y+Z*Z));
-//     double cos2 = cos*cos;
+    double cos = std::cos(C*(X*X+Y*Y+Z*Z));
+    double cos2 = cos*cos;
 
-//     if (X*X + Y*Y + Z*Z < R*R) {
-//         returnvalue(0) = Y * cos2;
-//         returnvalue(1) = -X * cos2;
-//         returnvalue(2) = 0;
-//     }
-//     else {
-//         returnvalue(0) = 0;
-//         returnvalue(1) = 0;
-//         returnvalue(2) = 0;
-//     }
-// }
+    if (X*X + Y*Y + Z*Z < R*R) {
+        returnvalue(0) = Y * cos2;
+        returnvalue(1) = -X * cos2;
+        returnvalue(2) = 0;
+    }
+    else {
+        returnvalue(0) = 0;
+        returnvalue(1) = 0;
+        returnvalue(2) = 0;
+    }
+}
 
-// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
-//     double pi = 3.14159265358979323846;
-//     double C = 10;
-//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
-//     double X = x(0)-0.5;
-//     double Y = x(1)-0.5;
-//     double Z = x(2)-0.5;
+    double pi = 3.14159265358979323846;
+    double C = 10;
+    double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
+    double X = x(0)-0.5;
+    double Y = x(1)-0.5;
+    double Z = x(2)-0.5;
    
-//     double cos = std::cos(C*(X*X+Y*Y+Z*Z));
-//     double sin = std::sin(C*(X*X+Y*Y+Z*Z));
-//     double cos2 = cos*cos;
+    double cos = std::cos(C*(X*X+Y*Y+Z*Z));
+    double sin = std::sin(C*(X*X+Y*Y+Z*Z));
+    double cos2 = cos*cos;
 
-//     if (X*X + Y*Y + Z*Z < R*R) {
-//         returnvalue(0) = - 4*C*X*Z*sin*cos;
-//         returnvalue(1) = - 4*C*Y*Z*sin*cos;
-//         returnvalue(2) = - 2*cos2 + 4*C*X*X*sin*cos + 4*C*Y*Y*sin*cos;
-//     }
-//     else {
-//         returnvalue(0) = 0;
-//         returnvalue(1) = 0;
-//         returnvalue(2) = 0;
-//     }
-// }
+    if (X*X + Y*Y + Z*Z < R*R) {
+        returnvalue(0) = - 4*C*X*Z*sin*cos;
+        returnvalue(1) = - 4*C*Y*Z*sin*cos;
+        returnvalue(2) = - 2*cos2 + 4*C*X*X*sin*cos + 4*C*Y*Y*sin*cos;
+    }
+    else {
+        returnvalue(0) = 0;
+        returnvalue(1) = 0;
+        returnvalue(2) = 0;
+    }
+}
 
-// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
-//     double Re_inv = 1.;
-//     double pi = 3.14159265358979323846;
-//     double C = 10;
-//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
-//     double X = x(0)-0.5;
-//     double Y = x(1)-0.5;
-//     double Z = x(2)-0.5;
+    double Re_inv = 1.;
+    double pi = 3.14159265358979323846;
+    double C = 10;
+    double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
+    double X = x(0)-0.5;
+    double Y = x(1)-0.5;
+    double Z = x(2)-0.5;
 
-//     double cos = std::cos(C*(X*X+Y*Y+Z*Z) );
-//     double cos3 = cos*cos*cos;
-//     double cosof2 = std::cos(2*C*(X*X+Y*Y+Z*Z) );
-//     double sin = std::sin(C*(X*X+Y*Y+Z*Z) );
-//     double sinof2 = std::sin(2*C*(X*X+Y*Y+Z*Z) );
-//     double cos4 = cos*cos*cos*cos;
+    double cos = std::cos(C*(X*X+Y*Y+Z*Z) );
+    double cos3 = cos*cos*cos;
+    double cosof2 = std::cos(2*C*(X*X+Y*Y+Z*Z) );
+    double sin = std::sin(C*(X*X+Y*Y+Z*Z) );
+    double sinof2 = std::sin(2*C*(X*X+Y*Y+Z*Z) );
+    double cos4 = cos*cos*cos*cos;
     
-//     if (X*X + Y*Y + Z*Z < R*R) {
-//         returnvalue(0) = 2*X*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) + Re_inv * (2*C*Y* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
-//         returnvalue(1) = 2*Y*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) - Re_inv * (2*C*X* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
-//         returnvalue(2) = 4*C*(X*X+Y*Y)*Z * cos3 *sin;
-//     }
-//     else {
-//         returnvalue(0) = 0.; 
-//         returnvalue(1) = 0.; 
-//         returnvalue(2) = 0.;
-//     }   
-// }
+    if (X*X + Y*Y + Z*Z < R*R) {
+        returnvalue(0) = 2*X*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) + Re_inv * (2*C*Y* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
+        returnvalue(1) = 2*Y*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) - Re_inv * (2*C*X* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
+        returnvalue(2) = 4*C*(X*X+Y*Y)*Z * cos3 *sin;
+    }
+    else {
+        returnvalue(0) = 0.; 
+        returnvalue(1) = 0.; 
+        returnvalue(2) = 0.;
+    }   
+}
+
+
+
+
+/////////////////////////////////
+// f split into 2 terms:
+
 
 // void f_term1(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
