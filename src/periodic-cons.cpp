@@ -475,6 +475,9 @@ int main(int argc, char *argv[]) {
         double D = -Re_inv*C.InnerProduct(w_avg,z_old)
                    -Re_inv/2*CT->InnerProduct(z_avg,w)
                    -Re_inv/2*CT->InnerProduct(z_avg_old,w_old); 
+
+                   
+        // write to file
         file << std::setprecision(15) << std::fixed << t << ","   
         << mass_vec1.Norml2() << ","
         << mass_vec2.Norml2() << ","

@@ -33,6 +33,7 @@ struct Parameters {
     int ref_steps = 4;
     int init_ref  = 0;
     int order     = 1;
+    std::string outputfile = "out/outputtest/periodic-conv.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -55,13 +56,14 @@ int main(int argc, char *argv[]) {
     int ref_steps = param.ref_steps;
     int init_ref  = param.init_ref;
     int order     = param.order;
+    std::string outputfile = param.outputfile;
 
-    // simulation parameters
-    // careful: Re also has to be defined in the manufactured
-    //  solution functions at the end of the code 
-    // double Re_inv = 1/500.; // = 1/Re 
-    // double dt = 1/20.;
-    // double tmax = 3*dt;
+    // output file 
+    std::ofstream file;
+    file.precision(6);
+    file.open(outputfile);
+    // file.open(outputfile, std::ios::app);
+
     std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
     <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
@@ -414,22 +416,9 @@ int main(int argc, char *argv[]) {
         }
         err_L2_diff = std::pow(err_L2_diff, 0.5);
 
-        std::cout << "L2err of v = "<< err_L2_v<<"\n";
-        std::cout << "L2err of u = "<< err_L2_u<<"\n";
-        std::cout << "L2err(u-v) = "<< err_L2_diff <<"\n";
-
-        // visuals
-        // std::ofstream mesh_ofs("refined.mesh");
-        // mesh_ofs.precision(8);
-        // mesh.Print(mesh_ofs);
-        // std::ofstream sol_ofs("sol.gf");
-        // sol_ofs.precision(8);
-        // u.Save(sol_ofs);
-        // char vishost[] = "localhost";
-        // int  visport   = 19916;
-        // mfem::socketstream sol_sock(vishost, visport);
-        // sol_sock.precision(8);
-        // sol_sock << "solution\n" << mesh << u << std::flush;
+        // write to file
+        file << std::setprecision(15) << std::fixed << ref_step << ","   
+        << err_L2_v << "," << err_L2_u << "," << err_L2_diff << ",\n";
 
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
@@ -444,6 +433,9 @@ int main(int argc, char *argv[]) {
         delete fec_DG;
 
     } // refinement loop
+
+    // close file
+    file.close();
 }
 
 void u_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
