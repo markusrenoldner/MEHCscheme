@@ -54,3 +54,5 @@ out/build/
 # mfem
 *.gf
 *.mesh
+
+out/*
