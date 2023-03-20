@@ -28,10 +28,11 @@
 struct Parameters {
     double Re_inv = 0.; // = 1/Re 
     double dt     = 1/20.;
-    double tmax   = 3*dt;
+    double tmax   = 1.;
     int ref_steps = 4;
     int init_ref  = 0;
     int order     = 1;
+    std::string outputfile = "out/outputtest/periodic-cons-inviscid.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -53,11 +54,14 @@ int main(int argc, char *argv[]) {
     int ref_steps = param.ref_steps;
     int init_ref  = param.init_ref;
     int order     = param.order;
+    std::string outputfile = param.outputfile;
 
-    // simulation parameters
-    // double Re_inv = 1/100.; // = 1/Re 
-    // double dt = 0.05;
-    // double tmax = 1.;
+    // output file 
+    std::ofstream file;
+    file.precision(6);
+    file.open(outputfile);
+    // file.open(outputfile, std::ios::app);
+
     std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
     <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
@@ -70,7 +74,6 @@ int main(int argc, char *argv[]) {
     // for (int l = 0; l < 1; l++) {mesh.UniformRefinement();} 
 
     // FE spaces (CG \in H1, DG \in L2)
-    // int order = 1;
     mfem::FiniteElementCollection *fec_CG = new mfem::H1_FECollection(order,dim);
     mfem::FiniteElementCollection *fec_ND = new mfem::ND_FECollection(order,dim);
     mfem::FiniteElementCollection *fec_RT = new mfem::RT_FECollection(order,dim);
@@ -298,8 +301,7 @@ int main(int argc, char *argv[]) {
     // double t;
     for (double t = dt ; t < tmax+dt ; t+=dt) {
         // std::cout << "---------- t = "<<t<<" ----------\n";
-        std::cout << t << ",";
-
+        
         // update old values before computing new ones
         u_old_old = u_old;
         v_old_old = v_old;
@@ -446,8 +448,7 @@ int main(int argc, char *argv[]) {
         z_avg_old.Add(0.5,z_old);
         z_avg_old.Add(0.5,z_old_old);
 
-        // conservation test, Re=infty
-        // TODO check signs of K1K2H1H2
+        // conservation test without dissipation rate (inviscid limit)
         mfem::Vector mass_vec1 (p.Size());
         mfem::Vector mass_vec2 (q.Size());
         GT->Mult(u,mass_vec1);
@@ -459,39 +460,30 @@ int main(int argc, char *argv[]) {
         double H1_old = -1.*blf_M.InnerProduct(u_avg_old,w_old);
         double H1 = -1.*blf_M.InnerProduct(u_avg,w);
         double H2_old = -1.*blf_N.InnerProduct(v_old,z_avg_old); 
-        double H2 = -1.*blf_N.InnerProduct(v,z_avg); //definition in paper!!
-        std::cout << mass_vec1.Norml2() << ",";
-        std::cout << mass_vec2.Norml2() << ",";
-        std::cout << (K1-K1_old)/dt << ",";
-        std::cout << (K2-K2_old)/dt << ",";
-        std::cout << (H1-H1_old)/dt << ",";
-        std::cout << (H2-H2_old)/dt << ",\n"; 
-        
-        // conservation test, Re=100
-        // double E2 = 1/2.*blf_N.InnerProduct(z_avg,z_avg);
-        // double E1 = 1/2.*blf_M.InnerProduct(w_avg,w_avg);
-        // double D = -Re_inv*C.InnerProduct(w_avg,z_old)
-        //            -Re_inv/2*CT->InnerProduct(z_avg,w)
-        //            -Re_inv/2*CT->InnerProduct(z_avg_old,w_old); 
-        // std::cout << (K1-K1_old)/dt - 2*Re_inv*E2 << ",";
-        // std::cout << (K2-K2_old)/dt - 2*Re_inv*E1 << ",";
-        // std::cout << (H1-H1_old)/dt - D << ",";
-        // std::cout << (H2-H2_old)/dt - D << ",\n";
+        double H2 = -1.*blf_N.InnerProduct(v,z_avg);
+        // file << std::setprecision(15) << std::fixed << t << ","   
+        // << mass_vec1.Norml2() << ","
+        // << mass_vec2.Norml2() << ","
+        // << (K1-K1_old)/dt << ","
+        // << (K2-K2_old)/dt << ","
+        // << (H1-H1_old)/dt << ","
+        // << (H2-H2_old)/dt << ",\n";
+    
+        // conservation including dissipation rate
+        double E2 = 1/2.*blf_N.InnerProduct(z_avg,z_avg);
+        double E1 = 1/2.*blf_M.InnerProduct(w_avg,w_avg);
+        double D = -Re_inv*C.InnerProduct(w_avg,z_old)
+                   -Re_inv/2*CT->InnerProduct(z_avg,w)
+                   -Re_inv/2*CT->InnerProduct(z_avg_old,w_old); 
+        file << std::setprecision(15) << std::fixed << t << ","   
+        << mass_vec1.Norml2() << ","
+        << mass_vec2.Norml2() << ","
+        << (K1-K1_old)/dt - 2*Re_inv*E2 << ","
+        << (K2-K2_old)/dt - 2*Re_inv*E1 << ","
+        << (H1-H1_old)/dt - D << ","
+        << (H2-H2_old)/dt - D << ",\n";
 
-    }
-
-    // visuals
-    // std::ofstream mesh_ofs("refined.mesh");
-    // mesh_ofs.precision(8);
-    // mesh.Print(mesh_ofs);
-    // std::ofstream sol_ofs("sol.gf");
-    // sol_ofs.precision(8);
-    // u.Save(sol_ofs);
-    // char vishost[] = "localhost";
-    // int  visport   = 19916;
-    // mfem::socketstream sol_sock(vishost, visport);
-    // sol_sock.precision(8);
-    // sol_sock << "solution\n" << mesh << u << std::flush;
+    } // time loop
 
     // free memory
     delete fec_CG;
@@ -499,16 +491,16 @@ int main(int argc, char *argv[]) {
     delete fec_RT;
     delete fec_DG;
 
+    // close file
+    file.close();
+
     std::cout << "---------------finish MEHC---------------\n";
 }
 
 void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
     double pi = 3.14159265358979323846;
-    // int dim = x.Size();
-    // std::cout << "size ----" <<returnvalue.Size() << "\n";
 
-    returnvalue.SetSize(3);
     returnvalue(0) = std::cos(pi*x.Elem(2)); 
     returnvalue(1) = std::sin(pi*x.Elem(2));
     returnvalue(2) = std::sin(pi*x.Elem(0));
@@ -517,7 +509,6 @@ void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
 void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
     double pi = 3.14159265358979323846;
-    // int dim = x.Size();
 
     returnvalue(0) = -pi*std::cos(pi*x(2));
     returnvalue(1) = -pi*std::cos(pi*x(0)) -  pi*std::sin(pi*x(2)); 
