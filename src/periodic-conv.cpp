@@ -26,6 +26,17 @@
 // R2 depends on z and defined on half int time step, but part of dual system
 
 
+struct Parameters {
+    double Re_inv = 0.; // = 1/Re 
+    double dt     = 1/20.;
+    double tmax   = 3*dt;
+    int ref_steps = 4;
+    int init_ref  = 0;
+    int order     = 1;
+    const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
+    double t;
+};
+
 
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
@@ -37,11 +48,20 @@ void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue);
 int main(int argc, char *argv[]) {
 
     // simulation parameters
+    Parameters param;
+    double Re_inv = param.Re_inv; 
+    double dt     = param.dt;
+    double tmax   = param.tmax;
+    int ref_steps = param.ref_steps;
+    int init_ref  = param.init_ref;
+    int order     = param.order;
+
+    // simulation parameters
     // careful: Re also has to be defined in the manufactured
     //  solution functions at the end of the code 
-    double Re_inv = 1/500.; // = 1/Re 
-    double dt = 1/20.;
-    double tmax = 3*dt;
+    // double Re_inv = 1/500.; // = 1/Re 
+    // double dt = 1/20.;
+    // double tmax = 3*dt;
     std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
     <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
@@ -59,7 +79,7 @@ int main(int argc, char *argv[]) {
         std::cout << "refinement: " << ref_step << "\n";
 
         // FE spaces (CG \in H1, DG \in L2)
-        int order = 1;
+        // int order = 1;
         mfem::FiniteElementCollection *fec_CG = new mfem::H1_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_ND = new mfem::ND_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_RT = new mfem::RT_FECollection(order-1,dim);
@@ -459,9 +479,12 @@ void f_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
 }
 
 void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
+    
+    Parameters param;
+    double Re_inv = param.Re_inv; 
    
     double pi = 3.14159265358979323846;
-    double Re_inv = 1/500.; // chose Re here!
+    // double Re_inv = 1/500.; // chose Re here!
     double nu = 1*1*Re_inv; // = u*L/Re
     double t = 0.15;
     double F = std::exp(-2*nu*t);
