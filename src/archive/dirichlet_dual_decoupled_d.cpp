@@ -12,6 +12,8 @@
 
 // this file contains the dual system with dirichlet BC
 
+// this implementation does not work, due to issues
+// with FormLinearSystem()
 
 
 struct Parameters {
