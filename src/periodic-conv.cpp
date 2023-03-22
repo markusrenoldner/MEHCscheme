@@ -33,7 +33,7 @@ struct Parameters {
     int ref_steps = 4;
     int init_ref  = 0;
     int order     = 1;
-    std::string outputfile = "out/outputtest/periodic-conv.txt";
+    std::string outputfile = "out/rawdata/periodic-conv-invisc.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };

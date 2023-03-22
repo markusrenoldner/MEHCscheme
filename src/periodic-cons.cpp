@@ -26,13 +26,13 @@
 
 
 struct Parameters {
-    double Re_inv = 0.; // = 1/Re 
+    double Re_inv = 1/100.; // = 1/Re 
     double dt     = 1/20.;
-    double tmax   = 1.;
+    double tmax   = 10.;
     int ref_steps = 4;
     int init_ref  = 0;
     int order     = 1;
-    std::string outputfile = "out/outputtest/periodic-cons-inviscid.txt";
+    std::string outputfile = "out/rawdata/periodic_cons_Re100.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
