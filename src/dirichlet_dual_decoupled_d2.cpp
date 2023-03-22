@@ -12,6 +12,9 @@
 // the decoupled dual field of the dirichlet_dual code
 
 
+// use wouters trick for the BC
+
+
 
 
 
@@ -21,7 +24,7 @@ struct Parameters {
     double Re_inv = 1; // = 1/Re 
     double dt     = 0.01;
     double tmax   = 1*dt;
-    int ref_steps = 3;
+    int ref_steps = 4;
     int init_ref  = 0;
     int order     = 1;
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
@@ -55,7 +58,7 @@ int main() {
         mfem::Mesh mesh(mesh_file, 1, 1); 
         int dim = mesh.Dimension(); 
         int l;
-        // dt *= 0.5; // TODO
+        dt *= 0.5; // TODO
         for (l = 0; l<init_ref+ref_step; l++) {
             mesh.UniformRefinement();
         } 
@@ -72,9 +75,9 @@ int main() {
         mfem::FiniteElementSpace CG(&mesh, fec_CG);
 
         // essdofs
+        mfem::Array<int> RT_ess_tdof;
         mfem::Array<int> ND_ess_tdof;
         mfem::Array<int> ND_ess_tdof_0;
-        mfem::Array<int> RT_ess_tdof;
         mfem::Array<int> ess_dof2;
         ND.GetBoundaryTrueDofs(ND_ess_tdof); 
         ND.GetBoundaryTrueDofs(ND_ess_tdof_0); 
@@ -216,51 +219,48 @@ int main() {
 
         // TODO : enforce ess dofs hardcore
 
-        // matrix E1_left
-        int rows_E1 = ess_dof2.Size();
-        mfem::SparseMatrix E1_left (rows_E1, v.Size());
+        // matrix E2_left
+        int rows_E2 = ess_dof2.Size();
+        mfem::SparseMatrix E2_left (rows_E2, v.Size());
         for (int i=0; i<RT_ess_tdof.Size(); i++) {
-            E1_left.Set(i, RT_ess_tdof[i], 1.);
+            E2_left.Set(i, RT_ess_tdof[i], 1.);
             // std::cout << i << " " << RT_ess_tdof[i] << "\n";
         }
-        E1_left.Finalize();
-        // E1_left.PrintMatlab(std::cout);
+        E2_left.Finalize();
+        // E2_left.PrintMatlab(std::cout);
 
-        std::cout << rows_E1 << " " << v.Size() << " "<<w.Size()<<" "<<ess_dof2.Size()<<"\n";
+        std::cout << rows_E2 << " " << v.Size() << " "<<w.Size()<<" "<<ess_dof2.Size()<<"\n";
 
 
-        // matrix E1_cent
-        mfem::SparseMatrix E1_cent (rows_E1, w.Size());
-
-        // for (int i=RT_ess_tdof.Size(); i<rows_E1; i++) {
+        // matrix E2_cent
+        mfem::SparseMatrix E2_cent (rows_E2, w.Size());
         for (int i=0; i<ND_ess_tdof.Size(); i++) {
-
-            E1_cent.Set(i + RT_ess_tdof.Size(), ND_ess_tdof_0[i], 1.);
+            E2_cent.Set(i + RT_ess_tdof.Size(), ND_ess_tdof_0[i], 1.);
             // std::cout << i << " " << ND_ess_tdof_0[i] << "\n";
         }
-        E1_cent.Finalize();
+        E2_cent.Finalize();
 
-        mfem::DenseMatrix* dense = E1_cent.ToDenseMatrix();
+        mfem::DenseMatrix* dense = E2_cent.ToDenseMatrix();
         // dense->PrintMatlab(std::cout);
 
-        std::cout << "------hi\n";
-        // matrix E1_right
-        mfem::SparseMatrix E1_right (rows_E1, q.Size());
-        E1_right = 0.;
+        
+        // matrix E2_right
+        mfem::SparseMatrix E2_right (rows_E2, q.Size());
+        E2_right = 0.;
+        E2_right.Finalize();
 
 
 
 
-        // vector e
-        mfem::Vector e(ess_dof2.Size());
+        // vector e2
+        mfem::Vector e2(ess_dof2.Size());
         
         for (int i=0; i<RT_ess_tdof.Size(); i++) {
-            e[i] = v[RT_ess_tdof[i]];
+            e2[i] = v[RT_ess_tdof[i]];
         }
-        std::cout << "------hi\n";
         
         for (int i=0; i<ND_ess_tdof.Size(); i++) {
-            e[i + RT_ess_tdof.Size()] = w[ND_ess_tdof_0[i]];
+            e2[i + RT_ess_tdof.Size()] = w[ND_ess_tdof_0[i]];
             // std::cout << i + RT_ess_tdof.Size()  << " " << ND_ess_tdof_0[i] << "\n";
         }
 
@@ -298,9 +298,9 @@ int main() {
         A2.SetBlock(1,1, &M_nRe);
         A2.SetBlock(2,0, &D_n);
 
-        A2.SetBlock(3,0, &E1_left); //TODO
-        A2.SetBlock(3,1, &E1_cent);
-        A2.SetBlock(3,2, &E1_right);
+        A2.SetBlock(3,0, &E2_left); //TODO
+        A2.SetBlock(3,1, &E2_cent);
+        A2.SetBlock(3,2, &E2_right);
 
         // initialize rhs
         mfem::Vector b2(size_2 + ess_dof2.Size()); 
@@ -312,7 +312,7 @@ int main() {
         C_Re.AddMult(w,b2sub,-1);
         b2.AddSubVector(f2,0);
         b2.AddSubVector(b2sub,0);
-        b2.AddSubVector(e, size_2);
+        b2.AddSubVector(e2, size_2);
 
         // form linear system with BC
         // mfem::Operator *A2_BC;
@@ -328,7 +328,7 @@ int main() {
 
         // A2.FormLinearSystem(ess_dof2, y, b2, A2_BC, Y, B2);
 
-        double tol = 1e-10;
+        double tol = 1e-7;
         int iter = 10000000;  
         mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol);
      // mfem::MINRES(*A2_BC, B2, Y, 0, iter, tol*tol, tol*tol);
@@ -339,9 +339,17 @@ int main() {
         // A2.RecoverFEMSolution(Y, b2, y);
         y.GetSubVector(v_dofs, v);
 
+        // } // time
+
         // error
         double err_L2_v = v.ComputeL2Error(u_0_coeff);
         std::cout << "L2err of v = "<< err_L2_v<<"\n";
+
+        // runtime
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float> duration = 1000*(end - start);
+        std::cout << "runtime = " << duration.count() << "ms" << std::endl;
+
 
         // free memory
         delete fec_DG;
@@ -352,85 +360,6 @@ int main() {
     } // refinement loop
 }
 
-// cos squared init cond that satifies
-// dirichlet BC, divu=0 and is C1-continuous (=> w is C continuous)
-// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-   
-//     double pi = 3.14159265358979323846;
-//     double C = 10;
-//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
-//     double X = x(0)-0.5;
-//     double Y = x(1)-0.5;
-//     double Z = x(2)-0.5;
-   
-//     double cos = std::cos(C*(X*X+Y*Y+Z*Z));
-//     double cos2 = cos*cos;
-
-//     if (X*X + Y*Y + Z*Z < R*R) {
-//         returnvalue(0) = Y * cos2;
-//         returnvalue(1) = -X * cos2;
-//         returnvalue(2) = 0;
-//     }
-//     else {
-//         returnvalue(0) = 0;
-//         returnvalue(1) = 0;
-//         returnvalue(2) = 0;
-//     }
-// }
-
-// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-   
-//     double pi = 3.14159265358979323846;
-//     double C = 10;
-//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
-//     double X = x(0)-0.5;
-//     double Y = x(1)-0.5;
-//     double Z = x(2)-0.5;
-   
-//     double cos = std::cos(C*(X*X+Y*Y+Z*Z));
-//     double sin = std::sin(C*(X*X+Y*Y+Z*Z));
-//     double cos2 = cos*cos;
-
-//     if (X*X + Y*Y + Z*Z < R*R) {
-//         returnvalue(0) = - 4*C*X*Z*sin*cos;
-//         returnvalue(1) = - 4*C*Y*Z*sin*cos;
-//         returnvalue(2) = - 2*cos2 + 4*C*X*X*sin*cos + 4*C*Y*Y*sin*cos;
-//     }
-//     else {
-//         returnvalue(0) = 0;
-//         returnvalue(1) = 0;
-//         returnvalue(2) = 0;
-//     }
-// }
-
-// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-
-//     double Re_inv = 1.;
-//     double pi = 3.14159265358979323846;
-//     double C = 10;
-//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
-//     double X = x(0)-0.5;
-//     double Y = x(1)-0.5;
-//     double Z = x(2)-0.5;
-
-//     double cos = std::cos(C*(X*X+Y*Y+Z*Z) );
-//     double cos3 = cos*cos*cos;
-//     double cosof2 = std::cos(2*C*(X*X+Y*Y+Z*Z) );
-//     double sin = std::sin(C*(X*X+Y*Y+Z*Z) );
-//     double sinof2 = std::sin(2*C*(X*X+Y*Y+Z*Z) );
-//     double cos4 = cos*cos*cos*cos;
-    
-//     if (X*X + Y*Y + Z*Z < R*R) {
-//         returnvalue(0) = 2*X*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) + Re_inv * (2*C*Y* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
-//         returnvalue(1) = 2*Y*cos3 * (-cos + 2*C*(X*X+Y*Y)*sin) - Re_inv * (2*C*X* (4*C*(X*X+Y*Y+Z*Z)) * cosof2 + 5*sinof2);
-//         returnvalue(2) = 4*C*(X*X+Y*Y)*Z * cos3 *sin;
-//     }
-//     else {
-//         returnvalue(0) = 0.; 
-//         returnvalue(1) = 0.; 
-//         returnvalue(2) = 0.;
-//     }   
-// }
 
 void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
