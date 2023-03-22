@@ -96,12 +96,14 @@ int main(int argc, char *argv[]) {
 
 
     // visuals
-    ofstream mesh_ofs("refined.mesh");
-    mesh_ofs.precision(8);
-    mesh.Print(mesh_ofs);
-    ofstream sol_ofs("sol.gf");
-    sol_ofs.precision(8);
-    x.Save(sol_ofs);
+    // ofstream mesh_ofs("refined.mesh");
+    // mesh_ofs.precision(8);
+    // mesh.Print(mesh_ofs);
+    // ofstream sol_ofs("sol.gf");
+    // sol_ofs.precision(8);
+    // x.Save(sol_ofs);
+
+
     socketstream sol_sock("localhost", 19916);
     sol_sock.precision(8);
     sol_sock << "solution\n" << mesh << x << flush;
