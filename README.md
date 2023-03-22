@@ -11,3 +11,14 @@ TODO (basically download and unpack mfem and glvis into the extern folder, then 
 * /scripts contains some files necessary for plotting etc
 * /src contains the cpp files that implement the mehc scheme
 * .sh are all shell scripts, that contain some handy commands for building, compiling, running and cleaning
+
+# run the scheme:
+1. select the cpp file in src/CMakeLists.txt :
+    * periodic-conv.cpp
+    * periodic-cons.cpp
+    * dirichlet-[placeholder].cpp
+2. run ./build.sh
+3. run ./compilerun.sh
+4. produce a visualization using scripts/plots_[placeholder].ipynb
+5. find the visualizsations in out/plots
+6. find the raw data in out/rawdata
