@@ -17,13 +17,13 @@
 
 
 struct Parameters {
-    double Re_inv = 1; // = 1/Re 
+    double Re_inv = 100; // = 1/Re 
     double dt     = 0.1;
     double tmax   = 1*dt;
-    int ref_steps = 3;
+    int ref_steps = 4;
     int init_ref  = 0;
     int order     = 1;
-    std::string outputfile = "out/rawdata/periodic-conv-invisc.txt";
+    std::string outputfile = "out/rawdata/dirichlet-conv-invisc.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
         mfem::LinearForm lform_un(&CG);
         lform_un.AddBoundaryIntegrator(new mfem::BoundaryNormalLFIntegrator(u_0_coeff));
         lform_un.Assemble();
-        lform_un *= Re_inv;
+        // lform_un *= Re_inv; // TODO: das war ein error hier!!!!
         // lform_un *= -1.;
 
         // system size
@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
             E2_left.Set(i, RT_ess_tdof[i], 1.);
         }
         E2_left.Finalize();
-        std::cout << rows_E2 << " " << v.Size() << " "<<w.Size()<<" "<<ess_dof2.Size()<<"\n";
+        // std::cout << rows_E2 << " " << v.Size() << " "<<w.Size()<<" "<<ess_dof2.Size()<<"\n";
 
         // matrix E2_cent
         mfem::SparseMatrix E2_cent (rows_E2, w.Size());
@@ -426,7 +426,7 @@ int main(int argc, char *argv[]) {
 
         // solve 
         double tol = 1e-10;
-        int iter = 10000000;  
+        int iter = 100000000;  
         // mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
 
@@ -595,8 +595,8 @@ int main(int argc, char *argv[]) {
         std::cout << "L2err of v = "<< err_L2_v<<"\n";
         std::cout << "L2err of u = "<< err_L2_u<<"\n";
         std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
-        // file <<std::setprecision(15)<< std::fixed<<err_L2_diff<< ","
-        //               << err_L2_u << ",\n";
+        file <<std::setprecision(15)<< std::fixed
+        <<err_L2_u <<","<< err_L2_v<<","<<err_L2_diff <<"\n";
 
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
