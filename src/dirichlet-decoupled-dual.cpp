@@ -21,12 +21,16 @@
 
 
 struct Parameters {
-    double Re_inv = 1; // = 1/Re 
+    double Re_inv = 1.; // = 1/Re 
+    // double Re_inv = 0.; // = 1/Re 
+    // double Re_inv = 1.; // = 1/Re 
     double dt     = 0.01;
     double tmax   = 1*dt;
     int ref_steps = 4;
     int init_ref  = 0;
     int order     = 1;
+    double tol    = 1e-7;
+    std::string outputfile = "out/rawdata/dirichlet-dual-conv-Re100.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -47,11 +51,21 @@ int main() {
     int ref_steps = param.ref_steps;
     int init_ref  = param.init_ref;
     int order     = param.order;
+    double tol    = param.tol;
+
+    std::cout << "Re_inv=" << Re_inv << "\n";
 
     // loop over refinement steps to check convergence
     for (int ref_step=0; ref_step<=ref_steps; ref_step++) {
         
         auto start = std::chrono::high_resolution_clock::now();
+
+        // output file 
+        std::string outputfile = param.outputfile;
+        std::ofstream file;
+        file.precision(6);
+        // file.open(outputfile);
+        file.open(outputfile, std::ios::app);
 
         // mesh
         const char *mesh_file = param.mesh_file;
@@ -250,8 +264,6 @@ int main() {
         E2_right.Finalize();
 
 
-
-
         // vector e2
         mfem::Vector e2(ess_dof2.Size());
         
@@ -263,8 +275,6 @@ int main() {
             e2[i + RT_ess_tdof.Size()] = w[ND_ess_tdof_0[i]];
             // std::cout << i + RT_ess_tdof.Size()  << " " << ND_ess_tdof_0[i] << "\n";
         }
-
-
 
 
 
@@ -294,8 +304,8 @@ int main() {
         A2.SetBlock(0,0, &NR);
         A2.SetBlock(0,1, &C_Re);
         A2.SetBlock(0,2, DT_n);
-        A2.SetBlock(1,0, &CT_Re);
-        A2.SetBlock(1,1, &M_nRe);
+        A2.SetBlock(1,0, CT);
+        A2.SetBlock(1,1, &M_n);
         A2.SetBlock(2,0, &D_n);
 
         A2.SetBlock(3,0, &E2_left); //TODO
@@ -314,6 +324,39 @@ int main() {
         b2.AddSubVector(b2sub,0);
         b2.AddSubVector(e2, size_2);
 
+
+
+        
+
+        // remove unnecessary equations from system matrix:
+        // corresponding to essdofs
+        for (int i=0; i<RT_ess_tdof.Size(); i++) {
+            NR.EliminateRow(RT_ess_tdof[i]);
+            C_Re.EliminateRow(RT_ess_tdof[i]);
+            DT_n->EliminateRow(RT_ess_tdof[i]);
+
+            b2[RT_ess_tdof[i]] = 0.;
+        }
+        for (int i=0; i<ND_ess_tdof_0.Size(); i++) {
+            CT->EliminateRow(ND_ess_tdof_0[i]);
+            M_n.EliminateRow(ND_ess_tdof_0[i]);
+        }
+
+        // NR, C_Re, DT_n, CT_Re, MnRe
+        // A2.SetBlock(0,0, &NR);
+        // A2.SetBlock(0,1, &C_Re);
+        // A2.SetBlock(0,2, DT_n);
+        // A2.SetBlock(1,0, &CT_Re);
+        // A2.SetBlock(1,1, &M_nRe);
+        // A2.SetBlock(2,0, &D_n);
+
+
+
+
+
+
+
+
         // form linear system with BC
         // mfem::Operator *A2_BC;
         // mfem::Vector Y = y;
@@ -328,7 +371,7 @@ int main() {
 
         // A2.FormLinearSystem(ess_dof2, y, b2, A2_BC, Y, B2);
 
-        double tol = 1e-7;
+        // double tol = 1e-7;
         int iter = 10000000;  
         mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol);
      // mfem::MINRES(*A2_BC, B2, Y, 0, iter, tol*tol, tol*tol);
@@ -345,6 +388,10 @@ int main() {
         double err_L2_v = v.ComputeL2Error(u_0_coeff);
         std::cout << "L2err of v = "<< err_L2_v<<"\n";
 
+        // write to file
+        file << std::setprecision(15) << std::fixed << std::pow(1/2.,ref_step) << ","   
+        << err_L2_v <<  "\n";
+
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> duration = 1000*(end - start);
@@ -356,9 +403,13 @@ int main() {
         delete fec_CG;
         delete fec_ND;
         delete fec_RT;
+        
+        // close file
+        file.close();
 
     } // refinement loop
 }
+
 
 
 void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
@@ -367,8 +418,14 @@ void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
 
-    returnvalue(0) = std::sin(Y);
-    returnvalue(1) = std::sin(Z);
+    // returnvalue(0) = std::sin(Y);
+    // returnvalue(1) = std::sin(Z);
+    // returnvalue(2) = 0.;
+    // returnvalue(0) = 1;
+    // returnvalue(1) = 0.;
+    // returnvalue(2) = 0.;
+    returnvalue(0) = -Y;
+    returnvalue(1) = 0.;
     returnvalue(2) = 0.;
 }
 void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
@@ -377,9 +434,15 @@ void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
 
-    returnvalue(0) = -std::cos(Z);
+    // returnvalue(0) = -std::cos(Z);
+    // returnvalue(1) = 0.;
+    // returnvalue(2) = -std::cos(Y);
+//     returnvalue(0) = 0.;
+//     returnvalue(1) = 0.;
+//     returnvalue(2) = 0.;
+    returnvalue(0) = 0.;
     returnvalue(1) = 0.;
-    returnvalue(2) = -std::cos(Y);
+    returnvalue(2) = 1.;
 }
 void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
     Parameters param;
@@ -389,7 +452,17 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
 
-    returnvalue(0) = std::sin(Y)*Re_inv + std::cos(Y)*std::sin(Z);
-    returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
-    returnvalue(2) = - std::cos(Z)*std::sin(Z);
+    // returnvalue(0) = std::sin(Y)*Re_inv + std::cos(Y)*std::sin(Z);
+    // returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
+    // returnvalue(2) = - std::cos(Z)*std::sin(Z);
+
+    // returnvalue(0) = 0.;
+    // returnvalue(1) = 0;
+    // returnvalue(2) = 0.;
+
+    returnvalue(0) = 0.;
+    returnvalue(1) = -Y;
+    returnvalue(2) = 0.;
+
+
 }
