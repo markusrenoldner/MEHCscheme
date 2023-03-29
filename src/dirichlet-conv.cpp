@@ -17,13 +17,16 @@
 
 
 struct Parameters {
-    double Re_inv = 100; // = 1/Re 
-    double dt     = 0.1;
+    // double Re_inv = 1/100.; // = 1/Re 
+    // double Re_inv = 0.; // = 1/Re 
+    double Re_inv = 0.; // = 1/Re 
+    double dt     = 0.01;
     double tmax   = 1*dt;
     int ref_steps = 4;
     int init_ref  = 0;
     int order     = 1;
-    std::string outputfile = "out/rawdata/dirichlet-conv-invisc.txt";
+    double tol    = 1e-7;
+    std::string outputfile = "out/rawdata/dirichlet-conv-Re1.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -45,18 +48,19 @@ int main(int argc, char *argv[]) {
     int ref_steps = param.ref_steps;
     int init_ref  = param.init_ref;
     int order     = param.order;
-    std::string outputfile = param.outputfile;
-
-    // output file 
-    std::ofstream file;
-    file.precision(6);
-    file.open(outputfile);
-    // file.open(outputfile, std::ios::app);
+    double tol    = param.tol;
 
     // loop over refinement steps to check convergence
     for (int ref_step=0; ref_step<=ref_steps; ref_step++) {
         
         auto start = std::chrono::high_resolution_clock::now();
+
+        // output file 
+        std::string outputfile = param.outputfile;
+        std::ofstream file;
+        file.precision(6);
+        // file.open(outputfile);
+        file.open(outputfile, std::ios::app);
 
         // mesh
         const char *mesh_file = param.mesh_file;
@@ -78,25 +82,6 @@ int main(int argc, char *argv[]) {
         mfem::FiniteElementSpace ND(&mesh, fec_ND);
         mfem::FiniteElementSpace RT(&mesh, fec_RT);
         mfem::FiniteElementSpace CG(&mesh, fec_CG);
-
-        // TODO
-        // boundary arrays: contain indices of essential boundary DOFs
-        // mfem::Array<int> ND_ess_tdof;
-        // mfem::Array<int> RT_ess_tdof;
-        // mfem::Array<int> ND_ess_tdof_0;
-        // mfem::Array<int> RT_ess_tdof_0;
-        // ND.GetBoundaryTrueDofs(ND_ess_tdof); 
-        // RT.GetBoundaryTrueDofs(RT_ess_tdof); 
-        // ND.GetBoundaryTrueDofs(ND_ess_tdof_0); 
-        // RT.GetBoundaryTrueDofs(RT_ess_tdof_0); 
-
-        // // concatenation of essdof arrays
-        // mfem::Array<int> ess_dof1, ess_dof2;
-        // ess_dof2.Append(RT_ess_tdof);
-        // for (int i=0; i<ND_ess_tdof.Size(); i++) {
-        //     ND_ess_tdof[i] += RT.GetNDofs() ;
-        // }
-        // ess_dof2.Append(ND_ess_tdof);
 
         // essdofs
         mfem::Array<int> RT_ess_tdof;
@@ -141,20 +126,16 @@ int main(int argc, char *argv[]) {
         mfem::LinearForm lform_zxn(&ND);
         lform_zxn.AddBoundaryIntegrator(new mfem::VectorFEBoundaryTangentLFIntegrator(w_0_coeff)); // !!!
         lform_zxn.Assemble();
-        lform_zxn *= -1.*Re_inv;
+        lform_zxn *= -1.*Re_inv; // minus!
 
         // boundary integral für div-free cond
         mfem::LinearForm lform_un(&CG);
         lform_un.AddBoundaryIntegrator(new mfem::BoundaryNormalLFIntegrator(u_0_coeff));
         lform_un.Assemble();
-        // lform_un *= Re_inv; // TODO: das war ein error hier!!!!
-        // lform_un *= -1.;
 
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
         int size_2 = v.Size() + w.Size() + q.Size();
-        // std::cout<< "size1/u/z/p: "<<size_1<<"/"<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
-        // std::cout<< "size2/v/w/q/lam: "<<size_2<<"/"<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n";
         
         // initialize solution vectors
         mfem::Vector x(size_1);
@@ -248,13 +229,6 @@ int main(int argc, char *argv[]) {
         G.Finalize();
         GT->Finalize();    
 
-
-
-
-
-
-
-
         // TODO : enforce ess dofs hardcore
         // matrix E2_left
         int rows_E2 = ess_dof2.Size();
@@ -263,7 +237,6 @@ int main(int argc, char *argv[]) {
             E2_left.Set(i, RT_ess_tdof[i], 1.);
         }
         E2_left.Finalize();
-        // std::cout << rows_E2 << " " << v.Size() << " "<<w.Size()<<" "<<ess_dof2.Size()<<"\n";
 
         // matrix E2_cent
         mfem::SparseMatrix E2_cent (rows_E2, w.Size());
@@ -271,13 +244,6 @@ int main(int argc, char *argv[]) {
             E2_cent.Set(i + RT_ess_tdof.Size(), ND_ess_tdof_0[i], 1.);
         }
         E2_cent.Finalize();
-        // mfem::DenseMatrix* dense = E2_cent.ToDenseMatrix();
-        // dense->PrintMatlab(std::cout);
-
-        // matrix E2_right
-        mfem::SparseMatrix E2_right (rows_E2, q.Size());
-        E2_right = 0.;
-        E2_right.Finalize();
 
         // vector e2
         mfem::Vector e2(ess_dof2.Size());
@@ -286,15 +252,7 @@ int main(int argc, char *argv[]) {
         }
         for (int i=0; i<ND_ess_tdof.Size(); i++) {
             e2[i + RT_ess_tdof.Size()] = w[ND_ess_tdof_0[i]];
-            // std::cout << i + RT_ess_tdof.Size()  << " " << ND_ess_tdof_0[i] << "\n";
         }
-
-
-
-
-
-
-
 
         // initialize system matrices
         mfem::Array<int> offsets_1 (4);
@@ -304,14 +262,12 @@ int main(int argc, char *argv[]) {
         offsets_1[3] = p.Size();
         offsets_1.PartialSum(); // exclusive scan
         mfem::BlockOperator A1(offsets_1);
-
         mfem::Array<int> offsets_2 (4);
         offsets_2[0] = 0;
         offsets_2[1] = v.Size();
         offsets_2[2] = w.Size();
         offsets_2[3] = q.Size();
         offsets_2.PartialSum();
-
         mfem::Array<int> offsets_2_rows (5);
         offsets_2_rows[0] = 0;
         offsets_2_rows[1] = v.Size();
@@ -319,7 +275,6 @@ int main(int argc, char *argv[]) {
         offsets_2_rows[3] = q.Size();
         offsets_2_rows[4] = ess_dof2.Size();
         offsets_2_rows.PartialSum();
-        
         mfem::BlockOperator A2(offsets_2_rows, offsets_2);
 
         // initialize rhs
@@ -404,7 +359,6 @@ int main(int argc, char *argv[]) {
         b1sub = 0.0;
         M_dt.AddMult(u,b1sub,2);
         b1.AddSubVector(f1,0);
-        // b1.AddSubVector(bf1,0); 
         b1.AddSubVector(b1sub,0);
         b1.AddSubVector(lform_zxn, 0); // NEU
         b1.AddSubVector(lform_un, u.Size() + z.Size());
@@ -425,7 +379,6 @@ int main(int argc, char *argv[]) {
         // ATA1.FormLinearSystem(ess_dof1, x, ATb1, A1_BC, X, B1);
 
         // solve 
-        double tol = 1e-10;
         int iter = 100000000;  
         // mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
@@ -438,10 +391,8 @@ int main(int argc, char *argv[]) {
 
         // time loop
         double t;
-        for (t = dt ; t < tmax+dt ; t+=dt) {
-
-            // std::cout << "--- t = "<<t<<"\n";
-            // std::cout << t << ",";
+        // for (t = dt ; t < tmax+dt ; t+=dt) {
+        for (t = dt ; t < 2*dt ; t+=dt) {
 
             ////////////////////////////////////////////////////////////////////
             // DUAL FIELD
@@ -475,10 +426,8 @@ int main(int argc, char *argv[]) {
             A2.SetBlock(1,0, CT);
             A2.SetBlock(1,1, &M_n);
             A2.SetBlock(2,0, &D);
-
-            A2.SetBlock(3,0, &E2_left); //TODO
+            A2.SetBlock(3,0, &E2_left);
             A2.SetBlock(3,1, &E2_cent);
-            A2.SetBlock(3,2, &E2_right);
             
             // update b2
             b2 = 0.0;
@@ -487,7 +436,6 @@ int main(int argc, char *argv[]) {
             R2.AddMult(v,b2sub,-1);
             C_Re.AddMult(w,b2sub,-1);
             b2.AddSubVector(f2,0); 
-            // b2.AddSubVector(bf2,0);
             b2.AddSubVector(b2sub,0);
             b2.AddSubVector(e2, size_2);
 
@@ -592,10 +540,10 @@ int main(int argc, char *argv[]) {
         for (int i=0; i<u.Size(); i++) {
             err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
         }
-        std::cout << "L2err of v = "<< err_L2_v<<"\n";
         std::cout << "L2err of u = "<< err_L2_u<<"\n";
+        std::cout << "L2err of v = "<< err_L2_v<<"\n";
         std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
-        file <<std::setprecision(15)<< std::fixed
+        file <<std::setprecision(15)<< std::fixed<< std::pow(1/2.,ref_step) << ","
         <<err_L2_u <<","<< err_L2_v<<","<<err_L2_diff <<"\n";
 
         // runtime
@@ -630,10 +578,10 @@ int main(int argc, char *argv[]) {
         delete fec_ND;
         delete fec_RT;
 
-    } // refinement loop
+        // close file
+        file.close();
 
-    // close file
-    file.close();
+    } // refinement loop
 }
 
 
@@ -669,3 +617,4 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
     returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
     returnvalue(2) = - std::cos(Z)*std::sin(Z);
 }
+
