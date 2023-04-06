@@ -46,10 +46,13 @@ _deps
 
 
 out/build/
+out/build1/
 
 [Bb][Uu][Ii][Ll][Dd]/
 .vscode/settings.json
 
+build
+buil1
 
 # mfem
 *.gf
