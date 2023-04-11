@@ -4,32 +4,36 @@
 #include <chrono>
 #include "mfem.hpp"
 
-
-
-
 // MEHC scheme for dirichlet problem
 // essential BC at Hdiv and Hcurl of dual system only
 
-
-// use wouters trick for the BC
-
+// primal: A1*x=b1
+// [M_dt+R1  CT_Re    G] [u]   [(M_dt-R1)*u - CT_Re*z  + f]
+// [C        N_n      0] [z] = [             0            ]
+// [GT       0        0] [p]   [             0            ]
+//
+// dual: A2*y=b2
+// [N_dt+R2  C_Re     DT_n] [v]   [(N_dt-R2)*u - C_Re*w + f]
+// [CT       M_n      0   ] [w] = [            0           ]
+// [D        0        0   ] [q]   [            0           ]
 
 
 
 struct Parameters {
     // double Re_inv = 1/100.; // = 1/Re 
     // double Re_inv = 0.; // = 1/Re 
-    double Re_inv = 0.; // = 1/Re 
+    double Re_inv = 1.; // = 1/Re 
     double dt     = 0.01;
-    double tmax   = 1*dt;
+    double tmax   = 0.01;
     int ref_steps = 4;
     int init_ref  = 0;
     int order     = 1;
-    double tol    = 1e-7;
-    std::string outputfile = "out/rawdata/dirichlet-conv-Re1.txt";
+    double tol    = 1e-3;
+    std::string outputfile = "out/rawdata/dirichlet-conv-invisc.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
+
 
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
@@ -53,6 +57,7 @@ int main(int argc, char *argv[]) {
     // loop over refinement steps to check convergence
     for (int ref_step=0; ref_step<=ref_steps; ref_step++) {
         
+        // start timer
         auto start = std::chrono::high_resolution_clock::now();
 
         // output file 
@@ -67,7 +72,7 @@ int main(int argc, char *argv[]) {
         mfem::Mesh mesh(mesh_file, 1, 1); 
         int dim = mesh.Dimension(); 
         int l;
-        dt *= 0.5; // TODO
+        dt *= 0.5; // scale dt as we scale meshsize
         for (l = 0; l<init_ref+ref_step; l++) {
             mesh.UniformRefinement();
         } 
@@ -229,7 +234,6 @@ int main(int argc, char *argv[]) {
         G.Finalize();
         GT->Finalize();    
 
-        // TODO : enforce ess dofs hardcore
         // matrix E2_left
         int rows_E2 = ess_dof2.Size();
         mfem::SparseMatrix E2_left (rows_E2, v.Size());
@@ -391,8 +395,8 @@ int main(int argc, char *argv[]) {
 
         // time loop
         double t;
-        // for (t = dt ; t < tmax+dt ; t+=dt) {
-        for (t = dt ; t < 2*dt ; t+=dt) {
+        for (t = dt ; t < tmax+dt ; t+=dt) {
+        // for (t = dt ; t < 2*dt ; t+=dt) {
 
             ////////////////////////////////////////////////////////////////////
             // DUAL FIELD
@@ -527,7 +531,7 @@ int main(int argc, char *argv[]) {
             // double K2 = 1./2.*blf_N.InnerProduct(v,v);
             // std::cout <<std::abs(K1) << ",\n" << std::abs(K2) << ",\n";
             // file <<std::setprecision(15)<< std::fixed<<K1<< ","
-            //               << K2 << ",\n";
+            //               << K2 << "\n";
 
         } // time loop
 
@@ -544,7 +548,7 @@ int main(int argc, char *argv[]) {
         std::cout << "L2err of v = "<< err_L2_v<<"\n";
         std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
         file <<std::setprecision(15)<< std::fixed<< std::pow(1/2.,ref_step) << ","
-        <<err_L2_u <<","<< err_L2_v<<","<<err_L2_diff <<"\n";
+        <<err_L2_u <<","<< err_L2_v<<","<<std::pow(err_L2_diff, 0.5) <<"\n";
 
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
@@ -585,6 +589,9 @@ int main(int argc, char *argv[]) {
 }
 
 
+
+
+
 void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
     double X = x(0)-0.5;
@@ -617,4 +624,48 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
     returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
     returnvalue(2) = - std::cos(Z)*std::sin(Z);
 }
+
+
+////////////////////
+
+
+// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
+   
+//     double pi = 3.14159265358979323846;
+
+//     returnvalue(0) = std::cos(pi*x.Elem(2)); 
+//     returnvalue(1) = std::sin(pi*x.Elem(2));
+//     returnvalue(2) = std::sin(pi*x.Elem(0));
+// }
+
+// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+   
+//     double pi = 3.14159265358979323846;
+
+//     returnvalue(0) = -pi*std::cos(pi*x(2));
+//     returnvalue(1) = -pi*std::cos(pi*x(0)) -  pi*std::sin(pi*x(2)); 
+//     returnvalue(2) = 0;
+// }
+
+// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
+   
+//     double pi = 3.14159265358979323846;
+//     returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi);
+//     returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi);
+//     returnvalue(2) = 0;
+// }
+
+// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+   
+//     double pi = 3.14159265358979323846;
+//     returnvalue(0) = 0;
+//     returnvalue(1) = 0;
+//     returnvalue(2) = -2*pi* std::cos(x(0)*pi) * std::cos(x(1)*pi);
+// }
+
+// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+//     returnvalue(0) = 0.;
+//     returnvalue(1) = 0.;
+//     returnvalue(2) = 0.;
+// }
 
