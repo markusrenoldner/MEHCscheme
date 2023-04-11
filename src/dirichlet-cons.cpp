@@ -20,15 +20,15 @@
 
 struct Parameters {
     // double Re_inv = 1/100.; // = 1/Re 
-    // double Re_inv = 1; // = 1/Re 
-    double Re_inv = 1.; // = 1/Re 
+    double Re_inv = 0; // = 1/Re 
+    // double Re_inv = 1.; // = 1/Re 
     double dt     = 0.05;
     double tmax   = 10*dt;
     int ref_steps = 0;
     int init_ref  = 2;
     int order     = 1;
-    double tol    = 1e-12;
-    std::string outputfile = "out/rawdata/dirichlet-cons-Re1.txt";
+    double tol    = 1e-16;
+    std::string outputfile = "out/rawdata/dirichlet-cons-invisc.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -614,11 +614,15 @@ int main(int argc, char *argv[]) {
             // << u.Normlinf() << ","
             // << K1 << ","
             // << K1_old << ","
-            << 2*Re_inv*E2 << ","
-            << (K1-K1_old)/dt<< ","
+            // << 2*Re_inv*E2 << ","
+            // << (K1-K1_old)/dt<< ","
+            // << 2*Re_inv*E1 << ","
+            // << (K2-K2_old)/dt<< "\n";
+            << (H1-H1_old)/dt - D << ","
+            << (H2-H2_old)/dt - D << "\n";
             // << 1/2*M_dt.InnerProduct(u_diff, u_avg) << ","
-            << (K1-K1_old)/dt - 2*Re_inv*E2 << ","
-            << (K2-K2_old)/dt - 2*Re_inv*E1 << "\n";
+            // << (K1-K1_old)/dt - 2*Re_inv*E2 << ","
+            // << (K2-K2_old)/dt - 2*Re_inv*E1 << "\n";
             // std::cout << u.Normlinf() << "\n";
             
             
