@@ -4,6 +4,7 @@
 #include "mfem.hpp"
 
 
+
 // MEHC scheme on periodic domain, like in the paper
 
 
@@ -30,9 +31,9 @@ struct Parameters {
     double dt     = 1/20.;
     double tmax   = 10.;
     int ref_steps = 4;
-    int init_ref  = 0;
+    int init_ref  = 0; // change this here all
     int order     = 1;
-    std::string outputfile = "out/rawdata/periodic_cons_Re100.txt";
+    std::string outputfile = "out/rawdata/periodic-cons-Re100.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -484,7 +485,7 @@ int main(int argc, char *argv[]) {
         << (K1-K1_old)/dt - 2*Re_inv*E2 << ","
         << (K2-K2_old)/dt - 2*Re_inv*E1 << ","
         << (H1-H1_old)/dt - D << ","
-        << (H2-H2_old)/dt - D << ",\n";
+        << (H2-H2_old)/dt - D << "\n";
 
     } // time loop
 
