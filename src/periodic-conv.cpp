@@ -1,11 +1,12 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 #include "mfem.hpp"
 
-#include <chrono>
 
-// MEHC scheme on periodic domain, like in the paper
+// MEHC scheme on periodic domain
+// like described in the paper
 
 
 // primal: A1*x=b1
@@ -18,23 +19,19 @@
 // [CT       M_n      0   ] [w] = [            0           ]
 // [D        0        0   ] [q]   [            0           ]
 
-// attention: the systems are coupled
-// z...vorticity of primal system, but corresponds to dual velocity v
-// w...vorticity of dual system, but corresponds to primal velocity u
-// u,z,p at half integer, and v,w,q at full integer time steps, hence:
-// R1 depends on w and defined on full int time step, but part of primal syst
-// R2 depends on z and defined on half int time step, but part of dual system
-
 
 struct Parameters {
+    // double Re_inv = 1/100.; // = 1/Re 
     double Re_inv = 0.; // = 1/Re 
+    // double Re_inv = 1.; // = 1/Re 
     double dt     = 1/20.;
-    double tmax   = 3*dt;
-    int ref_steps = 4;
+    double tmax   = 3/20.;
+    int ref_steps = 1;
     int init_ref  = 0;
     int order     = 1;
+    double tol    = 1e-15;
     std::string outputfile = "out/rawdata/periodic-conv-invisc.txt";
-    const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
+    const char* mesh_file = "extern/mfem-4.5/data/periodic-cube.mesh";
     double t;
 };
 
@@ -46,6 +43,7 @@ void w_0_TGV(const mfem::Vector &x, mfem::Vector &v);
 void   f_TGV(const mfem::Vector &x, mfem::Vector &v); 
 void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue);
 
+
 int main(int argc, char *argv[]) {
 
     // simulation parameters
@@ -56,31 +54,31 @@ int main(int argc, char *argv[]) {
     int ref_steps = param.ref_steps;
     int init_ref  = param.init_ref;
     int order     = param.order;
-    std::string outputfile = param.outputfile;
-
-    // output file 
-    std::ofstream file;
-    file.precision(6);
-    file.open(outputfile);
-    // file.open(outputfile, std::ios::app);
-
+    double tol    = param.tol;
     std::cout <<"----------\n"<<"Re:   "<<1/Re_inv
     <<"\ndt:   "<<dt<< "\ntmax: "<<tmax<<"\n----------\n";
 
     // loop over refinement steps to check convergence
-    for (int ref_step=0; ref_step<3; ref_step++) {
+    for (int ref_step=0; ref_step<=ref_steps; ref_step++) {
         
-        std::cout << "---------------launch MEHC---------------\n";
+        // start timer
         auto start = std::chrono::high_resolution_clock::now();
 
+        // output file 
+        std::string outputfile = param.outputfile;
+        std::ofstream file;
+        file.precision(6);
+        // file.open(outputfile);
+        file.open(outputfile, std::ios::app);
+
         // mesh
-        const char *mesh_file = "extern/mfem-4.5/data/periodic-cube.mesh";
+        const char *mesh_file = param.mesh_file;
         mfem::Mesh mesh(mesh_file, 1, 1); 
         int dim = mesh.Dimension(); 
         for (int l = 0; l<ref_step; l++) {mesh.UniformRefinement();} 
-        std::cout << "refinement: " << ref_step << "\n";
+        // std::cout << "refinement: " << ref_step << "\n";
 
-        // FE spaces (CG \in H1, DG \in L2)
+        // FE spaces: DG subset L2, ND subset Hcurl, RT subset Hdiv, CG subset H1
         // int order = 1;
         mfem::FiniteElementCollection *fec_CG = new mfem::H1_FECollection(order,dim);
         mfem::FiniteElementCollection *fec_ND = new mfem::ND_FECollection(order,dim);
@@ -116,10 +114,10 @@ int main(int argc, char *argv[]) {
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
         int size_2 = v.Size() + w.Size() + q.Size();
-        std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
-        std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
-        std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n"
-        <<"----------------------\n";
+        // std::cout << "size1: " << size_1 << "\n"<<"size2: "<<size_2<< "\n";
+        // std::cout<< "size u/z/p: "<<u.Size()<<"/"<<z.Size()<<"/"<<p.Size()<<"\n";
+        // std::cout<< "size v/w/q: "<<v.Size()<<"/"<<w.Size()<<"/"<<q.Size()<<"\n"
+        // <<"----------------------\n";
         
         // initialize solution vectors
         mfem::Vector x(size_1);
@@ -280,7 +278,7 @@ int main(int argc, char *argv[]) {
         A1.MultTranspose(b1,ATb1);
 
         // solve eulerstep
-        double tol = 1e-15;
+        // double tol = 1e-15;
         int iter = 1000000;
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
 
@@ -418,13 +416,15 @@ int main(int argc, char *argv[]) {
 
         // write to file
         file << std::setprecision(15) << std::fixed << ref_step << ","   
-        << err_L2_v << "," << err_L2_u << "," << err_L2_diff << ",\n";
+        << err_L2_u << "," << err_L2_v << "," << err_L2_diff << ",\n";
+        
 
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> duration = 1000*(end - start);
-        std::cout << duration.count() << "ms" << std::endl;
-        std::cout << "---------------finish MEHC---------------\n";
+        // std::cout << duration.count() << "ms" << std::endl;
+        std::cout << err_L2_u << " " << err_L2_v << " "<<duration.count() << "ms"<<"\n";
+        // std::cout << "---------------finish MEHC---------------\n";
     
         // free memory
         delete fec_CG;
@@ -432,12 +432,60 @@ int main(int argc, char *argv[]) {
         delete fec_RT;
         delete fec_DG;
 
-    } // refinement loop
+        // close file
+        file.close();
 
-    // close file
-    file.close();
+    } // refinement loop
 }
 
+// easy conv test von dirichlet
+
+
+// void u_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = std::sin(Y);
+//     returnvalue(1) = std::sin(Z);
+//     returnvalue(2) = 0.;
+// }
+// void w_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+   
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = -std::cos(Z);
+//     returnvalue(1) = 0.;
+//     returnvalue(2) = -std::cos(Y);
+// }
+// void f_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+//     Parameters param;
+//     double Re_inv = param.Re_inv; // = 1/Re 
+    
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = std::sin(Y)*Re_inv + std::cos(Y)*std::sin(Z);
+//     returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
+//     returnvalue(2) = - std::cos(Z)*std::sin(Z);
+// }
+// void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
+
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = std::sin(Y);
+//     returnvalue(1) = std::sin(Z);
+//     returnvalue(2) = 0.;
+// }
+
+
+// TGV - möglicherweise falsch
 void u_0_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
     double pi = 3.14159265358979323846;
@@ -474,12 +522,12 @@ void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue) {
     
     Parameters param;
     double Re_inv = param.Re_inv; 
+    double tmax = param.tmax;
    
     double pi = 3.14159265358979323846;
     // double Re_inv = 1/500.; // chose Re here!
     double nu = 1*1*Re_inv; // = u*L/Re
-    double t = 0.15;
-    double F = std::exp(-2*nu*t);
+    double F = std::exp(-2*nu*tmax);
 
     returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi) * F;
     returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi) * F;
