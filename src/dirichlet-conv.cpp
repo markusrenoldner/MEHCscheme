@@ -21,15 +21,16 @@
 
 struct Parameters {
     // double Re_inv = 1/100.; // = 1/Re 
-    // double Re_inv = 0.; // = 1/Re 
-    double Re_inv = 1.; // = 1/Re 
+    double Re_inv = 0.; // = 1/Re 
+    // double Re_inv = 1.; // = 1/Re 
     double dt     = 0.01;
-    double tmax   = 0.01;
+    double tmax   = 0.02;
     int ref_steps = 4;
     int init_ref  = 0;
     int order     = 1;
     double tol    = 1e-3;
-    std::string outputfile = "out/rawdata/dirichlet-conv-invisc.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-B.txt";
+    std::string outputfile = "out/rawdata/dirichlet-conv-invisc-B.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -287,49 +288,6 @@ int main(int argc, char *argv[]) {
         mfem::Vector b2(size_2 + ess_dof2.Size()); 
         mfem::Vector b2sub(v.Size());
 
-        ////////////////////////////////////////////////////////////////////////////
-        // forcing function constructed by initial value of gridfunctions
-        ////////////////////////////////////////////////////////////////////////////
-        
-        // R2 
-        // mfem::MixedBilinearForm blf_R2(&RT,&RT);
-        // mfem::VectorGridFunctionCoefficient z_gfcoeff(&z);
-        // blf_R2.AddDomainIntegrator(
-        //     new mfem::MixedCrossProductIntegrator(z_gfcoeff)); //=(wxu,v)
-        // blf_R2.Assemble();
-        // blf_R2.Finalize();
-        // mfem::SparseMatrix R2(blf_R2.SpMat());
-        // R2 *= 1./2.;
-        // R2.Finalize();
-        // // R1
-        // mfem::MixedBilinearForm blf_R1(&ND,&ND);
-        // mfem::VectorGridFunctionCoefficient w_gfcoeff(&w);
-        // blf_R1.AddDomainIntegrator(
-        //     new mfem::MixedCrossProductIntegrator(w_gfcoeff)); //=(wxu,v)
-        // blf_R1.Assemble();
-        // blf_R1.Finalize();
-        // mfem::SparseMatrix R1(blf_R1.SpMat());
-        // R1 *= 1./2.;
-        // R1.Finalize();
-
-        // mfem::Vector bf1 (u.Size()); 
-        // bf1=0.;
-        // R1.AddMult(u,bf1,2);
-        // CT_Re.AddMult(z,bf1,2);
-        // mfem::Vector bf2 (v.Size()); 
-        // bf2=0.;
-        // R2.AddMult(v,bf2,2);
-        // C_Re.AddMult(w,bf2,2);
-        
-        // mfem::GridFunction bf1_gf(&ND);
-        // mfem::GridFunction bf2_gf(&RT);
-        // bf1_gf=0.;
-        // bf2_gf=0.;
-        // double tol = 1e-10;
-        // int iter = 1000000;  
-        // mfem::MINRES(M_n, bf1, bf1_gf, 0, iter, tol*tol, tol*tol);
-        // mfem::MINRES(N_n, bf2, bf2_gf, 0, iter, tol*tol, tol*tol);
-
         ////////////////////////////////////////////////////////////////////
         // EULERSTEP: code up to the loop computes euler step for primal sys
         ////////////////////////////////////////////////////////////////////
@@ -538,15 +496,21 @@ int main(int argc, char *argv[]) {
         // convergence error 
         double err_L2_u = u.ComputeL2Error(u_0_coeff);
         double err_L2_v = v.ComputeL2Error(u_0_coeff);
+
+        // project v in Hdiv to Hcurl:
         mfem::GridFunction v_ND (&ND);
         v_ND.ProjectGridFunction(v);
+
+        // compute discrete L2 norm with u in Hcurl:
         double err_L2_diff = 0;
         for (int i=0; i<u.Size(); i++) {
             err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
         }
+
         std::cout << "L2err of u = "<< err_L2_u<<"\n";
         std::cout << "L2err of v = "<< err_L2_v<<"\n";
         std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
+
         file <<std::setprecision(15)<< std::fixed<< std::pow(1/2.,ref_step) << ","
         <<err_L2_u <<","<< err_L2_v<<","<<std::pow(err_L2_diff, 0.5) <<"\n";
 
@@ -591,81 +555,79 @@ int main(int argc, char *argv[]) {
 
 
 
+// solution A, funktioniert
+// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
-void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
 
+//     returnvalue(0) = std::sin(Y);
+//     returnvalue(1) = std::sin(Z);
+//     returnvalue(2) = 0.;
+// }
+// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+   
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = -std::cos(Z);
+//     returnvalue(1) = 0.;
+//     returnvalue(2) = -std::cos(Y);
+// }
+// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+//     Parameters param;
+//     double Re_inv = param.Re_inv; // = 1/Re 
+    
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = std::sin(Y)*Re_inv + std::cos(Y)*std::sin(Z);
+//     returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
+//     returnvalue(2) = - std::cos(Z)*std::sin(Z);
+// }
+
+
+
+// TGV, funktioniert
+void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
+   
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
-
-    returnvalue(0) = std::sin(Y);
-    returnvalue(1) = std::sin(Z);
-    returnvalue(2) = 0.;
+   
+    returnvalue(0) =     std::cos(X)*std::sin(Y);
+    returnvalue(1) = -1* std::sin(X)*std::cos(Y);
+    returnvalue(2) = 0;
 }
+
 void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
-
-    returnvalue(0) = -std::cos(Z);
-    returnvalue(1) = 0.;
-    returnvalue(2) = -std::cos(Y);
+   
+    returnvalue(0) = 0;
+    returnvalue(1) = 0;
+    returnvalue(2) = -2* std::cos(X) * std::cos(Y);
 }
+
 void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-    Parameters param;
-    double Re_inv = param.Re_inv; // = 1/Re 
-    
+   
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
 
-    returnvalue(0) = std::sin(Y)*Re_inv + std::cos(Y)*std::sin(Z);
-    returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
-    returnvalue(2) = - std::cos(Z)*std::sin(Z);
+    Parameters param;
+    double Re_inv = param.Re_inv;
+
+    returnvalue(0) = 2.*Re_inv*std::cos(X)*std::sin(Y) - 2.*std::sin(X)*std::cos(X)*std::cos(Y)*std::cos(Y);
+    returnvalue(1) = -2.*Re_inv*std::sin(X)*std::cos(Y) -2.*std::cos(X)*std::cos(X)*std::sin(Y)*std::cos(Y);
+    returnvalue(2) = 0.;
+
 }
 
 
-////////////////////
-
-
-// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
-   
-//     double pi = 3.14159265358979323846;
-
-//     returnvalue(0) = std::cos(pi*x.Elem(2)); 
-//     returnvalue(1) = std::sin(pi*x.Elem(2));
-//     returnvalue(2) = std::sin(pi*x.Elem(0));
-// }
-
-// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-   
-//     double pi = 3.14159265358979323846;
-
-//     returnvalue(0) = -pi*std::cos(pi*x(2));
-//     returnvalue(1) = -pi*std::cos(pi*x(0)) -  pi*std::sin(pi*x(2)); 
-//     returnvalue(2) = 0;
-// }
-
-// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
-   
-//     double pi = 3.14159265358979323846;
-//     returnvalue(0) =     std::cos(x(0)*pi)*std::sin(x(1)*pi);
-//     returnvalue(1) = -1* std::sin(x(0)*pi)*std::cos(x(1)*pi);
-//     returnvalue(2) = 0;
-// }
-
-// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-   
-//     double pi = 3.14159265358979323846;
-//     returnvalue(0) = 0;
-//     returnvalue(1) = 0;
-//     returnvalue(2) = -2*pi* std::cos(x(0)*pi) * std::cos(x(1)*pi);
-// }
-
-// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-//     returnvalue(0) = 0.;
-//     returnvalue(1) = 0.;
-//     returnvalue(2) = 0.;
-// }
 
