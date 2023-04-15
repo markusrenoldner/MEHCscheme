@@ -23,14 +23,26 @@ struct Parameters {
     // double Re_inv = 1/100.; // = 1/Re 
     double Re_inv = 0.; // = 1/Re 
     // double Re_inv = 1.; // = 1/Re 
-    double dt     = 0.01;
-    double tmax   = 0.02;
-    int ref_steps = 4;
+    double dt     = 0.0001;
+    double tmax   = 0.0002;
+    int ref_steps = 3;
     int init_ref  = 0;
-    int order     = 1;
+    int order     = 2;
     double tol    = 1e-3;
-    // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-B.txt";
-    std::string outputfile = "out/rawdata/dirichlet-conv-invisc-B.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-sTGV.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-sTGV.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-sin.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-sin.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-sin2.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-sin2.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-sTGV2.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-sTGV2.txt";
+
+    
+    std::string outputfile = "out/rawdata/dirichlet-conv-Re1-dTGV.txt";
+
+    
+
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -498,10 +510,14 @@ int main(int argc, char *argv[]) {
         double err_L2_v = v.ComputeL2Error(u_0_coeff);
 
         // project v in Hdiv to Hcurl:
-        mfem::GridFunction v_ND (&ND);
-        v_ND.ProjectGridFunction(v);
+        mfem::VectorGridFunctionCoefficient v_gfcoeff(&v);
+        double err = u.ComputeL2Error(v_gfcoeff);
+        // std::cout << "u-v:"<<err << " "<<err_L2_u+err_L2_v<<"\n"; 
+
 
         // compute discrete L2 norm with u in Hcurl:
+        mfem::GridFunction v_ND (&ND);
+        v_ND.ProjectGridFunction(v);
         double err_L2_diff = 0;
         for (int i=0; i<u.Size(); i++) {
             err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
@@ -509,10 +525,12 @@ int main(int argc, char *argv[]) {
 
         std::cout << "L2err of u = "<< err_L2_u<<"\n";
         std::cout << "L2err of v = "<< err_L2_v<<"\n";
-        std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
+        std::cout << "L2err(u-v) = "<< err <<"\n";
+        // std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
 
         file <<std::setprecision(15)<< std::fixed<< std::pow(1/2.,ref_step) << ","
-        <<err_L2_u <<","<< err_L2_v<<","<<std::pow(err_L2_diff, 0.5) <<"\n";
+        <<err_L2_u <<","<< err_L2_v<<","<<err <<"\n";
+        // <<err_L2_u <<","<< err_L2_v<<","<<std::pow(err_L2_diff, 0.5) <<"\n";
 
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
@@ -555,7 +573,7 @@ int main(int argc, char *argv[]) {
 
 
 
-// solution A, funktioniert
+// simple sin, funktioniert
 // void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
 //     double X = x(0)-0.5;
@@ -591,43 +609,43 @@ int main(int argc, char *argv[]) {
 
 
 
-// TGV, funktioniert
-void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
+// sTGV, funktioniert
+// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
-    double X = x(0)-0.5;
-    double Y = x(1)-0.5;
-    double Z = x(2)-0.5;
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
    
-    returnvalue(0) =     std::cos(X)*std::sin(Y);
-    returnvalue(1) = -1* std::sin(X)*std::cos(Y);
-    returnvalue(2) = 0;
-}
+//     returnvalue(0) =     std::cos(X)*std::sin(Y);
+//     returnvalue(1) = -1* std::sin(X)*std::cos(Y);
+//     returnvalue(2) = 0;
+// }
 
-void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
-    double X = x(0)-0.5;
-    double Y = x(1)-0.5;
-    double Z = x(2)-0.5;
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
    
-    returnvalue(0) = 0;
-    returnvalue(1) = 0;
-    returnvalue(2) = -2* std::cos(X) * std::cos(Y);
-}
+//     returnvalue(0) = 0;
+//     returnvalue(1) = 0;
+//     returnvalue(2) = -2* std::cos(X) * std::cos(Y);
+// }
 
-void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
-    double X = x(0)-0.5;
-    double Y = x(1)-0.5;
-    double Z = x(2)-0.5;
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
 
-    Parameters param;
-    double Re_inv = param.Re_inv;
+//     Parameters param;
+//     double Re_inv = param.Re_inv;
 
-    returnvalue(0) = 2.*Re_inv*std::cos(X)*std::sin(Y) - 2.*std::sin(X)*std::cos(X)*std::cos(Y)*std::cos(Y);
-    returnvalue(1) = -2.*Re_inv*std::sin(X)*std::cos(Y) -2.*std::cos(X)*std::cos(X)*std::sin(Y)*std::cos(Y);
-    returnvalue(2) = 0.;
+//     returnvalue(0) = 2.*Re_inv*std::cos(X)*std::sin(Y) - 2.*std::sin(X)*std::cos(X)*std::cos(Y)*std::cos(Y);
+//     returnvalue(1) = -2.*Re_inv*std::sin(X)*std::cos(Y) -2.*std::cos(X)*std::cos(X)*std::sin(Y)*std::cos(Y);
+//     returnvalue(2) = 0.;
 
-}
+// }
 
 
 
