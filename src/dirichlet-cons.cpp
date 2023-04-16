@@ -20,15 +20,16 @@
 
 struct Parameters {
     // double Re_inv = 1/100.; // = 1/Re 
-    double Re_inv = 0; // = 1/Re 
-    // double Re_inv = 1.; // = 1/Re 
+    // double Re_inv = 0; // = 1/Re 
+    double Re_inv = 1.; // = 1/Re 
     double dt     = 0.05;
-    double tmax   = 10*dt;
+    double tmax   = 50*dt;
     int ref_steps = 0;
     int init_ref  = 2;
     int order     = 1;
-    double tol    = 1e-16;
-    std::string outputfile = "out/rawdata/dirichlet-cons-invisc.txt";
+    double tol    = 1e-14;
+    std::string outputfile = "out/rawdata/dirichlet-cons-Re1.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-cons-invisc.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
 };
@@ -154,6 +155,9 @@ int main(int argc, char *argv[]) {
         mfem::LinearForm lform_un(&CG);
         lform_un.AddBoundaryIntegrator(new mfem::BoundaryNormalLFIntegrator(u_0_coeff));
         lform_un.Assemble();
+
+        // PrintVector3(lform_zxn,1,0,40,15);
+        // PrintVector3(lform_un,1,0,40,15);
 
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
@@ -605,7 +609,6 @@ int main(int argc, char *argv[]) {
             // v_diff.Add(1,v);
             // v_diff.Add(-1.,v_old);
 
-            std::cout 
             // << N_n.InnerProduct(v_diff, v_avg) << ","
             // << 2.*C_Re.InnerProduct(w_avg, v_avg) <<","
             // << Re_inv*E1*2. << ","
@@ -618,11 +621,12 @@ int main(int argc, char *argv[]) {
             // << (K1-K1_old)/dt<< ","
             // << 2*Re_inv*E1 << ","
             // << (K2-K2_old)/dt<< "\n";
-            << (H1-H1_old)/dt - D << ","
-            << (H2-H2_old)/dt - D << "\n";
             // << 1/2*M_dt.InnerProduct(u_diff, u_avg) << ","
-            // << (K1-K1_old)/dt - 2*Re_inv*E2 << ","
-            // << (K2-K2_old)/dt - 2*Re_inv*E1 << "\n";
+            std::cout 
+            << (H1-H1_old)/dt - D << ","
+            << (H2-H2_old)/dt - D << ","
+            << (K1-K1_old)/dt - 2*Re_inv*E2 << ","
+            << (K2-K2_old)/dt - 2*Re_inv*E1 << "\n";
             // std::cout << u.Normlinf() << "\n";
             
             
@@ -644,18 +648,24 @@ int main(int argc, char *argv[]) {
             // << (H1-H1_old)/dt  << ","
             // << (H2-H2_old)/dt  << "\n";
 
+
+            
+        
+
+
         } // time 
         std::cout << "visual \n";
         
         // TODO
         // double err_L2_u = u.ComputeL2Error(u_0_coeff);
         // std::cout << err_L2_u << "\n";
+
         char vishost[] = "localhost";
         int  visport   = 19916;
 
         mfem::socketstream u_sock(vishost, visport);
         u_sock.precision(8);
-        u_sock << "solution\n" << mesh << u << "window_title 'u in hcurl'" << std::endl;
+        u_sock << "solution\n" << mesh << v << "window_title 'u in hdiv'" << std::endl;
         
         mfem::socketstream u_ex_sock(vishost, visport);
         u_ex_sock.precision(8);
