@@ -2,14 +2,18 @@
 
 
 # periodic problem
-#add_executable(${PROJECT_NAME} periodic-cons.cpp)
 #add_executable(${PROJECT_NAME} periodic-conv.cpp)
+#add_executable(${PROJECT_NAME} periodic-cons.cpp)
 
 
 # dirichlet problem
+#add_executable(${PROJECT_NAME} dirichlet-cons.cpp)
 add_executable(${PROJECT_NAME} dirichlet-conv.cpp)
 #add_executable(${PROJECT_NAME} dirichlet-decoupled-primal.cpp)
 #add_executable(${PROJECT_NAME} dirichlet-decoupled-dual.cpp)
+#add_executable(${PROJECT_NAME} dirichlet-decoupled-primal-cons.cpp)
+
+
 
 
 # other
