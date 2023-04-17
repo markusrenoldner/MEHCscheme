@@ -10,6 +10,8 @@
 // visualizing some gridfunctions
 
 
+
+
 struct Parameters {
     double Re_inv = 0.1; // = 1/Re 
     double dt     = 0.2;

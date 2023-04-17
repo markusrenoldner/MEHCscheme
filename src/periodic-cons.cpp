@@ -4,8 +4,8 @@
 #include "mfem.hpp"
 
 
-
-// MEHC scheme on periodic domain, like in the paper
+// MEHC scheme on periodic domain
+// like described in the paper
 
 
 // primal: A1*x=b1
@@ -17,13 +17,6 @@
 // [N_dt+R2  C_Re     DT_n] [v]   [(N_dt-R2)*u - C_Re*w + f]
 // [CT       M_n      0   ] [w] = [            0           ]
 // [D        0        0   ] [q]   [            0           ]
-
-// attention: the systems are coupled
-// z...vorticity of primal system, but corresponds to dual velocity v
-// w...vorticity of dual system, but corresponds to primal velocity u
-// u,z,p at half integer, and v,w,q at full integer time steps, hence:
-// R1 depends on w and defined on full int time step, but part of primal syst
-// R2 depends on z and defined on half int time step, but part of dual system
 
 
 struct Parameters {
