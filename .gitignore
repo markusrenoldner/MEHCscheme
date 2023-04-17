@@ -52,7 +52,9 @@ out/build1/
 .vscode/settings.json
 
 build
-buil1
+build1
+
+extern/*
 
 # mfem
 *.gf
