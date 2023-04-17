@@ -7,24 +7,22 @@
 
 
 
-
 // cleaned up version of a SINGLE timestep of 
 // the decoupled dual field of the dirichlet_dual code
-
 
 // use wouters trick for the BC
 
 
 struct Parameters {
-    double Re_inv = 1.; // = 1/Re 
-    // double Re_inv = 0.; // = 1/Re 
+    // double Re_inv = 1.; // = 1/Re 
+    double Re_inv = 0.; // = 1/Re 
     // double Re_inv = 1.; // = 1/Re 
     double dt     = 0.01;
     double tmax   = 1*dt;
     int ref_steps = 4;
     int init_ref  = 0;
-    int order     = 2;
-    double tol    = 1e-7;
+    int order     = 1;
+    double tol    = 1e-3;
     std::string outputfile = "out/rawdata/dirichlet-dual-test.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
@@ -344,40 +342,76 @@ int main() {
 }
 
 
-
-
-void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-
+// TGV, funktioniert für dual
+void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
+   
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
-
-    returnvalue(0) = std::sin(Y);
-    returnvalue(1) = std::sin(Z);
-    returnvalue(2) = 0.;
+   
+    returnvalue(0) =     std::cos(X)*std::sin(Y);
+    returnvalue(1) = -1* std::sin(X)*std::cos(Y);
+    returnvalue(2) = 0;
 }
+
 void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
-
-    returnvalue(0) = -std::cos(Z);
-    returnvalue(1) = 0.;
-    returnvalue(2) = -std::cos(Y);
+   
+    returnvalue(0) = 0;
+    returnvalue(1) = 0;
+    returnvalue(2) = -2* std::cos(X) * std::cos(Y);
 }
+
 void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-    Parameters param;
-    double Re_inv = param.Re_inv; // = 1/Re 
-    
+   
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
 
-    returnvalue(0) = std::sin(Y)*Re_inv + std::cos(Y)*std::sin(Z);
-    returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
-    returnvalue(2) = - std::cos(Z)*std::sin(Z);
+    Parameters param;
+    double Re_inv = param.Re_inv;
+
+    returnvalue(0) = 2.*Re_inv*std::cos(X)*std::sin(Y) - 2.*std::sin(X)*std::cos(X)*std::cos(Y)*std::cos(Y);
+    returnvalue(1) = -2.*Re_inv*std::sin(X)*std::cos(Y) -2.*std::cos(X)*std::cos(X)*std::sin(Y)*std::cos(Y);
+    returnvalue(2) = 0.;
 }
+
+
+// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = std::sin(Y);
+//     returnvalue(1) = std::sin(Z);
+//     returnvalue(2) = 0.;
+// }
+// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+   
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = -std::cos(Z);
+//     returnvalue(1) = 0.;
+//     returnvalue(2) = -std::cos(Y);
+// }
+// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+//     Parameters param;
+//     double Re_inv = param.Re_inv; // = 1/Re 
+    
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = std::sin(Y)*Re_inv + std::cos(Y)*std::sin(Z);
+//     returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
+//     returnvalue(2) = - std::cos(Z)*std::sin(Z);
+// }
 
 /////////////////////////////////////////
 

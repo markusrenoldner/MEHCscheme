@@ -13,7 +13,6 @@
 // this file contains the primal system
 
 
-
 struct Parameters {
     // double Re_inv = 100.; // = 1/Re 
     // double Re_inv = 1/100.; // = 1/Re 
@@ -366,38 +365,79 @@ int main(int argc, char *argv[]) {
 
 }
 
-void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
 
+// TGV, funktioniert für dual
+void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
+   
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
-
-    returnvalue(0) = std::sin(Y);
-    returnvalue(1) = std::sin(Z);
-    returnvalue(2) = 0.;
+   
+    returnvalue(0) =     std::cos(X)*std::sin(Y);
+    returnvalue(1) = -1* std::sin(X)*std::cos(Y);
+    returnvalue(2) = 0;
 }
+
 void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
-
-    returnvalue(0) = -std::cos(Z);
-    returnvalue(1) = 0.;
-    returnvalue(2) = -std::cos(Y);
+   
+    returnvalue(0) = 0;
+    returnvalue(1) = 0;
+    returnvalue(2) = -2* std::cos(X) * std::cos(Y);
 }
+
 void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
-    Parameters param;
-    double Re_inv = param.Re_inv; // = 1/Re 
-    
+   
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
 
-    returnvalue(0) = std::sin(Y)*Re_inv + std::cos(Y)*std::sin(Z);
-    returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
-    returnvalue(2) = - std::cos(Z)*std::sin(Z);
+    Parameters param;
+    double Re_inv = param.Re_inv;
+
+    returnvalue(0) = 2.*Re_inv*std::cos(X)*std::sin(Y) - 2.*std::sin(X)*std::cos(X)*std::cos(Y)*std::cos(Y);
+    returnvalue(1) = -2.*Re_inv*std::sin(X)*std::cos(Y) -2.*std::cos(X)*std::cos(X)*std::sin(Y)*std::cos(Y);
+    returnvalue(2) = 0.;
 }
+
+
+
+// funktioniert
+// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = std::sin(Y);
+//     returnvalue(1) = std::sin(Z);
+//     returnvalue(2) = 0.;
+// }
+// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+   
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = -std::cos(Z);
+//     returnvalue(1) = 0.;
+//     returnvalue(2) = -std::cos(Y);
+// }
+// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+//     Parameters param;
+//     double Re_inv = param.Re_inv; // = 1/Re 
+    
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     returnvalue(0) = std::sin(Y)*Re_inv + std::cos(Y)*std::sin(Z);
+//     returnvalue(1) = -std::cos(Y)*std::sin(Y) + std::sin(Z)*Re_inv;
+//     returnvalue(2) = - std::cos(Z)*std::sin(Z);
+// }
 
 /////////////////////////////////////////
 
