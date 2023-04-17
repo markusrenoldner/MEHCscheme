@@ -4,18 +4,23 @@
 #include <chrono>
 #include "mfem.hpp"
 
-
-
-
 // MEHC scheme for dirichlet problem
 // essential BC at Hdiv and Hcurl of dual system only
 
-
-// use wouters trick for the BC
-
-
 // conservation tests
 
+// forcing term is removed !!
+
+
+// primal: A1*x=b1
+// [M_dt+R1  CT_Re    G] [u]   [(M_dt-R1)*u - CT_Re*z  + f]
+// [C        N_n      0] [z] = [             0            ]
+// [GT       0        0] [p]   [             0            ]
+//
+// dual: A2*y=b2
+// [N_dt+R2  C_Re     DT_n] [v]   [(N_dt-R2)*u - C_Re*w + f]
+// [CT       M_n      0   ] [w] = [            0           ]
+// [D        0        0   ] [q]   [            0           ]
 
 
 struct Parameters {
@@ -156,9 +161,6 @@ int main(int argc, char *argv[]) {
         lform_un.AddBoundaryIntegrator(new mfem::BoundaryNormalLFIntegrator(u_0_coeff));
         lform_un.Assemble();
 
-        // PrintVector3(lform_zxn,1,0,40,15);
-        // PrintVector3(lform_un,1,0,40,15);
-
         // system size
         int size_1 = u.Size() + z.Size() + p.Size();
         int size_2 = v.Size() + w.Size() + q.Size();
@@ -256,8 +258,7 @@ int main(int argc, char *argv[]) {
         G.Finalize();
         GT->Finalize();    
 
-        // TODO : enforce ess dofs hardcore
-        // matrix E2_left
+        // enforce ess dofs manually: matrix E2_left
         int rows_E2 = ess_dof2.Size();
         mfem::SparseMatrix E2_left (rows_E2, v.Size());
         for (int i=0; i<RT_ess_tdof.Size(); i++) {
@@ -365,7 +366,6 @@ int main(int argc, char *argv[]) {
         // time loop
         double t;
         for (t = dt ; t < tmax+dt ; t+=dt) {
-        // for (t = dt ; t < 2*dt ; t+=dt) {
         
             // update old values before computing new ones
             u_old_old = u_old;
@@ -598,13 +598,11 @@ int main(int argc, char *argv[]) {
             // << 2*Re_inv*E2  << "\n";
             // << mass_vec1.Norml2() << ","
             // << (K2-K2_old)/dt  << "\n";
-
             // << mass_vec2.Norml2() << "\n";
             // <<K1-K1_old<<K2-K2_old<< K1 <<","<<K1_old<< K2 <<","<<K1_old<< ","<<"\n";
             // << (K1-K1_old)/dt  << "," 
             // << (K2-K2_old)/dt  << "," //<< K2 <<","<< K2_old <<","
             // << 2*Re_inv*E1 << "," << (K2-K2_old)/dt - 2*Re_inv*E1 << "\n";
-
             // mfem::Vector v_diff (v.Size()); v_diff= 0.;
             // v_diff.Add(1,v);
             // v_diff.Add(-1.,v_old);
@@ -627,13 +625,6 @@ int main(int argc, char *argv[]) {
             << (H2-H2_old)/dt - D << ","
             << (K1-K1_old)/dt - 2*Re_inv*E2 << ","
             << (K2-K2_old)/dt - 2*Re_inv*E1 << "\n";
-            // std::cout << u.Normlinf() << "\n";
-            
-            
-
-
-
-
                    
             // write to file
             file << std::setprecision(15) << std::fixed << t << ","   
@@ -648,28 +639,19 @@ int main(int argc, char *argv[]) {
             // << (H1-H1_old)/dt  << ","
             // << (H2-H2_old)/dt  << "\n";
 
-
-            
-        
-
-
         } // time 
-        std::cout << "visual \n";
         
-        // TODO
-        // double err_L2_u = u.ComputeL2Error(u_0_coeff);
-        // std::cout << err_L2_u << "\n";
+        // visuals
+        // char vishost[] = "localhost";
+        // int  visport   = 19916;
 
-        char vishost[] = "localhost";
-        int  visport   = 19916;
-
-        mfem::socketstream u_sock(vishost, visport);
-        u_sock.precision(8);
-        u_sock << "solution\n" << mesh << v << "window_title 'u in hdiv'" << std::endl;
+        // mfem::socketstream u_sock(vishost, visport);
+        // u_sock.precision(8);
+        // u_sock << "solution\n" << mesh << v << "window_title 'u in hdiv'" << std::endl;
         
-        mfem::socketstream u_ex_sock(vishost, visport);
-        u_ex_sock.precision(8);
-        u_ex_sock << "solution\n" << mesh << u_ex << "window_title 'u_ex'" << std::endl;
+        // mfem::socketstream u_ex_sock(vishost, visport);
+        // u_ex_sock.precision(8);
+        // u_ex_sock << "solution\n" << mesh << u_ex << "window_title 'u_ex'" << std::endl;
 
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
