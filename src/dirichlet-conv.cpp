@@ -7,6 +7,7 @@
 // MEHC scheme for dirichlet problem
 // essential BC at Hdiv and Hcurl of dual system only
 
+
 // primal: A1*x=b1
 // [M_dt+R1  CT_Re    G] [u]   [(M_dt-R1)*u - CT_Re*z  + f]
 // [C        N_n      0] [z] = [             0            ]
@@ -18,16 +19,15 @@
 // [D        0        0   ] [q]   [            0           ]
 
 
-
 struct Parameters {
     // double Re_inv = 1/100.; // = 1/Re 
-    double Re_inv = 0.; // = 1/Re 
-    // double Re_inv = 1.; // = 1/Re 
-    double dt     = 0.0001;
-    double tmax   = 0.0002;
-    int ref_steps = 3;
-    int init_ref  = 0;
-    int order     = 2;
+    // double Re_inv = 0.; // = 1/Re 
+    double Re_inv = 1.; // = 1/Re 
+    double dt     = 0.01;
+    double tmax   = 0.01;
+    int ref_steps = 1;
+    int init_ref  = 2;
+    int order     = 1;
     double tol    = 1e-3;
     // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-sTGV.txt";
     // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-sTGV.txt";
@@ -38,10 +38,8 @@ struct Parameters {
     // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-sTGV2.txt";
     // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-sTGV2.txt";
 
-    
-    std::string outputfile = "out/rawdata/dirichlet-conv-Re1-dTGV.txt";
-
-    
+    // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-dTGV.txt";
+    std::string outputfile = "out/rawdata/dirichlet-conv-test.txt";
 
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     double t;
@@ -351,14 +349,14 @@ int main(int argc, char *argv[]) {
         // mfem::Vector Y;
         // mfem::Vector B2;
         // ATA1.FormLinearSystem(ess_dof1, x, ATb1, A1_BC, X, B1);
+        // mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
+        // ATA1.RecoverFEMSolution(X, b1, x);
 
         // solve 
         int iter = 100000000;  
-        // mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
 
         // extract solution values u,z,p from eulerstep
-        // ATA1.RecoverFEMSolution(X, b1, x);
         x.GetSubVector(u_dofs, u);
         x.GetSubVector(z_dofs, z);
         x.GetSubVector(p_dofs, p);
@@ -366,7 +364,6 @@ int main(int argc, char *argv[]) {
         // time loop
         double t;
         for (t = dt ; t < tmax+dt ; t+=dt) {
-        // for (t = dt ; t < 2*dt ; t+=dt) {
 
             ////////////////////////////////////////////////////////////////////
             // DUAL FIELD
@@ -419,13 +416,8 @@ int main(int argc, char *argv[]) {
             mfem::Vector ATb2 (size_2);
             A2.MultTranspose(b2,ATb2);
 
-            // form linear system with BC
-            // ATA2.FormLinearSystem(ess_dof2, y, ATb2, A2_BC, Y, B2);
-
             // solve  
-            // mfem::MINRES(*A2_BC, B2, Y, 0, iter, tol*tol, tol*tol);
             mfem::MINRES(ATA2, ATb2, y, 0, iter, tol*tol, tol*tol);
-            // ATA2.RecoverFEMSolution(Y, b2, y);
             y.GetSubVector(v_dofs, v);
             y.GetSubVector(w_dofs, w);
             y.GetSubVector(q_dofs, q);                
@@ -481,55 +473,33 @@ int main(int argc, char *argv[]) {
             mfem::Vector ATb1 (size_1);
             A1.MultTranspose(b1,ATb1);
 
-            // form linear system with BC
-            // ATA1.FormLinearSystem(ess_dof1, x, ATb1, A1_BC, X, B1);
-
             // solve 
-            // mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol); 
             mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
-            // ATA1.RecoverFEMSolution(X, b1, x);
             x.GetSubVector(u_dofs, u);
             x.GetSubVector(z_dofs, z);
             x.GetSubVector(p_dofs, p);
-
-            ////////////////////////////////////////////////////////////////////
-            // CONSERVATION
-            ////////////////////////////////////////////////////////////////////
-            
-            // energy conservation 
-            // double K1 = 1./2.*blf_M.InnerProduct(u,u);
-            // double K2 = 1./2.*blf_N.InnerProduct(v,v);
-            // std::cout <<std::abs(K1) << ",\n" << std::abs(K2) << ",\n";
-            // file <<std::setprecision(15)<< std::fixed<<K1<< ","
-            //               << K2 << "\n";
 
         } // time loop
 
         // convergence error 
         double err_L2_u = u.ComputeL2Error(u_0_coeff);
         double err_L2_v = v.ComputeL2Error(u_0_coeff);
-
-        // project v in Hdiv to Hcurl:
         mfem::VectorGridFunctionCoefficient v_gfcoeff(&v);
-        double err = u.ComputeL2Error(v_gfcoeff);
-        // std::cout << "u-v:"<<err << " "<<err_L2_u+err_L2_v<<"\n"; 
-
-
-        // compute discrete L2 norm with u in Hcurl:
-        mfem::GridFunction v_ND (&ND);
-        v_ND.ProjectGridFunction(v);
-        double err_L2_diff = 0;
-        for (int i=0; i<u.Size(); i++) {
-            err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
-        }
-
+        double err_L2_diff = u.ComputeL2Error(v_gfcoeff);
+        file <<std::setprecision(15)<< std::fixed<< std::pow(1/2.,ref_step) << ","
+        <<err_L2_u <<","<< err_L2_v<<","<<err_L2_diff <<"\n";
         std::cout << "L2err of u = "<< err_L2_u<<"\n";
         std::cout << "L2err of v = "<< err_L2_v<<"\n";
-        std::cout << "L2err(u-v) = "<< err <<"\n";
-        // std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
+        std::cout << "L2err(u-v) = "<< err_L2_diff <<"\n";
 
-        file <<std::setprecision(15)<< std::fixed<< std::pow(1/2.,ref_step) << ","
-        <<err_L2_u <<","<< err_L2_v<<","<<err <<"\n";
+        // compute discrete L2 norm with u in Hcurl: OUTDATED VERSION
+        // mfem::GridFunction v_ND (&ND);
+        // v_ND.ProjectGridFunction(v);
+        // double err_L2_diff = 0;
+        // for (int i=0; i<u.Size(); i++) {
+        //     err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
+        // }
+        // std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
         // <<err_L2_u <<","<< err_L2_v<<","<<std::pow(err_L2_diff, 0.5) <<"\n";
 
         // runtime
@@ -550,6 +520,7 @@ int main(int argc, char *argv[]) {
         
         // mfem::GridFunction u_exact(&ND);
         // u_exact.ProjectCoefficient(u_0_coeff);
+
         // mfem::socketstream ue_sock(vishost, visport);
         // ue_sock.precision(8);
         // ue_sock << "solution\n" << mesh << u_exact << "window_title 'u_exact'" << std::endl;
@@ -610,42 +581,38 @@ int main(int argc, char *argv[]) {
 
 
 // sTGV, funktioniert
-// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
+void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
-//     double X = x(0)-0.5;
-//     double Y = x(1)-0.5;
-//     double Z = x(2)-0.5;
+    double X = x(0)-0.5;
+    double Y = x(1)-0.5;
+    double Z = x(2)-0.5;
    
-//     returnvalue(0) =     std::cos(X)*std::sin(Y);
-//     returnvalue(1) = -1* std::sin(X)*std::cos(Y);
-//     returnvalue(2) = 0;
-// }
+    returnvalue(0) =     std::cos(X)*std::sin(Y);
+    returnvalue(1) = -1* std::sin(X)*std::cos(Y);
+    returnvalue(2) = 0;
+}
 
-// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
-//     double X = x(0)-0.5;
-//     double Y = x(1)-0.5;
-//     double Z = x(2)-0.5;
+    double X = x(0)-0.5;
+    double Y = x(1)-0.5;
+    double Z = x(2)-0.5;
    
-//     returnvalue(0) = 0;
-//     returnvalue(1) = 0;
-//     returnvalue(2) = -2* std::cos(X) * std::cos(Y);
-// }
+    returnvalue(0) = 0;
+    returnvalue(1) = 0;
+    returnvalue(2) = -2* std::cos(X) * std::cos(Y);
+}
 
-// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
-//     double X = x(0)-0.5;
-//     double Y = x(1)-0.5;
-//     double Z = x(2)-0.5;
+    double X = x(0)-0.5;
+    double Y = x(1)-0.5;
+    double Z = x(2)-0.5;
 
-//     Parameters param;
-//     double Re_inv = param.Re_inv;
+    Parameters param;
+    double Re_inv = param.Re_inv;
 
-//     returnvalue(0) = 2.*Re_inv*std::cos(X)*std::sin(Y) - 2.*std::sin(X)*std::cos(X)*std::cos(Y)*std::cos(Y);
-//     returnvalue(1) = -2.*Re_inv*std::sin(X)*std::cos(Y) -2.*std::cos(X)*std::cos(X)*std::sin(Y)*std::cos(Y);
-//     returnvalue(2) = 0.;
-
-// }
-
-
-
+    returnvalue(0) = 2.*Re_inv*std::cos(X)*std::sin(Y) - 2.*std::sin(X)*std::cos(X)*std::cos(Y)*std::cos(Y);
+    returnvalue(1) = -2.*Re_inv*std::sin(X)*std::cos(Y) -2.*std::cos(X)*std::cos(X)*std::sin(Y)*std::cos(Y);
+    returnvalue(2) = 0.;
+}
