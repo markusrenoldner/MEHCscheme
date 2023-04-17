@@ -54,7 +54,10 @@ out/build1/
 build
 build1
 
-extern/*
+extern/glvis-4.2
+extern/mfem-4.5
+extern/glvis-4.2.tgz
+extern/mfem-4.5.tgz
 
 # mfem
 *.gf
