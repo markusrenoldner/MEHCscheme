@@ -10,17 +10,21 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[     14440,        377]
-NotebookOptionsPosition[     13185,        347]
-NotebookOutlinePosition[     13711,        366]
-CellTagsIndexPosition[     13668,        363]
+NotebookDataLength[     14724,        392]
+NotebookOptionsPosition[     13400,        359]
+NotebookOutlinePosition[     13960,        379]
+CellTagsIndexPosition[     13917,        376]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
 Notebook[{
 
 Cell[CellGroupData[{
-Cell["Equivalent formulations of convective/nonlinear term", "Section",
+Cell["\<\
+Equivalent formulations of convective/nonlinear term
+- Div[u tensor u]
+- w x u + 1/2 grad[u . u]\
+\>", "Section",
  CellChangeTimes->{{3.885634168588354*^9, 3.8856341697278595`*^9}, 
    3.8864149979110193`*^9, 3.8865847688544493`*^9, {3.886648434133567*^9, 
    3.886648444123616*^9}, {3.88664940382516*^9, 3.8866494048265767`*^9}, {
@@ -30,8 +34,8 @@ Cell["Equivalent formulations of convective/nonlinear term", "Section",
    3.891921092230608*^9}, {3.891921806615877*^9, 3.8919218082857337`*^9}, {
    3.8919219702208424`*^9, 3.8919219732451563`*^9}, {3.8919249673166914`*^9, 
    3.8919249704372835`*^9}, {3.891925358658925*^9, 3.8919253622032447`*^9}, {
-   3.891925425620672*^9, 
-   3.891925450965128*^9}},ExpressionUUID->"a505fca8-0287-4953-bce3-\
+   3.891925425620672*^9, 3.891925450965128*^9}, {3.891964353510624*^9, 
+   3.891964400427165*^9}},ExpressionUUID->"a505fca8-0287-4953-bce3-\
 948f82d8cc5a"],
 
 Cell[CellGroupData[{
@@ -227,7 +231,11 @@ Cell[BoxData[
 
 Cell[CellGroupData[{
 
-Cell["Equivalent formulations of dissipative/Reynolds term", "Section",
+Cell["\<\
+Equivalent formulations of dissipative/Reynolds term
+- Laplace u
+- curl (w)\
+\>", "Section",
  CellChangeTimes->{{3.885634168588354*^9, 3.8856341697278595`*^9}, 
    3.8864149979110193`*^9, 3.8865847688544493`*^9, {3.886648434133567*^9, 
    3.886648444123616*^9}, {3.88664940382516*^9, 3.8866494048265767`*^9}, {
@@ -238,8 +246,11 @@ Cell["Equivalent formulations of dissipative/Reynolds term", "Section",
    3.8919219702208424`*^9, 3.8919219732451563`*^9}, {3.8919249673166914`*^9, 
    3.8919249704372835`*^9}, {3.891925358658925*^9, 3.8919253622032447`*^9}, {
    3.891925425620672*^9, 3.891925450965128*^9}, {3.8919255037658553`*^9, 
-   3.891925511099345*^9}},ExpressionUUID->"80e15811-d484-4e83-9a99-\
+   3.891925511099345*^9}, {3.8919644254582186`*^9, 
+   3.891964439669418*^9}},ExpressionUUID->"80e15811-d484-4e83-9a99-\
 035ef7ed4166"],
+
+Cell[CellGroupData[{
 
 Cell[BoxData[{
  RowBox[{"term3", "=", 
@@ -344,9 +355,11 @@ Cell[BoxData[
   "Out[355]//TraditionalForm=",ExpressionUUID->"33723de1-3d38-46fd-80b1-\
 8d7024383c5f"]
 }, Open  ]]
+}, Open  ]]
 },
-WindowSize->{718.5, 735.75},
-WindowMargins->{{0, Automatic}, {648, Automatic}},
+WindowSize->{1152., 585.6},
+WindowMargins->{{
+  Automatic, -5.399999999999864}, {-5.399999999999977, Automatic}},
 TaggingRules->{
  "WelcomeScreenSettings" -> {"FEStarting" -> False}, "TryRealOnly" -> False},
 Magnification:>1. Inherited,
@@ -366,18 +379,20 @@ CellTagsIndex->{}
 (*NotebookFileOutline
 Notebook[{
 Cell[CellGroupData[{
-Cell[580, 22, 863, 12, 66, "Section",ExpressionUUID->"a505fca8-0287-4953-bce3-948f82d8cc5a"],
+Cell[580, 22, 961, 16, 143, "Section",ExpressionUUID->"a505fca8-0287-4953-bce3-948f82d8cc5a"],
 Cell[CellGroupData[{
-Cell[1468, 38, 4431, 99, 327, "Input",ExpressionUUID->"d40cc117-8d76-48ef-b43d-c35be12e550e"],
-Cell[5902, 139, 1505, 41, 101, "Output",ExpressionUUID->"b4483270-3e6d-46d8-a0d6-ed7c7e590d17"],
-Cell[7410, 182, 1502, 41, 101, "Output",ExpressionUUID->"80a638e0-16b8-4041-a899-8b58d1e49e53"]
+Cell[1566, 42, 4431, 99, 205, "Input",ExpressionUUID->"d40cc117-8d76-48ef-b43d-c35be12e550e"],
+Cell[6000, 143, 1505, 41, 101, "Output",ExpressionUUID->"b4483270-3e6d-46d8-a0d6-ed7c7e590d17"],
+Cell[7508, 186, 1502, 41, 101, "Output",ExpressionUUID->"80a638e0-16b8-4041-a899-8b58d1e49e53"]
 }, Open  ]]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[8961, 229, 911, 12, 66, "Section",ExpressionUUID->"80e15811-d484-4e83-9a99-035ef7ed4166"],
-Cell[9875, 243, 1014, 29, 131, "Input",ExpressionUUID->"dc81e768-a2bc-4c3f-937c-2fc1fa85b7e9"],
-Cell[10892, 274, 1138, 34, 127, "Output",ExpressionUUID->"3616d870-9c87-477c-8cf7-d77dec291bbf"],
-Cell[12033, 310, 1136, 34, 127, "Output",ExpressionUUID->"33723de1-3d38-46fd-80b1-8d7024383c5f"]
+Cell[9059, 233, 994, 17, 143, "Section",ExpressionUUID->"80e15811-d484-4e83-9a99-035ef7ed4166"],
+Cell[CellGroupData[{
+Cell[10078, 254, 1014, 29, 96, "Input",ExpressionUUID->"dc81e768-a2bc-4c3f-937c-2fc1fa85b7e9"],
+Cell[11095, 285, 1138, 34, 119, "Output",ExpressionUUID->"3616d870-9c87-477c-8cf7-d77dec291bbf"],
+Cell[12236, 321, 1136, 34, 119, "Output",ExpressionUUID->"33723de1-3d38-46fd-80b1-8d7024383c5f"]
+}, Open  ]]
 }, Open  ]]
 }
 ]
