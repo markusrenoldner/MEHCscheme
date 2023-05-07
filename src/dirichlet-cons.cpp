@@ -421,7 +421,6 @@ int main(int argc, char *argv[]) {
             b2.AddSubVector(b2sub,0);
             b2.AddSubVector(e2, size_2);
 
-            // TODO
             // remove unnecessary equations from matrix corresponding to essdofs
             for (int i=0; i<RT_ess_tdof.Size(); i++) {
                 NR.EliminateRow(RT_ess_tdof[i]);
