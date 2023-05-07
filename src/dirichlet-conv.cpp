@@ -85,12 +85,10 @@ int main(int argc, char *argv[]) {
         mfem::Mesh mesh(mesh_file, 1, 1); 
         int dim = mesh.Dimension(); 
         int l;
-        for (l = 0; l<init_ref+ref_step; l++) {
-            mesh.UniformRefinement();
-        } 
+        for (l = 0; l<init_ref+ref_step; l++) {mesh.UniformRefinement();} 
         std::cout << "----------ref: " << ref_step << "----------\n";
 
-        // scale dt with meshsize //TODO
+        // scale dt with meshsize
         dt *= 0.5; 
 
         // FE spaces: DG subset L2, ND subset Hcurl, RT subset Hdiv, CG subset H1
