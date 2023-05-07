@@ -21,12 +21,13 @@
 
 struct Parameters {
     // double Re_inv = 1/100.; // = 1/Re 
-    // double Re_inv = 0.; // = 1/Re 
-    double Re_inv = 1.; // = 1/Re 
-    double dt     = 0.01;
-    double tmax   = 0.01;
-    int ref_steps = 1;
-    int init_ref  = 2;
+    double Re_inv = 0.; // = 1/Re 
+    // double Re_inv = 1.; // = 1/Re 
+    // double Re_inv = 1./1600.; // = 1/Re 
+    double dt     = 0.0001;
+    double tmax   = 0.0001;
+    int ref_steps = 4;
+    int init_ref  = 0;
     int order     = 1;
     double tol    = 1e-3;
     // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-sTGV.txt";
@@ -38,19 +39,18 @@ struct Parameters {
     // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-sTGV2.txt";
     // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-sTGV2.txt";
 
-    // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-dTGV.txt";
+    // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-dTGV.txt";
     std::string outputfile = "out/rawdata/dirichlet-conv-test.txt";
-
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
-    double t;
+    // const char* mesh_file = "extern/mfem-4.5/data/ref-square.mesh";
 };
 
 
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
-void     u_0(const mfem::Vector &x, mfem::Vector &v);
-void     w_0(const mfem::Vector &x, mfem::Vector &v);
-void       f(const mfem::Vector &x, mfem::Vector &v); 
+void u_t(const mfem::Vector &x, double t, mfem::Vector &v);
+void w_t(const mfem::Vector &x, double t, mfem::Vector &v);
+void f_t(const mfem::Vector &x, double t, mfem::Vector &v); 
 
 
 int main(int argc, char *argv[]) {
@@ -64,6 +64,7 @@ int main(int argc, char *argv[]) {
     int init_ref  = param.init_ref;
     int order     = param.order;
     double tol    = param.tol;
+
 
     // loop over refinement steps to check convergence
     for (int ref_step=0; ref_step<=ref_steps; ref_step++) {
@@ -83,7 +84,7 @@ int main(int argc, char *argv[]) {
         mfem::Mesh mesh(mesh_file, 1, 1); 
         int dim = mesh.Dimension(); 
         int l;
-        dt *= 0.5; // scale dt as we scale meshsize
+        dt *= 0.5; // scale dt with meshsize //TODO
         for (l = 0; l<init_ref+ref_step; l++) {
             mesh.UniformRefinement();
         } 
@@ -113,6 +114,9 @@ int main(int argc, char *argv[]) {
         }
         ess_dof2.Append(ND_ess_tdof);
 
+        // init time
+        double t = 0.;
+
         // unkowns and gridfunctions
         mfem::GridFunction u(&ND); //u = 4.3;
         mfem::GridFunction z(&RT); //z = 5.3;
@@ -122,31 +126,34 @@ int main(int argc, char *argv[]) {
         mfem::GridFunction q(&DG); q=0.; //q = 9.3;
 
         // initial condition
-        mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
-        mfem::VectorFunctionCoefficient w_0_coeff(dim, w_0); 
-        u.ProjectCoefficient(u_0_coeff);
-        v.ProjectCoefficient(u_0_coeff);
-        z.ProjectCoefficient(w_0_coeff);
-        w.ProjectCoefficient(w_0_coeff);
+        mfem::VectorFunctionCoefficient u_coeff(dim, u_t);
+        mfem::VectorFunctionCoefficient w_coeff(dim, w_t); 
+        u_coeff.SetTime(t);
+        w_coeff.SetTime(t);
+        u.ProjectCoefficient(u_coeff);
+        v.ProjectCoefficient(u_coeff);
+        z.ProjectCoefficient(w_coeff);
+        w.ProjectCoefficient(w_coeff);
 
         // linearform for forcing term
-        mfem::VectorFunctionCoefficient f_coeff(dim, f);
+        mfem::VectorFunctionCoefficient f_coeff(dim, f_t);
+        f_coeff.SetTime(t);
         mfem::LinearForm f1(&ND);
         mfem::LinearForm f2(&RT);
         f1.AddDomainIntegrator(new mfem::VectorFEDomainLFIntegrator(f_coeff)); //=(f,v)
         f2.AddDomainIntegrator(new mfem::VectorFEDomainLFIntegrator(f_coeff)); //=(f,v)
         f1.Assemble();
-        f2.Assemble();
+        f2.Assemble(); 
 
         // boundary integral for primal reynolds term
         mfem::LinearForm lform_zxn(&ND);
-        lform_zxn.AddBoundaryIntegrator(new mfem::VectorFEBoundaryTangentLFIntegrator(w_0_coeff)); // !!!
+        lform_zxn.AddBoundaryIntegrator(new mfem::VectorFEBoundaryTangentLFIntegrator(w_coeff)); 
         lform_zxn.Assemble();
         lform_zxn *= -1.*Re_inv; // minus!
 
-        // boundary integral für div-free cond
+        // boundary integral for primal div-free cond
         mfem::LinearForm lform_un(&CG);
-        lform_un.AddBoundaryIntegrator(new mfem::BoundaryNormalLFIntegrator(u_0_coeff));
+        lform_un.AddBoundaryIntegrator(new mfem::BoundaryNormalLFIntegrator(u_coeff)); 
         lform_un.Assemble();
 
         // system size
@@ -341,17 +348,6 @@ int main(int argc, char *argv[]) {
         mfem::Vector ATb1 (size_1);
         A1.MultTranspose(b1,ATb1);
 
-        // form linear system with BC
-        // mfem::Operator *A1_BC;
-        // mfem::Operator *A2_BC;
-        // mfem::Vector X;
-        // mfem::Vector B1;
-        // mfem::Vector Y;
-        // mfem::Vector B2;
-        // ATA1.FormLinearSystem(ess_dof1, x, ATb1, A1_BC, X, B1);
-        // mfem::MINRES(*A1_BC, B1, X, 0, iter, tol*tol, tol*tol);
-        // ATA1.RecoverFEMSolution(X, b1, x);
-
         // solve 
         int iter = 100000000;  
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
@@ -362,8 +358,7 @@ int main(int argc, char *argv[]) {
         x.GetSubVector(p_dofs, p);
 
         // time loop
-        double t;
-        for (t = dt ; t < tmax+dt ; t+=dt) {
+        for (t = dt ; t < tmax ; t+=dt) {
 
             ////////////////////////////////////////////////////////////////////
             // DUAL FIELD
@@ -399,6 +394,12 @@ int main(int argc, char *argv[]) {
             A2.SetBlock(2,0, &D);
             A2.SetBlock(3,0, &E2_left);
             A2.SetBlock(3,1, &E2_cent);
+
+            // update f2
+            f_coeff.SetTime(t-dt);
+            mfem::LinearForm f2(&RT);
+            f2.AddDomainIntegrator(new mfem::VectorFEDomainLFIntegrator(f_coeff)); //=(f,v)
+            f2.Assemble(); 
             
             // update b2
             b2 = 0.0;
@@ -409,6 +410,18 @@ int main(int argc, char *argv[]) {
             b2.AddSubVector(f2,0); 
             b2.AddSubVector(b2sub,0);
             b2.AddSubVector(e2, size_2);
+
+            // remove unnecessary equations from matrix corresponding to essdofs
+            for (int i=0; i<RT_ess_tdof.Size(); i++) {
+                NR.EliminateRow(RT_ess_tdof[i]);
+                C_Re.EliminateRow(RT_ess_tdof[i]);
+                DT_n->EliminateRow(RT_ess_tdof[i]);
+                b2[RT_ess_tdof[i]] = 0.;
+            }
+            for (int i=0; i<ND_ess_tdof_0.Size(); i++) {
+                CT->EliminateRow(ND_ess_tdof_0[i]);
+                M_n.EliminateRow(ND_ess_tdof_0[i]);
+            }
 
             // transpose here:
             mfem::TransposeOperator AT2 (&A2);
@@ -455,6 +468,25 @@ int main(int argc, char *argv[]) {
             A1.SetBlock(1,1, &N_n);
             A1.SetBlock(2,0, GT);
 
+            // update f1
+            f_coeff.SetTime(t);
+            mfem::LinearForm f1(&ND);
+            f1.AddDomainIntegrator(new mfem::VectorFEDomainLFIntegrator(f_coeff)); //=(f,v)
+            f1.Assemble();
+
+            // update boundary integral for primal reynolds term#
+            mfem::LinearForm lform_zxn(&ND);
+            w_coeff.SetTime(t);
+            lform_zxn.AddBoundaryIntegrator(new mfem::VectorFEBoundaryTangentLFIntegrator(w_coeff)); 
+            lform_zxn.Assemble();
+            lform_zxn *= -1.*Re_inv; // minus!
+
+            // update boundary integral for primal div-free cond
+            mfem::LinearForm lform_un(&CG);
+            u_coeff.SetTime(t);
+            lform_un.AddBoundaryIntegrator(new mfem::BoundaryNormalLFIntegrator(u_coeff)); 
+            lform_un.Assemble();
+
             // update b1
             b1 = 0.0;
             b1sub = 0.0;
@@ -465,9 +497,8 @@ int main(int argc, char *argv[]) {
             b1.AddSubVector(f1,0);
             b1.AddSubVector(lform_zxn, 0); // NEU
             b1.AddSubVector(lform_un, u.Size() + z.Size());
-            // b1.AddSubVector(bf1,0);
 
-            //Transposition
+            // Transposition
             mfem::TransposeOperator AT1 (&A1);
             mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
             mfem::Vector ATb1 (size_1);
@@ -481,26 +512,22 @@ int main(int argc, char *argv[]) {
 
         } // time loop
 
+        // set time to tmax, as for loop is doing weird stuff
+        t = tmax;
+
         // convergence error 
-        double err_L2_u = u.ComputeL2Error(u_0_coeff);
-        double err_L2_v = v.ComputeL2Error(u_0_coeff);
+        u_coeff.SetTime(t);
         mfem::VectorGridFunctionCoefficient v_gfcoeff(&v);
+        double err_L2_u = u.ComputeL2Error(u_coeff);
+        double err_L2_v = v.ComputeL2Error(u_coeff);
         double err_L2_diff = u.ComputeL2Error(v_gfcoeff);
-        file <<std::setprecision(15)<< std::fixed<< std::pow(1/2.,ref_step) << ","
-        <<err_L2_u <<","<< err_L2_v<<","<<err_L2_diff <<"\n";
+
+        // print and save convergence error 
+        file <<std::setprecision(15)<< std::fixed<< std::pow(1/2.,ref_step)
+        << ","<<err_L2_u <<","<< err_L2_v<<","<<err_L2_diff <<"\n";
         std::cout << "L2err of u = "<< err_L2_u<<"\n";
         std::cout << "L2err of v = "<< err_L2_v<<"\n";
         std::cout << "L2err(u-v) = "<< err_L2_diff <<"\n";
-
-        // compute discrete L2 norm with u in Hcurl: OUTDATED VERSION
-        // mfem::GridFunction v_ND (&ND);
-        // v_ND.ProjectGridFunction(v);
-        // double err_L2_diff = 0;
-        // for (int i=0; i<u.Size(); i++) {
-        //     err_L2_diff += ((u(i)-v_ND(i))*(u(i)-v_ND(i)));
-        // }
-        // std::cout << "L2err(u-v) = "<< std::pow(err_L2_diff, 0.5) <<"\n";
-        // <<err_L2_u <<","<< err_L2_v<<","<<std::pow(err_L2_diff, 0.5) <<"\n";
 
         // runtime
         auto end = std::chrono::high_resolution_clock::now();
@@ -519,7 +546,8 @@ int main(int argc, char *argv[]) {
         // v_sock << "solution\n" << mesh << v << "window_title 'v in hdiv'" << std::endl;
         
         // mfem::GridFunction u_exact(&ND);
-        // u_exact.ProjectCoefficient(u_0_coeff);
+        // mfem::VectorFunctionCoefficient u_t_coeff(dim, u_t);
+        // u_exact.ProjectCoefficient(u_t_coeff);
 
         // mfem::socketstream ue_sock(vishost, visport);
         // ue_sock.precision(8);
@@ -543,9 +571,9 @@ int main(int argc, char *argv[]) {
 
 
 
-
+/////////////////////////////////////////////////////////////////////
 // simple sin, funktioniert
-// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+// void u_t(const mfem::Vector &x, double t, mfem::Vector &returnvalue) { 
 
 //     double X = x(0)-0.5;
 //     double Y = x(1)-0.5;
@@ -555,7 +583,7 @@ int main(int argc, char *argv[]) {
 //     returnvalue(1) = std::sin(Z);
 //     returnvalue(2) = 0.;
 // }
-// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+// void w_t(const mfem::Vector &x, double t, mfem::Vector &returnvalue) { 
    
 //     double X = x(0)-0.5;
 //     double Y = x(1)-0.5;
@@ -565,7 +593,7 @@ int main(int argc, char *argv[]) {
 //     returnvalue(1) = 0.;
 //     returnvalue(2) = -std::cos(Y);
 // }
-// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+// void f_t(const mfem::Vector &x, double t, mfem::Vector &returnvalue) { 
 //     Parameters param;
 //     double Re_inv = param.Re_inv; // = 1/Re 
     
@@ -580,19 +608,71 @@ int main(int argc, char *argv[]) {
 
 
 
+/////////////////////////////////////////////////////////////////////
 // sTGV, funktioniert
-void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
+// void u_t(const mfem::Vector &x, double t, mfem::Vector &returnvalue) {
+   
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+   
+//     returnvalue(0) =     std::cos(X)*std::sin(Y);
+//     returnvalue(1) = -1* std::sin(X)*std::cos(Y);
+//     returnvalue(2) = 0;
+// }
+
+// void w_t(const mfem::Vector &x, double t, mfem::Vector &returnvalue) { 
+   
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+   
+//     returnvalue(0) = 0;
+//     returnvalue(1) = 0;
+//     returnvalue(2) = -2* std::cos(X) * std::cos(Y);
+// }
+
+// void f_t(const mfem::Vector &x, double t, mfem::Vector &returnvalue) { 
+   
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     Parameters param;
+//     double Re_inv = param.Re_inv;
+
+//     returnvalue(0) = 2.*Re_inv*std::cos(X)*std::sin(Y) - 2.*std::sin(X)*std::cos(X)*std::cos(Y)*std::cos(Y);
+//     returnvalue(1) = -2.*Re_inv*std::sin(X)*std::cos(Y) -2.*std::cos(X)*std::cos(X)*std::sin(Y)*std::cos(Y);
+//     returnvalue(2) = 0.;
+// }
+
+
+
+
+/////////////////////////////////////////////////////////////////////
+// dTGV (dynamic TGV), funktioniert
+void u_t(const mfem::Vector &x, double t, mfem::Vector &returnvalue) {
+    
+    Parameters param;
+    double Re_inv = param.Re_inv; 
+
+    double F = std::exp(-2*Re_inv*t);
    
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
    
-    returnvalue(0) =     std::cos(X)*std::sin(Y);
-    returnvalue(1) = -1* std::sin(X)*std::cos(Y);
+    returnvalue(0) =     std::cos(X)*std::sin(Y) * F;
+    returnvalue(1) = -1* std::sin(X)*std::cos(Y) * F;
     returnvalue(2) = 0;
 }
 
-void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+void w_t(const mfem::Vector &x, double t, mfem::Vector &returnvalue) { 
+    
+    Parameters param;
+    double Re_inv = param.Re_inv; 
+
+    double F = std::exp(-2*Re_inv*t);
    
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
@@ -600,19 +680,153 @@ void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
     returnvalue(0) = 0;
     returnvalue(1) = 0;
-    returnvalue(2) = -2* std::cos(X) * std::cos(Y);
+    returnvalue(2) = -2*F* std::cos(X) * std::cos(Y);
 }
 
-void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+void f_t(const mfem::Vector &x, double t, mfem::Vector &returnvalue) { 
+    
+    Parameters param;
+    double Re_inv = param.Re_inv; 
+
+    double Fof2 = std::exp(-4*Re_inv*t);
    
     double X = x(0)-0.5;
     double Y = x(1)-0.5;
     double Z = x(2)-0.5;
 
-    Parameters param;
-    double Re_inv = param.Re_inv;
-
-    returnvalue(0) = 2.*Re_inv*std::cos(X)*std::sin(Y) - 2.*std::sin(X)*std::cos(X)*std::cos(Y)*std::cos(Y);
-    returnvalue(1) = -2.*Re_inv*std::sin(X)*std::cos(Y) -2.*std::cos(X)*std::cos(X)*std::sin(Y)*std::cos(Y);
+    returnvalue(0) = -2*Fof2 *std::sin(X)*std::cos(X)*std::cos(Y)*std::cos(Y);
+    returnvalue(1) = -2*Fof2 *std::cos(X)*std::cos(X)*std::sin(Y)*std::cos(Y);
     returnvalue(2) = 0.;
 }
+
+
+
+/////////////////////////////////////////////////////////////////////
+// decaying bump solution, doesnt work yet
+// TODO: fix time, fix everything, boudnary int, and forcing (doesnt converge)
+// void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
+   
+//     double F = 1.;
+   
+//     double pi = 3.14159265358979323846;
+//     double C = 10;
+//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+    
+//     double cos = std::cos(C*(X*X+Y*Y+Z*Z));
+//     double cos2 = cos*cos;
+   
+//     returnvalue(0) = F*cos2;
+//     returnvalue(1) = 0;
+//     returnvalue(2) = 0;
+// }
+
+// void u_t(const mfem::Vector &x, double t, mfem::Vector &returnvalue) {
+    
+//     Parameters param;
+//     double Re_inv = param.Re_inv; 
+//     double tmax   = param.tmax;
+//     double F = std::exp(-1*Re_inv*tmax);
+   
+//     double pi = 3.14159265358979323846;
+//     double C = 10;
+//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+    
+//     double cos = std::cos(C*(X*X+Y*Y+Z*Z));
+//     double cos2 = cos*cos;
+
+//     if (X*X + Y*Y + Z*Z < R*R) {   
+//         returnvalue(0) = F*cos2;
+//         returnvalue(1) = 0;
+//         returnvalue(2) = 0;
+//     }
+//     else {
+//         returnvalue(0) = 0;
+//         returnvalue(1) = 0;
+//         returnvalue(2) = 0;
+//     }
+// }
+
+// void w_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+   
+//     double F = 1.;
+   
+//     double pi = 3.14159265358979323846;
+//     double C = 10;
+//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+
+//     double sinof2 = std::sin(2*C*(X*X+Y*Y+Z*Z));
+
+//     if (X*X + Y*Y + Z*Z < R*R) {  
+//         returnvalue(0) = 0;
+//         returnvalue(1) = - 2*C* Z *F * sinof2;
+//         returnvalue(2) = + 2*C* Y *F * sinof2; 
+//     }
+//     else {
+//         returnvalue(0) = 0;
+//         returnvalue(1) = 0;
+//         returnvalue(2) = 0;
+//     }
+// }
+
+// void f(const mfem::Vector &x, mfem::Vector &returnvalue) { 
+    
+//     Parameters param;
+//     double Re_inv = param.Re_inv; 
+//     double tmax   = param.tmax;
+//     double F = std::exp(-1*Re_inv*tmax); 
+   
+//     double pi = 3.14159265358979323846;
+//     double C = 10;
+//     double R = 1/2.*std::sqrt(2*pi/C); // radius where u,w vanish
+//     double X = x(0)-0.5;
+//     double Y = x(1)-0.5;
+//     double Z = x(2)-0.5;
+    
+//     // double cos = std::cos(C*(X*X+Y*Y+Z*Z));
+//     // double sin = std::sin(C*(X*X+Y*Y+Z*Z));
+//     // double cos2 = cos*cos;
+//     // double cos3 = cos*cos*cos;
+//     // double sinof2 = std::sin(2*C*(X*X+Y*Y+Z*Z));
+//     // double cosof2 = std::cos(2*C*(X*X+Y*Y+Z*Z));
+
+//     // double Fof2 = std::exp(-2*Re_inv*tmax); 
+//     // double temp1 = 4*C* Fof2 ;
+//     // double Fpos = std::exp(+1*Re_inv*tmax); 
+//     // double temp2 = 2*C*X*Fpos*cosof2 - 1/Re_inv *sin*cos3;
+
+//     double EE = 2.7182818284590452353;
+//     double Rey = 1/Re_inv;
+//     double CC = C;
+//     double t = tmax;
+
+
+//     if (X*X + Y*Y + Z*Z < R*R) {  
+//         // returnvalue(0) = F * ( 4*C*(sinof2+2*C*(Y*Y+Z*Z)*cosof2) - cos2) * Re_inv;
+//         // returnvalue(1) = -temp1* Y * temp2 * Re_inv;
+//         // returnvalue(2) = -temp1* Z * temp2 * Re_inv;
+        
+//         returnvalue(0) = (-std::pow(std::cos(CC*(std::pow(X,2) + std::pow(Y,2) + std::pow(Z,2))),2) + 
+//                             4*CC*(2*CC*(std::pow(Y,2) + std::pow(Z,2))*std::cos(2*CC*(std::pow(X,2) + std::pow(Y,2) + std::pow(Z,2))) + 
+//                             std::sin(2*CC*(std::pow(X,2) + std::pow(Y,2) + std::pow(Z,2)))))/(std::pow(EE,t/Rey)*Rey);
+//         returnvalue(1) = (-4*CC*Y*(2*CC*std::pow(EE,t/Rey)*X*std::cos(2*CC*(std::pow(X,2) + std::pow(Y,2) + std::pow(Z,2))) - 
+//                             Rey*std::pow(std::cos(CC*(std::pow(X,2) + std::pow(Y,2) + std::pow(Z,2))),3)*
+//                              std::sin(CC*(std::pow(X,2) + std::pow(Y,2) + std::pow(Z,2)))))/(std::pow(EE,(2*t)/Rey)*Rey);
+//         returnvalue(2) = (-4*CC*Z*(2*CC*std::pow(EE,t/Rey)*X*std::cos(2*CC*(std::pow(X,2) + std::pow(Y,2) + std::pow(Z,2))) - 
+//                             Rey*std::pow(std::cos(CC*(std::pow(X,2) + std::pow(Y,2) + std::pow(Z,2))),3)*
+//                              std::sin(CC*(std::pow(X,2) + std::pow(Y,2) + std::pow(Z,2)))))/(std::pow(EE,(2*t)/Rey)*Rey);
+//     }
+//     else {
+//         returnvalue(0) = 0;
+//         returnvalue(1) = 0;
+//         returnvalue(2) = 0;
+//     }
+// }
