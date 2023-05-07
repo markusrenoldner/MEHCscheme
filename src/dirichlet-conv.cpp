@@ -38,8 +38,9 @@ struct Parameters {
     // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-sin2.txt";
     // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-sTGV2.txt";
     // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-sTGV2.txt";
-
+    // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-dTGV.txt";
     // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-dTGV.txt";
+
     std::string outputfile = "out/rawdata/dirichlet-conv-test.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     // const char* mesh_file = "extern/mfem-4.5/data/ref-square.mesh";
@@ -423,7 +424,7 @@ int main(int argc, char *argv[]) {
                 M_n.EliminateRow(ND_ess_tdof_0[i]);
             }
 
-            // transpose here:
+            // Transposition
             mfem::TransposeOperator AT2 (&A2);
             mfem::ProductOperator ATA2 (&AT2,&A2,false,false);
             mfem::Vector ATb2 (size_2);
@@ -537,6 +538,7 @@ int main(int argc, char *argv[]) {
         // visuals    
         // char vishost[] = "localhost";
         // int  visport   = 19916;
+
         // mfem::socketstream u_sock(vishost, visport);
         // u_sock.precision(8);
         // u_sock << "solution\n" << mesh << u << "window_title 'u in hcurl'" << std::endl;
