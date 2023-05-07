@@ -278,7 +278,6 @@ int main(int argc, char *argv[]) {
         A1.MultTranspose(b1,ATb1);
 
         // solve eulerstep
-        // double tol = 1e-15;
         int iter = 1000000;
         mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
 
