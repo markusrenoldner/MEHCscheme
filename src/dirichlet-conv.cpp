@@ -85,11 +85,13 @@ int main(int argc, char *argv[]) {
         mfem::Mesh mesh(mesh_file, 1, 1); 
         int dim = mesh.Dimension(); 
         int l;
-        dt *= 0.5; // scale dt with meshsize //TODO
         for (l = 0; l<init_ref+ref_step; l++) {
             mesh.UniformRefinement();
         } 
         std::cout << "----------ref: " << ref_step << "----------\n";
+
+        // scale dt with meshsize //TODO
+        dt *= 0.5; 
 
         // FE spaces: DG subset L2, ND subset Hcurl, RT subset Hdiv, CG subset H1
         mfem::FiniteElementCollection *fec_DG = new mfem::L2_FECollection(order-1,dim);
