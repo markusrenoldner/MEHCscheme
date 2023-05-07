@@ -343,7 +343,7 @@ int main(int argc, char *argv[]) {
         b1.AddSubVector(lform_zxn, 0); // NEU
         b1.AddSubVector(lform_un, u.Size() + z.Size());
 
-        // transpose here:
+        // Transposition
         mfem::TransposeOperator AT1 (&A1);
         mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
         mfem::Vector ATb1 (size_1);
