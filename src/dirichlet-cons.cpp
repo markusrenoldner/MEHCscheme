@@ -494,7 +494,6 @@ int main(int argc, char *argv[]) {
             mfem::ProductOperator ATA1 (&AT1,&A1,false,false);
             mfem::Vector ATb1 (size_1);
             A1.MultTranspose(b1,ATb1);
-            // ATA1.FormLinearSystem(ess_dof1, x, ATb1, A1_BC, X, B1);
 
             // solve 
             mfem::MINRES(ATA1, ATb1, x, 0, iter, tol*tol, tol*tol);
