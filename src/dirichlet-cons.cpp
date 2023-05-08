@@ -535,8 +535,6 @@ int main(int argc, char *argv[]) {
             mfem::Vector mass_vec2 (q.Size());
             GT->Mult(u,mass_vec1);
             D.Mult(v,mass_vec2);
-            // mass_vec1 -= lform_un;
-
             double K1_old = -1./2.*blf_M.InnerProduct(u_old,u_old);
             double K1 = -1./2.*blf_M.InnerProduct(u,u);
             double K2_old = -1./2.*blf_N.InnerProduct(v_old,v_old);
@@ -565,37 +563,47 @@ int main(int argc, char *argv[]) {
 
             // print values
             std::cout 
-            << mass_vec1.Norml2() << ","
+            << mass_vec1.Norml2() - lform_un.Norml2() << ","
             << mass_vec2.Norml2() << ","
-            << lform_un.Norml2() << ","
-            << lform_zxn.Norml2() << ","
             << (K1-K1_old)/dt - 2*Re_inv*E2 << ","
-            << (K2-K2_old)/dt - 2*Re_inv*E1 << "\n";
+            << (K1-K1_old)/dt - 2*Re_inv*E2 
+            << "\n";
+            // <<  2*Re_inv*E2 << ","
+            // << v[0] << ","
+            // << lform_un.Norml2()
+            // << (K2-K2_old)/dt - 2*Re_inv*E1 << ","
+            // << 2*Re_inv*E1 << ","
+            // << (K2-K2_old)/dt 
             // << (H1-H1_old)/dt - D << ","
-            // << (H2-H2_old)/dt - D << "\n";
+            // << (H2-H2_old)/dt - D << ","
                    
             // write to file
             file << std::setprecision(15) << std::fixed << t << ","   
-            << mass_vec1.Norml2() << ","
+            << mass_vec1.Norml2() - lform_un.Norml2() << ","
             << mass_vec2.Norml2() << ","
             << (K1-K1_old)/dt - 2*Re_inv*E2 << ","
             << (K2-K2_old)/dt - 2*Re_inv*E1 << ","
             << (H1-H1_old)/dt - D << ","
-            << (H2-H2_old)/dt - D << "\n";
+            << (H2-H2_old)/dt - D 
+            << "\n";
             // << (K1-K1_old)/dt  << ","
             // << (K2-K2_old)/dt  << ","
             // << (H1-H1_old)/dt  << ","
-            // << (H2-H2_old)/dt  << "\n";
+            // << (H2-H2_old)/dt  << ","
 
         } // time 
         
         // visuals
         // char vishost[] = "localhost";
         // int  visport   = 19916;
-
+        
         // mfem::socketstream u_sock(vishost, visport);
         // u_sock.precision(8);
-        // u_sock << "solution\n" << mesh << v << "window_title 'u in hdiv'" << std::endl;
+        // u_sock << "solution\n" << mesh << u << "window_title 'u in hcurl'" << std::endl;
+
+        // mfem::socketstream v_sock(vishost, visport);
+        // v_sock.precision(8);
+        // v_sock << "solution\n" << mesh << v << "window_title 'u in hdiv'" << std::endl;
         
         // mfem::socketstream u_ex_sock(vishost, visport);
         // u_ex_sock.precision(8);
@@ -686,6 +694,7 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
 
 /////////////////////////////////////////////////////////////////////
 // TGV initial condition von Xaver Mooslechner
+// boundary cond nicht erfüllt nach einigen time steps?
 // void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) { 
    
 //     double pi = 3.14159265358979323846;
