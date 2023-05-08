@@ -38,9 +38,9 @@ struct Parameters {
 
 void PrintVector3(mfem::Vector vec, int stride=1, 
                   int start=0, int stop=0, int prec=3);
-void u_0_TGV(const mfem::Vector &x, mfem::Vector &v);
-void w_0_TGV(const mfem::Vector &x, mfem::Vector &v);
-void   f_TGV(const mfem::Vector &x, mfem::Vector &v); 
+void     u_0_TGV(const mfem::Vector &x, mfem::Vector &v);
+void     w_0_TGV(const mfem::Vector &x, mfem::Vector &v);
+void       f_TGV(const mfem::Vector &x, mfem::Vector &v); 
 void u_exact_TGV(const mfem::Vector &x, mfem::Vector &returnvalue);
 
 
