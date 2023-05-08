@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
         int dim = mesh.Dimension(); 
         int l;
         for (l = 0; l<init_ref+ref_step; l++) {mesh.UniformRefinement();} 
-        std::cout << "----------ref: " << ref_step << "----------\n";
+        std::cout << "ref levels:" << l <<"\n";
 
         // scale dt with meshsize
         // dt *= 0.5; 
