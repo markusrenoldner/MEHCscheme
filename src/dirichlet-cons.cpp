@@ -564,64 +564,6 @@ int main(int argc, char *argv[]) {
             u_diff.Add(1,u);
             u_diff.Add(-1.,u_old);
 
-            // primal momentum equation 
-            // mfem::Vector result (u.Size());
-            // result = 0.;
-            // MR.AddMult(u,result);
-            // CT_Re.AddMult(z,result);
-            // G.AddMult(p, result);
-            // result.Add(-1, b1sub);
-            // result.Add(-1, lform_zxn);
-            // std::cout << result.Normlinf()<<"\n";
-            // double result = 0.;
-            // result = MR.InnerProduct(u, u_avg);
-            // result += CT_Re.InnerProduct(z, u_avg);
-            // result += G.InnerProduct(p, u_avg);
-            // for (int i=0; i<u.Size(); i++) {
-            //     result += b1sub[i] *     u_avg[i];
-            //     result += lform_zxn[i] * u_avg[i];
-            // }
-            // std::cout << result <<"\n";
-
-            // check prim mom equ
-            // std::cout 
-            // << MR.InnerProduct(u, u_avg) << ", "
-            // << CT_Re.InnerProduct(z, u_avg) << ", "
-            // << G.InnerProduct(p, u_avg) << ", "
-            // << lform_zxn.Norml2() << ", "
-            // << G.InnerProduct(p, u_avg)  +  lform_zxn.Norml2() << ", "
-            // << M_n.InnerProduct(u_diff, u_avg)  << ", "
-            // << G.InnerProduct(u,p) <<", "
-            // << GT->InnerProduct(p,u) <<", "
-            // << CT_Re.InnerProduct(z,u) <<", "
-            // << lform_un.Norml2() << ", "
-            // << (K1-K1_old)/dt  << ", "
-            // << 2*Re_inv*E2  << "\n";
-            // << mass_vec1.Norml2() << ","
-            // << (K2-K2_old)/dt  << "\n";
-            // << mass_vec2.Norml2() << "\n";
-            // <<K1-K1_old<<K2-K2_old<< K1 <<","<<K1_old<< K2 <<","<<K1_old<< ","<<"\n";
-            // << (K1-K1_old)/dt  << "," 
-            // << (K2-K2_old)/dt  << "," //<< K2 <<","<< K2_old <<","
-            // << 2*Re_inv*E1 << "," << (K2-K2_old)/dt - 2*Re_inv*E1 << "\n";
-            // mfem::Vector v_diff (v.Size()); v_diff= 0.;
-            // v_diff.Add(1,v);
-            // v_diff.Add(-1.,v_old);
-
-            // << N_n.InnerProduct(v_diff, v_avg) << ","
-            // << 2.*C_Re.InnerProduct(w_avg, v_avg) <<","
-            // << Re_inv*E1*2. << ","
-            // << R2.InnerProduct(z, v_avg) << ","
-            // << mass_vec2.Norml2() <<"\n";
-            // << u.Normlinf() << ","
-            // << K1 << ","
-            // << K1_old << ","
-            // << 2*Re_inv*E2 << ","
-            // << (K1-K1_old)/dt<< ","
-            // << 2*Re_inv*E1 << ","
-            // << (K2-K2_old)/dt<< "\n";
-            // << 1/2*M_dt.InnerProduct(u_diff, u_avg) << ","
-
             // print values
             std::cout 
             << mass_vec1.Norml2() << ","
@@ -803,5 +745,3 @@ void f(const mfem::Vector &x, mfem::Vector &returnvalue) {
 //     returnvalue(1) = 0.;
 //     returnvalue(2) = 0.;
 // }
-
-
