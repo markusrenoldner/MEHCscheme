@@ -496,6 +496,11 @@ int main(int argc, char *argv[]) {
     std::cout << "---------------finish MEHC---------------\n";
 }
 
+
+
+
+/////////////////////////////////////////////////////////////////////
+// initial condition from paper sec 5.1.1
 void u_0(const mfem::Vector &x, mfem::Vector &returnvalue) {
    
     double pi = 3.14159265358979323846;
