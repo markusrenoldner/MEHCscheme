@@ -88,6 +88,7 @@ int main(int argc, char *argv[]) {
         mfem::FiniteElementSpace ND(&mesh, fec_ND);
         mfem::FiniteElementSpace RT(&mesh, fec_RT);
         mfem::FiniteElementSpace DG(&mesh, fec_DG);
+        std::cout << "test\n";
 
         // unkowns and gridfunctions
         mfem::GridFunction u(&ND); // u = 4.3;
@@ -96,6 +97,7 @@ int main(int argc, char *argv[]) {
         mfem::GridFunction v(&RT); // v = 7.3;
         mfem::GridFunction w(&ND); // w = 8.3;
         mfem::GridFunction q(&DG); // q = 9.3;
+        std::cout << "test\n";
 
         // initial condition
         mfem::VectorFunctionCoefficient u_0_coeff(dim, u_0);
@@ -104,6 +106,47 @@ int main(int argc, char *argv[]) {
         v.ProjectCoefficient(u_0_coeff);
         z.ProjectCoefficient(w_0_coeff);
         w.ProjectCoefficient(w_0_coeff);
+
+        
+
+
+        // the problem is, that the kinetic energy does not make sense
+        // the initial value should be different (according to the analytical value)
+        // the following code tries to find the error:
+
+        // Matrix M
+        // mfem::BilinearForm blf_M3(&ND);
+        // blf_M3.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
+        // blf_M3.Assemble();
+        // blf_M3.Finalize();
+
+        // std::cout << "test\n";
+        // double K_init = -1./2.*blf_M3.InnerProduct(u,u);
+        // std::cout << "K1:"<<K_init << "\n";
+        
+        // mfem::BilinearForm blf_M1(&ND);
+        // std::cout << "test1\n";
+        // blf_M1.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
+        // std::cout << "test2\n";
+        // // blf_M1.Assemble();
+        // std::cout << "test3\n";
+        // double K_init = -1./2.*blf_M1.InnerProduct(u,u);
+        // std::cout << "K1:"<<K_init << "\n";
+
+        
+        // mfem::BilinearForm blf_N1(&RT);
+        // blf_N1.AddDomainIntegrator(new mfem::VectorFEMassIntegrator()); //=(u,v)
+        // blf_N1.Assemble();
+        // double K_init2 = -1./2.*blf_N1.InnerProduct(v,v);
+        // std::cout << "K2:"<<K_init2 << "\n";
+
+
+
+
+
+
+
+
         
         // helper vectors for old values
         mfem::Vector u_old(u.Size()); u_old = 0.;
@@ -167,6 +210,10 @@ int main(int argc, char *argv[]) {
         M_n *= -1.;
         M_dt.Finalize();
         M_n.Finalize();
+
+
+        // another try to find the energy value:
+        std::cout << blf_M.InnerProduct(u,u) * dt /8 << "\n";
 
         // Matrix N
         mfem::BilinearForm blf_N(&RT);
