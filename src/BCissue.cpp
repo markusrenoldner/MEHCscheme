@@ -9,7 +9,7 @@
 // current understanding:
 // formlinsys has to be called on a symmetric operator, otherwise it fails
 
-// this is and example of a non-symmetric operator:
+// this is an example of a non-symmetric operator:
 
 
 int main(int argc, char *argv[]) {
