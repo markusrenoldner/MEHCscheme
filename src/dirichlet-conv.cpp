@@ -26,7 +26,7 @@ struct Parameters {
     // double Re_inv = 1./1600.; // = 1/Re 
     double dt     = 0.0001;
     double tmax   = 0.0001;
-    int ref_steps = 4;
+    int ref_steps = 5;
     int init_ref  = 0;
     int order     = 1;
     double tol    = 1e-3;
@@ -41,7 +41,7 @@ struct Parameters {
     // std::string outputfile = "out/rawdata/dirichlet-conv-Re1-dTGV.txt";
     // std::string outputfile = "out/rawdata/dirichlet-conv-invisc-dTGV.txt";
 
-    std::string outputfile = "out/rawdata/dirichlet-conv-test.txt";
+    std::string outputfile = "out/rawdata/dirichlet-conv-test1.txt";
     const char* mesh_file = "extern/mfem-4.5/data/ref-cube.mesh";
     // const char* mesh_file = "extern/mfem-4.5/data/ref-square.mesh";
 };
