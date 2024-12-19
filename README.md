@@ -1,4 +1,5 @@
 # MEHCscheme
+
 A mass, energy, and helicty conserving dual-field Galerkin finite element discretization of the incompressible Navier-Stokes problem based on this paper [https://arxiv.org/abs/2104.13023](https://arxiv.org/abs/2104.13023) implemented in MFEM, see [https://mfem.org/](https://mfem.org/)
 
 ## CMake and Make
@@ -8,15 +9,38 @@ A mass, energy, and helicty conserving dual-field Galerkin finite element discre
 - run the `build.sh` file to cmake, the `compile.sh` file to make, the `run.sh` file to run 
 - run `clean.sh` to delete the mesh and solution files afterwards
 
-## folder structure
-* /build will contain all files produced by cmake
-* /extern contains the mfem (v4.5) and glvis (v4.2) library
-* /out contains plots and data outputs
-* /scripts contains some files necessary for plotting etc
-* /src contains the cpp files that implement the mehc scheme
-* .sh are all shell scripts, that contain some handy commands for building, compiling, running and cleaning
+
+## file tree (simplified)
+
+```
+MEHCscheme
+├── extern/                     # MFEM and glvis
+│   ├── CMakeLists.txt
+│   ├── mfem
+│   └── glvis
+├── build/                      # appears after building
+├── out/                        # data output
+├── scripts/                    # plot files
+├── src/                        # main FEM code
+│   ├── examples-edited/        # simplified MFEM examples
+│   │   └── ex1simple.cpp       
+│   ├── examples-mfem/          # original MFEM examples
+│   │   └── ex1.cpp         
+│   ├── CMakeLists.txt          # for build process
+│   ├── curlcurl.cpp
+│   ├── dirichlet-cons.cpp      # main simulation
+│   ├── dirichlet-conv.cpp      # main simulation
+│   └── utils.cpp               # helper functions
+├── symbolic_math/              # mathematica code
+├── build.sh                    
+├── clean.sh                    
+├── compile.sh
+├── LICENSE
+└── README.md
+```
 
 ## run the scheme:
+
 1. select the cpp file in src/CMakeLists.txt :
     * `periodic-conv.cpp`
     * `periodic-cons.cpp`
